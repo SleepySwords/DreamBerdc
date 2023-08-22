@@ -20,22 +20,6 @@ pub struct Compiler<'ctx> {
 }
 
 impl Compiler<'_> {
-    pub fn build_add(&self) {
-        let i32_type = self.context.i32_type();
-        let fn_type = i32_type.fn_type(&[i32_type.into(), i32_type.into()], false);
-        let fn_val = self.module.add_function("main", fn_type, None);
-
-        let entry_basic_box = self.context.append_basic_block(fn_val, "entry");
-        self.builder.position_at_end(entry_basic_box);
-
-        let x = fn_val.get_nth_param(0).unwrap().into_int_value();
-        let y = fn_val.get_nth_param(1).unwrap().into_int_value();
-
-        let ret = self.builder.build_int_add(x, y, "add");
-        // self.builder.build_return(Some(&ret));
-        self.builder.build_return(Some(&i32_type.const_zero()));
-    }
-
     pub fn build_function(&self, function: FunctionStatement) {
         let i32_type = self.context.i32_type();
         let types = function
@@ -81,7 +65,12 @@ impl Compiler<'_> {
             Expression::Assignment(_) => todo!(),
             Expression::LiteralValue(_) => todo!(),
             Expression::Identifier(id) => {
-                symbol_table[&id]
+                if symbol_table.contains_key(&id) {
+                    return symbol_table[&id];
+                } else {
+                    let i32_type = self.context.i32_type();
+                    i32_type.const_int(id.parse().expect("Invalid constant"), false)
+                }
             },
             Expression::Unkown => todo!(),
         }
