@@ -1,8 +1,8 @@
-use std::iter::Peekable;
+use std::collections::HashMap;
 
 use inkwell::context::Context;
 
-use crate::{codegen::Compiler, lexer::tokenize, parser::parse_function};
+use crate::{codegen::Compiler, lexer::tokenize, parser::Parser};
 
 mod ast;
 mod codegen;
@@ -25,14 +25,8 @@ fn main() {
     // being interperted as `var var test = tes!print("AWEF")`
     // Rather than poducing a syntax error.
     let mut tokens = "
-function test(a, b) => {
-    const var aijowef = aejwifoiaf!
-    var var aewofijaewfoijowef = aejwifoiafawefjoaf!
-    print(\"awefoij\")
-    aoeij = aejifio
-    function add() => {
-        print(test)
-    }
+function main(a: int, b: int) => {
+    return a * b + b + 10!
 }
 "
     .chars()
@@ -45,16 +39,18 @@ function test(a, b) => {
 
     // let exp = parse_expression(&mut ts.into_iter().peekable());
     // let exp = parse_assignment(&mut ts.into_iter().peekable());
-    let exp = parse_function(&mut ts.into_iter().peekable());
-    println!("{:?}", exp);
-    let context = Context::create();
-    let module = context.create_module("addition");
-    let builder = context.create_builder();
-    let compiler = Compiler {
-        context: &context,
-        module,
-        builder
-    };
-    compiler.build_add();
-    compiler.compile();
+    let mut parser = Parser::init(ts);
+    // let exp = parser.parse_function();
+    // println!("{:?}", exp);
+    // let context = Context::create();
+    // let module = context.create_module("addition");
+    // let builder = context.create_builder();
+    // let compiler = Compiler {
+    //     context: &context,
+    //     module,
+    //     builder,
+    // };
+    // let hashmap = HashMap::new();
+    // compiler.build_statement(exp, &hashmap);
+    // compiler.compile();
 }

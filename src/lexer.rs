@@ -1,7 +1,6 @@
 use std::iter::Peekable;
 
-#[derive(Debug)]
-#[derive(PartialEq)]
+#[derive(Debug, PartialEq)]
 pub enum Token {
     EOF,
     Symbol(String),
@@ -11,7 +10,10 @@ pub enum Token {
     Bang,
     Question,
     Semicolon,
+    Colon,
     Plus,
+    Star,
+    Slash,
     Dash,
     Eq,
     EqEq,
@@ -33,6 +35,7 @@ pub enum Token {
     Const,
     Var,
     Function,
+    Return,
 
     Unkown,
 }
@@ -52,7 +55,10 @@ pub fn tokenize<T: Iterator<Item = char>>(tokens: &mut Peekable<T>) -> Vec<Token
             '.' => Token::Dot,
             '+' => Token::Plus,
             '-' => Token::Dash,
+            '*' => Token::Star,
+            '/' => Token::Slash,
             ';' => Token::Semicolon,
+            ':' => Token::Colon,
             '?' => Token::Question,
             '!' => Token::Bang,
             ',' => Token::Comma,
@@ -73,6 +79,7 @@ pub fn tokenize<T: Iterator<Item = char>>(tokens: &mut Peekable<T>) -> Vec<Token
                 match word.as_str() {
                     "const" => Token::Const,
                     "var" => Token::Var,
+                    "return" => Token::Return,
                     i => {
                         if "function".contains(i) {
                             Token::Function
