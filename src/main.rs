@@ -25,13 +25,12 @@ fn main() {
     // being interperted as `var var test = tes!print("AWEF")`
     // Rather than poducing a syntax error.
     let mut tokens = "
-
-function main(a: int, b: int) => {
-    return 2 * 129 + 2 / 2!
+function add(a: int, b: int) => {
+    return a * b + a!
 }
 
 function main(a: int, b: int) => {
-return 2 + 2 / 2!
+    return add(23, add(43, 1))!
 }
 "
     .chars()

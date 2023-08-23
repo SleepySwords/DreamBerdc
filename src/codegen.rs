@@ -1,15 +1,12 @@
-use std::{iter::Map, collections::HashMap};
+use std::{collections::HashMap, iter::Map, sync::Arc};
 
 use inkwell::{
-    builder::Builder,
-    context::Context,
-    execution_engine::JitFunction,
-    module::Module,
+    builder::Builder, context::Context, execution_engine::JitFunction, module::Module,
     types::BasicMetadataTypeEnum, values::IntValue,
 };
 use itertools::Itertools;
 
-use crate::ast::{FunctionStatement, Statement, Expression};
+use crate::ast::{CallExpression, Expression, FunctionStatement, Statement};
 
 type SumFunc = unsafe extern "C" fn(u64, u64, u64) -> u64;
 
@@ -28,7 +25,7 @@ impl Compiler<'_> {
             .iter()
             .map(|(_, t)| i32_type.into())
             .collect::<Vec<BasicMetadataTypeEnum>>();
-        let fn_type = self.context.void_type().fn_type(types.as_slice(), false);
+        let fn_type = self.context.i32_type().fn_type(types.as_slice(), false);
         let fn_val = self
             .module
             .add_function(&function.prototype.name, fn_type, None);
@@ -41,7 +38,12 @@ impl Compiler<'_> {
             .arguments
             .into_iter()
             .enumerate()
-            .map(|(index, (name, _))| (name, fn_val.get_nth_param(index as u32).unwrap().into_int_value()))
+            .map(|(index, (name, _))| {
+                (
+                    name,
+                    fn_val.get_nth_param(index as u32).unwrap().into_int_value(),
+                )
+            })
             .collect();
 
         for statement in function.body {
@@ -49,7 +51,11 @@ impl Compiler<'_> {
         }
     }
 
-    fn build_expression<'ctx>(&'ctx self, expression: Expression, symbol_table: &HashMap<String, IntValue<'ctx>>) -> IntValue {
+    fn build_expression<'ctx>(
+        &'ctx self,
+        expression: Expression,
+        symbol_table: &HashMap<String, IntValue<'ctx>>,
+    ) -> IntValue<'ctx> {
         match expression {
             Expression::BinaryExpression(expr) => {
                 let lhs = self.build_expression(*expr.lhs, symbol_table);
@@ -58,10 +64,13 @@ impl Compiler<'_> {
                     crate::ast::Operation::Add => self.builder.build_int_add(lhs, rhs, "add"),
                     crate::ast::Operation::Subtract => self.builder.build_int_sub(lhs, rhs, "sub"),
                     crate::ast::Operation::Multiply => self.builder.build_int_mul(lhs, rhs, "mul"),
-                    crate::ast::Operation::Divide => self.builder.build_int_signed_div(lhs, rhs, "div"),
+                    crate::ast::Operation::Divide =>
+                        self.builder.build_int_signed_div(lhs, rhs, "div")
                 }
-            },
-            Expression::CallExpression(_) => todo!(),
+            }
+            Expression::CallExpression(call) => {
+                self.build_call(call, symbol_table)
+            }
             Expression::Assignment(_) => todo!(),
             Expression::LiteralValue(_) => todo!(),
             Expression::Identifier(id) => {
@@ -71,24 +80,53 @@ impl Compiler<'_> {
                     let i32_type = self.context.i32_type();
                     i32_type.const_int(id.parse().expect("Invalid constant"), false)
                 }
-            },
+            }
             Expression::Unkown => todo!(),
         }
     }
 
-    pub fn build_statement<'ctx>(&'ctx self, statement: Statement, symbol_table: &HashMap<String, IntValue<'ctx>>) {
+    pub fn build_statement<'ctx>(
+        &'ctx self,
+        statement: Statement,
+        symbol_table: &HashMap<String, IntValue<'ctx>>,
+    ) {
         match statement {
             Statement::Declaration(_) => {
                 todo!("Implement declaration")
-            },
+            }
             Statement::Return(ret) => {
                 let value = self.build_expression(ret.return_value, symbol_table);
                 self.builder.build_return(Some(&value));
-            },
+            }
             Statement::Function(function) => {
                 self.build_function(*function);
-            },
+            }
             Statement::Expression(_) => todo!(),
+        }
+    }
+
+    pub fn build_call<'ctx>(
+        &'ctx self,
+        call: CallExpression,
+        symbol_table: &HashMap<String, IntValue<'ctx>>,
+    ) -> IntValue<'ctx> {
+        if let Some(function) = self.module.get_function(&call.callee) {
+            if function.count_params() != call.arguments.len() as u32 {
+                panic!("Not enough arguments")
+            }
+
+            let value = self.builder.build_call(
+                function,
+                call.arguments
+                    .iter()
+                    .map(|f| self.build_expression(f.clone(), symbol_table).into())
+                    .collect_vec()
+                    .as_slice(),
+                "calltmp",
+            );
+            value.try_as_basic_value().unwrap_left().into_int_value()
+        } else {
+            panic!("Function not defined")
         }
     }
 
@@ -102,6 +140,6 @@ impl Compiler<'_> {
             let main: JitFunction<Main> = execution_engine.get_function("main").unwrap();
             println!("Return code: {}", main.call(10, 3));
         }
-        return
+        return;
     }
 }
