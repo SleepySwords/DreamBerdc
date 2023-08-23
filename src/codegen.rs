@@ -25,6 +25,7 @@ impl Compiler<'_> {
             .iter()
             .map(|(_, t)| i32_type.into())
             .collect::<Vec<BasicMetadataTypeEnum>>();
+        // FIXME: No good forced i32 return types for now.
         let fn_type = self.context.i32_type().fn_type(types.as_slice(), false);
         let fn_val = self
             .module

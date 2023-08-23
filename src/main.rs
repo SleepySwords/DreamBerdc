@@ -11,19 +11,12 @@ mod parser;
 mod utils;
 
 fn main() {
-    // let mut tokens = "
-    //     print(\"Hello world\", \"awefafwe\", \"aewf\", print(\"Awef\", zfeaf(dsg)))?
-    // "
-    // let mut tokens = "
-    // var const efja = ajiwoe
-    // "
-    // let mut tokens = "
-    // function test(a, b) => print(\"aweihfaefji\", ajfeoijawieof)!
-    // "
     // FIX: bangs are currently not recongnisd
     // could lead to `var var test = tes print("AWEf")`
     // being interperted as `var var test = tes!print("AWEF")`
     // Rather than poducing a syntax error.
+    //
+    // Order function defintion matters for this!!
     let mut tokens = "
 function add(a: int, b: int) => {
     return a * b + a!
@@ -41,14 +34,12 @@ function main(a: int, b: int) => {
 
     println!("{:?}", ts);
 
-    // let exp = parse_expression(&mut ts.into_iter().peekable());
-    // let exp = parse_assignment(&mut ts.into_iter().peekable());
     let mut tokens = ts.into_iter().peekable();
     let mut statements = Vec::new();
     while !tokens.peek().is_some_and(|f| *f == Token::EOF) {
         statements.push(parse_function(&mut tokens));
     }
-    // println!("{:?}", exp);
+    println!("{:?}", statements);
     let context = Context::create();
     let module = context.create_module("global");
     let builder = context.create_builder();
