@@ -92,6 +92,7 @@ pub fn tokenize<T: Iterator<Item = char>>(tokens: &mut Peekable<T>) -> Vec<Token
         };
         ts.push(t)
     }
+    ts.push(Token::EOF);
     ts
 }
 

@@ -2,7 +2,7 @@ use std::{collections::HashMap, iter::Peekable};
 
 use inkwell::context::Context;
 
-use crate::{codegen::Compiler, lexer::tokenize, parser::parse_function};
+use crate::{codegen::Compiler, lexer::{tokenize, Token}, parser::parse_function};
 
 mod ast;
 mod codegen;
@@ -25,8 +25,13 @@ fn main() {
     // being interperted as `var var test = tes!print("AWEF")`
     // Rather than poducing a syntax error.
     let mut tokens = "
+
 function main(a: int, b: int) => {
     return 2 * 129 + 2 / 2!
+}
+
+function main(a: int, b: int) => {
+return 2 + 2 / 2!
 }
 "
     .chars()
@@ -39,10 +44,14 @@ function main(a: int, b: int) => {
 
     // let exp = parse_expression(&mut ts.into_iter().peekable());
     // let exp = parse_assignment(&mut ts.into_iter().peekable());
-    let exp = parse_function(&mut ts.into_iter().peekable());
-    println!("{:?}", exp);
+    let mut tokens = ts.into_iter().peekable();
+    let mut statements = Vec::new();
+    while !tokens.peek().is_some_and(|f| *f == Token::EOF) {
+        statements.push(parse_function(&mut tokens));
+    }
+    // println!("{:?}", exp);
     let context = Context::create();
-    let module = context.create_module("addition");
+    let module = context.create_module("global");
     let builder = context.create_builder();
     let compiler = Compiler {
         context: &context,
@@ -50,6 +59,8 @@ function main(a: int, b: int) => {
         builder,
     };
     let hashmap = HashMap::new();
-    compiler.build_statement(exp, &hashmap);
+    for statement in &statements {
+        compiler.build_statement(statement.clone(), &hashmap);
+    }
     compiler.compile();
 }

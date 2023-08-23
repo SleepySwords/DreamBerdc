@@ -1,7 +1,7 @@
 use bitflags::bitflags;
 
 bitflags! {
-    #[derive(Debug)]
+    #[derive(Debug, Clone)]
     pub struct Mutable: u8 {
         const Reassignable = 0b0001;
         const Modifiable = 0b0010;

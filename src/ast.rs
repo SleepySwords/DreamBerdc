@@ -3,7 +3,7 @@ use std::cmp::Ordering;
 use crate::utils::Mutable;
 
 // Expressions return values, statements do not.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 #[allow(dead_code)]
 pub enum Expression {
     BinaryExpression(BinaryExpression),
@@ -14,7 +14,7 @@ pub enum Expression {
     Unkown,
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum Operation {
     Add,
     Subtract,
@@ -47,29 +47,29 @@ impl PartialOrd for Operation {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 #[allow(dead_code)]
 pub struct BinaryExpression {
     pub lhs: Box<Expression>,
-    pub rhs: Box<Expression>,
     pub operation: Operation,
+    pub rhs: Box<Expression>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 #[allow(dead_code)]
 pub struct CallExpression {
     pub callee: String,
     pub arguments: Vec<Expression>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 #[allow(dead_code)]
 pub struct AssignmentExpression {
     pub lhs: String,
     pub rhs: String,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Statement {
     Declaration(Box<DeclarationStatement>),
     Function(Box<FunctionStatement>),
@@ -77,7 +77,7 @@ pub enum Statement {
     Expression(Expression),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 #[allow(dead_code)]
 pub struct DeclarationStatement {
     pub mutable: Mutable,
@@ -88,20 +88,20 @@ pub struct DeclarationStatement {
 pub type Name = String;
 pub type Type = String;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 #[allow(dead_code)]
 pub struct Prototype {
     pub name: String,
     pub arguments: Vec<(Name, Type)>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct FunctionStatement {
     pub prototype: Prototype,
     pub body: Vec<Statement>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ReturnStatement {
     pub return_value: Expression,
 }

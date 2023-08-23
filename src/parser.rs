@@ -13,9 +13,11 @@ pub fn expect<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>, token: Token)
     if let Some(t) = tokens.next() {
         if t == token {
             return;
+        } else {
+            panic!("Expected \"{:?}\", found \"{:?}\"", token, t)
         }
     }
-    panic!("Unexpected token {:?}", token)
+    panic!("No next token found, expected \"{:?}\"", token)
 }
 
 pub fn check<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>, token: Token) -> bool {
@@ -86,7 +88,7 @@ pub fn parse_factor<T: Iterator<Item = Token>>(
         let operation = match tokens.next().unwrap() {
             Token::Star => Operation::Multiply,
             Token::Slash => Operation::Divide,
-            _ => panic!("Invalid syntax"),
+            _ => panic!("Invalid operation"),
         };
         // Should parse an expression (everything except binary), but oh well for now
         let rhs = if let Token::Symbol(rhs) = tokens.next().unwrap() {
@@ -115,7 +117,7 @@ pub fn parse_term<T: Iterator<Item = Token>>(
         let operation = match tokens.next().unwrap() {
             Token::Plus => Operation::Add,
             Token::Dash => Operation::Subtract,
-            _ => panic!("Invalid syntax"),
+            _ => panic!("Invalid operation"),
         };
         // Should parse an expression (everything except binary), but oh well for now
         let rhs = if let Token::Symbol(rhs) = tokens.next().unwrap() {
