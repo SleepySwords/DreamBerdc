@@ -2,7 +2,7 @@ use std::iter::Peekable;
 
 #[derive(Debug, PartialEq)]
 pub enum Token {
-    EOF,
+    Eof,
     Symbol(String),
     // Contains "", above cannot have spaces, this can.
     String(String),
@@ -37,7 +37,7 @@ pub enum Token {
     Function,
     Return,
 
-    Unkown,
+//     Unkown,
 }
 
 pub fn tokenize<T: Iterator<Item = char>>(tokens: &mut Peekable<T>) -> Vec<Token> {
@@ -92,7 +92,7 @@ pub fn tokenize<T: Iterator<Item = char>>(tokens: &mut Peekable<T>) -> Vec<Token
         };
         ts.push(t)
     }
-    ts.push(Token::EOF);
+    ts.push(Token::Eof);
     ts
 }
 
@@ -118,7 +118,7 @@ fn equal<T: Iterator<Item = char>>(tokens: &mut Peekable<T>) -> Token {
 
 fn string<T: Iterator<Item = char>>(tokens: &mut Peekable<T>) -> Token {
     let mut str = String::new();
-    while let Some(token) = tokens.next() {
+    for token in tokens.by_ref() {
         if token == '"' {
             break;
         }

@@ -1,4 +1,4 @@
-use std::{collections::HashMap, iter::Peekable};
+use std::{collections::HashMap};
 
 use inkwell::context::Context;
 
@@ -27,7 +27,6 @@ function main(a: int, b: int) => {
 }
 "
     .chars()
-    .into_iter()
     .peekable();
 
     let ts = tokenize(&mut tokens);
@@ -36,7 +35,7 @@ function main(a: int, b: int) => {
 
     let mut tokens = ts.into_iter().peekable();
     let mut statements = Vec::new();
-    while !tokens.peek().is_some_and(|f| *f == Token::EOF) {
+    while !tokens.peek().is_some_and(|f| *f == Token::Eof) {
         statements.push(parse_function(&mut tokens));
     }
     println!("{:?}", statements);

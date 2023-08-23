@@ -1,4 +1,4 @@
-use std::{collections::HashMap, iter::Map, sync::Arc};
+use std::collections::HashMap;
 
 use inkwell::{
     builder::Builder, context::Context, execution_engine::JitFunction, module::Module,
@@ -6,9 +6,7 @@ use inkwell::{
 };
 use itertools::Itertools;
 
-use crate::ast::{CallExpression, Expression, FunctionStatement, Statement};
-
-type SumFunc = unsafe extern "C" fn(u64, u64, u64) -> u64;
+use crate::ast::{CallOp, Expression, FunctionStatement, Statement};
 
 pub struct Compiler<'ctx> {
     pub context: &'ctx Context,
@@ -23,7 +21,7 @@ impl Compiler<'_> {
             .prototype
             .arguments
             .iter()
-            .map(|(_, t)| i32_type.into())
+            .map(|(_, _t)| i32_type.into())
             .collect::<Vec<BasicMetadataTypeEnum>>();
         // FIXME: No good forced i32 return types for now.
         let fn_type = self.context.i32_type().fn_type(types.as_slice(), false);
@@ -58,7 +56,7 @@ impl Compiler<'_> {
         symbol_table: &HashMap<String, IntValue<'ctx>>,
     ) -> IntValue<'ctx> {
         match expression {
-            Expression::BinaryExpression(expr) => {
+            Expression::Binary(expr) => {
                 let lhs = self.build_expression(*expr.lhs, symbol_table);
                 let rhs = self.build_expression(*expr.rhs, symbol_table);
                 match expr.operation {
@@ -69,14 +67,14 @@ impl Compiler<'_> {
                         self.builder.build_int_signed_div(lhs, rhs, "div")
                 }
             }
-            Expression::CallExpression(call) => {
+            Expression::Call(call) => {
                 self.build_call(call, symbol_table)
             }
             Expression::Assignment(_) => todo!(),
             Expression::LiteralValue(_) => todo!(),
             Expression::Identifier(id) => {
                 if symbol_table.contains_key(&id) {
-                    return symbol_table[&id];
+                    symbol_table[&id]
                 } else {
                     let i32_type = self.context.i32_type();
                     i32_type.const_int(id.parse().expect("Invalid constant"), false)
@@ -108,7 +106,7 @@ impl Compiler<'_> {
 
     pub fn build_call<'ctx>(
         &'ctx self,
-        call: CallExpression,
+        call: CallOp,
         symbol_table: &HashMap<String, IntValue<'ctx>>,
     ) -> IntValue<'ctx> {
         if let Some(function) = self.module.get_function(&call.callee) {
@@ -141,6 +139,5 @@ impl Compiler<'_> {
             let main: JitFunction<Main> = execution_engine.get_function("main").unwrap();
             println!("Return code: {}", main.call(10, 3));
         }
-        return;
     }
 }

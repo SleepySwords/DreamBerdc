@@ -1,14 +1,12 @@
-use std::cmp::Ordering;
-
 use crate::utils::Mutable;
 
 // Expressions return values, statements do not.
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
 pub enum Expression {
-    BinaryExpression(BinaryExpression),
-    CallExpression(CallExpression),
-    Assignment(AssignmentExpression),
+    Binary(BinaryOp),
+    Call(CallOp),
+    Assignment(AssignmentOp),
     LiteralValue(String),
     Identifier(String),
     Unkown,
@@ -22,34 +20,34 @@ pub enum Operation {
     Divide,
 }
 
-impl PartialOrd for Operation {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        if self == other {
-            return Some(Ordering::Equal);
-        } else if (*self == Self::Multiply || *self == Self::Divide)
-            && (*self == Self::Multiply || *self == Self::Divide)
-        {
-            return Some(Ordering::Equal);
-        } else if (*self == Self::Add || *self == Self::Subtract)
-            && (*self == Self::Add || *self == Self::Subtract)
-        {
-            return Some(Ordering::Equal);
-        } else if (*self == Self::Multiply || *self == Self::Divide)
-            && (*self == Self::Add || *self == Self::Subtract)
-        {
-            return Some(Ordering::Greater);
-        } else if (*self == Self::Add || *self == Self::Subtract)
-            && (*self == Self::Subtract || *self == Self::Divide)
-        {
-            return Some(Ordering::Greater);
-        }
-        unreachable!()
-    }
-}
+// impl PartialOrd for Operation {
+//     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+//         if self == other {
+//             return Some(Ordering::Equal);
+//         } else if (*self == Self::Multiply || *self == Self::Divide)
+//             && (*other == Self::Multiply || *other == Self::Divide)
+//         {
+//             return Some(Ordering::Equal);
+//         } else if (*self == Self::Add || *self == Self::Subtract)
+//             && (*other == Self::Add || *other == Self::Subtract)
+//         {
+//             return Some(Ordering::Equal);
+//         } else if (*self == Self::Multiply || *self == Self::Divide)
+//             && (*other == Self::Add || *other == Self::Subtract)
+//         {
+//             return Some(Ordering::Greater);
+//         } else if (*self == Self::Add || *self == Self::Subtract)
+//             && (*other == Self::Subtract || *other == Self::Divide)
+//         {
+//             return Some(Ordering::Less);
+//         }
+//         unreachable!()
+//     }
+// }
 
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
-pub struct BinaryExpression {
+pub struct BinaryOp {
     pub lhs: Box<Expression>,
     pub operation: Operation,
     pub rhs: Box<Expression>,
@@ -57,14 +55,14 @@ pub struct BinaryExpression {
 
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
-pub struct CallExpression {
+pub struct CallOp {
     pub callee: String,
     pub arguments: Vec<Expression>,
 }
 
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
-pub struct AssignmentExpression {
+pub struct AssignmentOp {
     pub lhs: String,
     pub rhs: String,
 }

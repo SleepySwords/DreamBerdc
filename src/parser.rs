@@ -2,7 +2,7 @@ use std::iter::Peekable;
 
 use crate::{
     ast::{
-        AssignmentExpression, BinaryExpression, CallExpression, DeclarationStatement, Expression,
+        AssignmentOp, BinaryOp, CallOp, DeclarationStatement, Expression,
         FunctionStatement, Operation, Prototype, ReturnStatement, Statement,
     },
     lexer::Token,
@@ -26,7 +26,7 @@ pub fn check<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>, token: Token) 
             return true;
         }
     }
-    return false;
+    false
 }
 
 pub fn optional<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>, token: Token) {
@@ -44,31 +44,27 @@ pub fn consume_bang<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) {
 }
 
 pub fn parse_expression<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> Expression {
-    while let Some(token) = tokens.next() {
+    if let Some(token) = tokens.next() {
         return match token {
             Token::Symbol(sym) => {
                 if let Some(Token::OpenPar) = tokens.peek() {
                     tokens.next();
                     parse_call(tokens, sym)
-                } else {
-                    if check(tokens, Token::Eq) {
-                        expect(tokens, Token::Eq);
-                        if let Some(Token::Symbol(rhs)) = tokens.next() {
-                            Expression::Assignment(AssignmentExpression { lhs: sym, rhs })
-                        } else {
-                            panic!("Invalid syntax: in assignment")
-                        }
+                } else if check(tokens, Token::Eq) {
+                    expect(tokens, Token::Eq);
+                    if let Some(Token::Symbol(rhs)) = tokens.next() {
+                        Expression::Assignment(AssignmentOp { lhs: sym, rhs })
                     } else {
-                        if check(tokens, Token::Plus)
-                            || check(tokens, Token::Dash)
-                            || check(tokens, Token::Star)
-                            || check(tokens, Token::Slash)
-                        {
-                            parse_binary(sym, tokens)
-                        } else {
-                            Expression::Identifier(sym)
-                        }
+                        panic!("Invalid syntax: in assignment")
                     }
+                } else if check(tokens, Token::Plus)
+                    || check(tokens, Token::Dash)
+                    || check(tokens, Token::Star)
+                    || check(tokens, Token::Slash)
+                {
+                    parse_binary(sym, tokens)
+                } else {
+                    Expression::Identifier(sym)
                 }
             }
             Token::String(str) => Expression::LiteralValue(str),
@@ -97,14 +93,14 @@ pub fn parse_factor<T: Iterator<Item = Token>>(
             panic!("No right hand side")
         };
 
-        expr = Expression::BinaryExpression(BinaryExpression {
+        expr = Expression::Binary(BinaryOp {
             lhs: Box::new(expr),
             rhs: Box::new(rhs),
             operation,
         });
     }
 
-    return expr;
+    expr
 }
 
 pub fn parse_term<T: Iterator<Item = Token>>(
@@ -127,14 +123,14 @@ pub fn parse_term<T: Iterator<Item = Token>>(
         };
         let rhs = parse_factor(rhs, tokens);
 
-        expr = Expression::BinaryExpression(BinaryExpression {
+        expr = Expression::Binary(BinaryOp {
             lhs: Box::new(expr),
             rhs: Box::new(rhs),
             operation,
         });
     }
 
-    return expr;
+    expr
 }
 
 fn parse_binary<T: Iterator<Item = Token>>(lhs: String, tokens: &mut Peekable<T>) -> Expression {
@@ -147,7 +143,7 @@ fn parse_call<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>, callee: Strin
     while let Some(token) = tokens.peek() {
         if *token == Token::ClosePar {
             tokens.next();
-            return Expression::CallExpression(CallExpression {
+            return Expression::Call(CallOp {
                 callee,
                 arguments: args,
             });
@@ -183,7 +179,7 @@ pub fn parse_function<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> St
         // valid?
         body.push(Statement::Expression(parse_expression(tokens)));
     }
-    return Statement::Function(Box::new(FunctionStatement { prototype, body }));
+    Statement::Function(Box::new(FunctionStatement { prototype, body }))
 }
 
 pub fn parse_prototype<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> Prototype {
@@ -234,7 +230,7 @@ pub fn parse_body<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> Vec<St
         }
     }
     expect(tokens, Token::CloseCurB);
-    return statements;
+    statements
 }
 
 pub fn parse_declaration<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> Statement {
@@ -258,11 +254,11 @@ pub fn parse_declaration<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) ->
         if let Some(Token::Eq) = tokens.next() {
             let rhs = parse_expression(tokens);
             consume_bang(tokens);
-            return Statement::Declaration(Box::new(DeclarationStatement {
+            Statement::Declaration(Box::new(DeclarationStatement {
                 mutable: flags,
                 lhs,
                 rhs,
-            }));
+            }))
         } else {
             panic!("Expected '=' in the declaration.")
         }
