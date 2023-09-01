@@ -6,7 +6,7 @@ use inkwell::{
 };
 use itertools::Itertools;
 
-use crate::ast::{CallOp, Expression, Function, IfStatement, Statement};
+use crate::ast::{Call, Expression, Function, IfStatement, Statement};
 
 pub struct Compiler<'ctx> {
     pub context: &'ctx Context,
@@ -120,7 +120,7 @@ impl Compiler<'_> {
 
     pub fn build_call<'ctx>(
         &'ctx self,
-        call: CallOp,
+        call: Call,
         symbol_table: &HashMap<String, IntValue<'ctx>>,
     ) -> IntValue<'ctx> {
         if let Some(function) = self.module.get_function(&call.callee) {

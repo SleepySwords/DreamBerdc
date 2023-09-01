@@ -2,8 +2,8 @@ use std::iter::Peekable;
 
 use crate::{
     ast::{
-        AssignmentOp, CallOp, Declaration, Expression, Function, IfStatement, Operation, Prototype,
-        Statement,
+        Assignment, Call, Declaration, Expression, Function, IfStatement, Operation,
+        Prototype, Statement,
     },
     lexer::Token,
     utils::Mutable,
@@ -53,7 +53,7 @@ pub fn parse_expression<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> 
                 } else if check(tokens, Token::Eq) {
                     expect(tokens, Token::Eq);
                     if let Some(Token::Symbol(rhs)) = tokens.next() {
-                        Expression::Assignment(AssignmentOp { lhs: sym, rhs })
+                        Expression::Assignment(Assignment { lhs: sym, rhs })
                     } else {
                         panic!("Invalid syntax: in assignment")
                     }
@@ -118,7 +118,7 @@ pub fn parse_term<T: Iterator<Item = Token>>(
         };
         let rhs = parse_factor(rhs, tokens);
 
-        expr = Expression::Binary {
+        expr = Expression::Binary{
             lhs: Box::new(expr),
             rhs: Box::new(rhs),
             operation,
@@ -147,7 +147,7 @@ pub fn parse_factor<T: Iterator<Item = Token>>(
             panic!("No right hand side")
         };
 
-        expr = Expression::Binary {
+        expr = Expression::Binary{
             lhs: Box::new(expr),
             rhs: Box::new(rhs),
             operation,
@@ -162,7 +162,7 @@ fn parse_call<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>, callee: Strin
     while let Some(token) = tokens.peek() {
         if *token == Token::ClosePar {
             tokens.next();
-            return Expression::Call(CallOp {
+            return Expression::Call(Call {
                 callee,
                 arguments: args,
             });
@@ -311,7 +311,5 @@ fn parse_return<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> Statemen
     let return_value = parse_expression(tokens);
     // Should probably be in statement
     optional(tokens, Token::Bang);
-    Statement::Return {
-        return_value: Box::new(return_value),
-    }
+    Statement::Return{return_value: Box::new(return_value)}
 }

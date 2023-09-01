@@ -9,9 +9,8 @@ pub enum Expression {
         operation: Operation,
         rhs: Box<Expression>,
     },
-    Call(CallOp),
-    // Why is assignment here, that makes no sense.
-    Assignment(AssignmentOp),
+    Call(Call),
+    Assignment(Assignment),
     LiteralValue(String),
     Identifier(String),
     Unkown,
@@ -30,14 +29,14 @@ pub enum Operation {
 
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
-pub struct CallOp {
+pub struct Call {
     pub callee: String,
     pub arguments: Vec<Expression>,
 }
 
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
-pub struct AssignmentOp {
+pub struct Assignment {
     pub lhs: String,
     pub rhs: String,
 }
@@ -47,9 +46,7 @@ pub enum Statement {
     Declaration(Box<Declaration>),
     If(Box<IfStatement>),
     Function(Box<Function>),
-    Return{
-        return_value: Box<Expression>
-    },
+    Return { return_value: Box<Expression> },
     Expression(Expression),
 }
 
