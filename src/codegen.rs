@@ -6,7 +6,7 @@ use inkwell::{
 };
 use itertools::Itertools;
 
-use crate::ast::{CallOp, Expression, FunctionStatement, Statement};
+use crate::ast::{CallOp, Expression, Function, IfStatement, Statement};
 
 pub struct Compiler<'ctx> {
     pub context: &'ctx Context,
@@ -15,7 +15,7 @@ pub struct Compiler<'ctx> {
 }
 
 impl Compiler<'_> {
-    pub fn build_function(&self, function: FunctionStatement) {
+    pub fn build_function(&self, function: Function) {
         let i32_type = self.context.i32_type();
         let types = function
             .prototype
@@ -56,20 +56,24 @@ impl Compiler<'_> {
         symbol_table: &HashMap<String, IntValue<'ctx>>,
     ) -> IntValue<'ctx> {
         match expression {
-            Expression::Binary(expr) => {
-                let lhs = self.build_expression(*expr.lhs, symbol_table);
-                let rhs = self.build_expression(*expr.rhs, symbol_table);
-                match expr.operation {
+            Expression::Binary {
+                lhs,
+                operation,
+                rhs,
+            } => {
+                let lhs = self.build_expression(*lhs, symbol_table);
+                let rhs = self.build_expression(*rhs, symbol_table);
+                match operation {
                     crate::ast::Operation::Add => self.builder.build_int_add(lhs, rhs, "add"),
                     crate::ast::Operation::Subtract => self.builder.build_int_sub(lhs, rhs, "sub"),
                     crate::ast::Operation::Multiply => self.builder.build_int_mul(lhs, rhs, "mul"),
-                    crate::ast::Operation::Divide =>
+                    crate::ast::Operation::Divide => {
                         self.builder.build_int_signed_div(lhs, rhs, "div")
+                    }
+                    _ => panic!("aefj"),
                 }
             }
-            Expression::Call(call) => {
-                self.build_call(call, symbol_table)
-            }
+            Expression::Call(call) => self.build_call(call, symbol_table),
             Expression::Assignment(_) => todo!(),
             Expression::LiteralValue(_) => todo!(),
             Expression::Identifier(id) => {
@@ -84,6 +88,15 @@ impl Compiler<'_> {
         }
     }
 
+    pub fn build_if<'ctx>(
+        &'ctx self,
+        if_statement: IfStatement,
+        symbol_table: &HashMap<String, IntValue<'ctx>>,
+    ) {
+        // let entry_basic_box = self.context.append_basic_block(fn_val, "entry");
+        // self.builder.position_at_end(entry_basic_box);
+    }
+
     pub fn build_statement<'ctx>(
         &'ctx self,
         statement: Statement,
@@ -93,14 +106,15 @@ impl Compiler<'_> {
             Statement::Declaration(_) => {
                 todo!("Implement declaration")
             }
-            Statement::Return(ret) => {
-                let value = self.build_expression(ret.return_value, symbol_table);
+            Statement::Return { return_value } => {
+                let value = self.build_expression(*return_value, symbol_table);
                 self.builder.build_return(Some(&value));
             }
             Statement::Function(function) => {
                 self.build_function(*function);
             }
             Statement::Expression(_) => todo!(),
+            Statement::If(_) => todo!(),
         }
     }
 

@@ -36,6 +36,7 @@ pub enum Token {
     Var,
     Function,
     Return,
+    If,
 
 //     Unkown,
 }
@@ -80,6 +81,7 @@ pub fn tokenize<T: Iterator<Item = char>>(tokens: &mut Peekable<T>) -> Vec<Token
                     "const" => Token::Const,
                     "var" => Token::Var,
                     "return" => Token::Return,
+                    "if" => Token::If,
                     i => {
                         if "function".contains(i) {
                             Token::Function

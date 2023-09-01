@@ -4,8 +4,13 @@ use crate::utils::Mutable;
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
 pub enum Expression {
-    Binary(BinaryOp),
+    Binary {
+        lhs: Box<Expression>,
+        operation: Operation,
+        rhs: Box<Expression>,
+    },
     Call(CallOp),
+    // Why is assignment here, that makes no sense.
     Assignment(AssignmentOp),
     LiteralValue(String),
     Identifier(String),
@@ -18,39 +23,9 @@ pub enum Operation {
     Subtract,
     Multiply,
     Divide,
-}
-
-// impl PartialOrd for Operation {
-//     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-//         if self == other {
-//             return Some(Ordering::Equal);
-//         } else if (*self == Self::Multiply || *self == Self::Divide)
-//             && (*other == Self::Multiply || *other == Self::Divide)
-//         {
-//             return Some(Ordering::Equal);
-//         } else if (*self == Self::Add || *self == Self::Subtract)
-//             && (*other == Self::Add || *other == Self::Subtract)
-//         {
-//             return Some(Ordering::Equal);
-//         } else if (*self == Self::Multiply || *self == Self::Divide)
-//             && (*other == Self::Add || *other == Self::Subtract)
-//         {
-//             return Some(Ordering::Greater);
-//         } else if (*self == Self::Add || *self == Self::Subtract)
-//             && (*other == Self::Subtract || *other == Self::Divide)
-//         {
-//             return Some(Ordering::Less);
-//         }
-//         unreachable!()
-//     }
-// }
-
-#[derive(Debug, Clone)]
-#[allow(dead_code)]
-pub struct BinaryOp {
-    pub lhs: Box<Expression>,
-    pub operation: Operation,
-    pub rhs: Box<Expression>,
+    Equality,
+    StrictEquality,
+    VeryStrictEquality,
 }
 
 #[derive(Debug, Clone)]
@@ -69,18 +44,29 @@ pub struct AssignmentOp {
 
 #[derive(Debug, Clone)]
 pub enum Statement {
-    Declaration(Box<DeclarationStatement>),
-    Function(Box<FunctionStatement>),
-    Return(Box<ReturnStatement>),
+    Declaration(Box<Declaration>),
+    If(Box<IfStatement>),
+    Function(Box<Function>),
+    Return{
+        return_value: Box<Expression>
+    },
     Expression(Expression),
 }
 
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
-pub struct DeclarationStatement {
+pub struct Declaration {
     pub mutable: Mutable,
     pub lhs: String,
     pub rhs: Expression,
+}
+
+#[derive(Debug, Clone)]
+#[allow(dead_code)]
+pub struct IfStatement {
+    pub boolean_op: Expression,
+    pub then_statemenets: Vec<Statement>,
+    pub else_statements: Option<Vec<Statement>>,
 }
 
 pub type Name = String;
@@ -94,12 +80,7 @@ pub struct Prototype {
 }
 
 #[derive(Debug, Clone)]
-pub struct FunctionStatement {
+pub struct Function {
     pub prototype: Prototype,
     pub body: Vec<Statement>,
-}
-
-#[derive(Debug, Clone)]
-pub struct ReturnStatement {
-    pub return_value: Expression,
 }

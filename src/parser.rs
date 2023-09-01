@@ -2,8 +2,8 @@ use std::iter::Peekable;
 
 use crate::{
     ast::{
-        AssignmentOp, BinaryOp, CallOp, DeclarationStatement, Expression,
-        FunctionStatement, Operation, Prototype, ReturnStatement, Statement,
+        AssignmentOp, CallOp, Declaration, Expression, Function, IfStatement, Operation, Prototype,
+        Statement,
     },
     lexer::Token,
     utils::Mutable,
@@ -57,14 +57,8 @@ pub fn parse_expression<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> 
                     } else {
                         panic!("Invalid syntax: in assignment")
                     }
-                } else if check(tokens, Token::Plus)
-                    || check(tokens, Token::Dash)
-                    || check(tokens, Token::Star)
-                    || check(tokens, Token::Slash)
-                {
-                    parse_binary(sym, tokens)
                 } else {
-                    Expression::Identifier(sym)
+                    parse_equality(Expression::Identifier(sym), tokens)
                 }
             }
             Token::String(str) => Expression::LiteralValue(str),
@@ -74,16 +68,17 @@ pub fn parse_expression<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> 
     panic!("Invalid expression")
 }
 
-pub fn parse_factor<T: Iterator<Item = Token>>(
+pub fn parse_equality<T: Iterator<Item = Token>>(
     lhs: Expression,
     tokens: &mut Peekable<T>,
 ) -> Expression {
-    let mut expr = lhs;
+    let expr = parse_term(lhs, tokens);
 
-    while let Some(Token::Star | Token::Slash) = tokens.peek() {
+    while let Some(Token::EqEq | Token::EqEqEq | Token::EqEqEqEq) = tokens.peek() {
         let operation = match tokens.next().unwrap() {
-            Token::Star => Operation::Multiply,
-            Token::Slash => Operation::Divide,
+            Token::EqEq => Operation::Equality,
+            Token::EqEqEq => Operation::StrictEquality,
+            Token::EqEqEqEq => Operation::VeryStrictEquality,
             _ => panic!("Invalid operation"),
         };
         // Should parse an expression (everything except binary), but oh well for now
@@ -92,15 +87,15 @@ pub fn parse_factor<T: Iterator<Item = Token>>(
         } else {
             panic!("No right hand side")
         };
-
-        expr = Expression::Binary(BinaryOp {
+        let rhs = parse_term(rhs, tokens);
+        return Expression::Binary {
             lhs: Box::new(expr),
-            rhs: Box::new(rhs),
             operation,
-        });
+            rhs: Box::new(rhs),
+        };
     }
 
-    expr
+    return expr;
 }
 
 pub fn parse_term<T: Iterator<Item = Token>>(
@@ -123,19 +118,43 @@ pub fn parse_term<T: Iterator<Item = Token>>(
         };
         let rhs = parse_factor(rhs, tokens);
 
-        expr = Expression::Binary(BinaryOp {
+        expr = Expression::Binary {
             lhs: Box::new(expr),
             rhs: Box::new(rhs),
             operation,
-        });
+        };
     }
 
     expr
 }
 
-fn parse_binary<T: Iterator<Item = Token>>(lhs: String, tokens: &mut Peekable<T>) -> Expression {
-    // TODO: parsing it in like this is pretty ugly, should maybe make a Parser struct.
-    parse_term(Expression::Identifier(lhs), tokens)
+pub fn parse_factor<T: Iterator<Item = Token>>(
+    lhs: Expression,
+    tokens: &mut Peekable<T>,
+) -> Expression {
+    let mut expr = lhs;
+
+    while let Some(Token::Star | Token::Slash) = tokens.peek() {
+        let operation = match tokens.next().unwrap() {
+            Token::Star => Operation::Multiply,
+            Token::Slash => Operation::Divide,
+            _ => panic!("Invalid operation"),
+        };
+        // Should parse an expression (everything except binary), but oh well for now
+        let rhs = if let Token::Symbol(rhs) = tokens.next().unwrap() {
+            Expression::Identifier(rhs)
+        } else {
+            panic!("No right hand side")
+        };
+
+        expr = Expression::Binary {
+            lhs: Box::new(expr),
+            rhs: Box::new(rhs),
+            operation,
+        };
+    }
+
+    expr
 }
 
 fn parse_call<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>, callee: String) -> Expression {
@@ -165,21 +184,39 @@ fn parse_call<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>, callee: Strin
     Expression::Unkown
 }
 
-pub fn parse_function<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> Statement {
-    let prototype = parse_prototype(tokens);
-    let mut body = Vec::new();
-    expect(tokens, Token::Arrow);
-    if let Some(Token::OpenCurB) = tokens.peek() {
-        for statement in parse_body(tokens) {
-            body.push(statement);
-        }
+pub fn parse_if<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> Statement {
+    expect(tokens, Token::If);
+    expect(tokens, Token::OpenPar);
+    let bool_exp = parse_expression(tokens);
+    expect(tokens, Token::ClosePar);
+    let body = if let Some(Token::OpenCurB) = tokens.peek() {
+        parse_body(tokens)
     } else {
         // TODO: Should this be a parse_statement?
         // Is `function main() => function hi() => {}`
         // valid?
-        body.push(Statement::Expression(parse_expression(tokens)));
-    }
-    Statement::Function(Box::new(FunctionStatement { prototype, body }))
+        vec![Statement::Expression(parse_expression(tokens))]
+    };
+
+    Statement::If(Box::new(IfStatement {
+        boolean_op: bool_exp,
+        then_statemenets: body,
+        else_statements: None,
+    }))
+}
+
+pub fn parse_function<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> Statement {
+    let prototype = parse_prototype(tokens);
+    expect(tokens, Token::Arrow);
+    let body = if let Some(Token::OpenCurB) = tokens.peek() {
+        parse_body(tokens)
+    } else {
+        // TODO: Should this be a parse_statement?
+        // Is `function main() => function hi() => {}`
+        // valid?
+        vec![Statement::Expression(parse_expression(tokens))]
+    };
+    Statement::Function(Box::new(Function { prototype, body }))
 }
 
 pub fn parse_prototype<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> Prototype {
@@ -222,6 +259,8 @@ pub fn parse_body<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> Vec<St
             statements.push(parse_declaration(tokens));
         } else if check(tokens, Token::Return) {
             statements.push(parse_return(tokens));
+        } else if check(tokens, Token::If) {
+            statements.push(parse_if(tokens));
         } else if check(tokens, Token::Function) {
             statements.push(parse_function(tokens));
         } else {
@@ -254,7 +293,7 @@ pub fn parse_declaration<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) ->
         if let Some(Token::Eq) = tokens.next() {
             let rhs = parse_expression(tokens);
             consume_bang(tokens);
-            Statement::Declaration(Box::new(DeclarationStatement {
+            Statement::Declaration(Box::new(Declaration {
                 mutable: flags,
                 lhs,
                 rhs,
@@ -272,5 +311,7 @@ fn parse_return<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> Statemen
     let return_value = parse_expression(tokens);
     // Should probably be in statement
     optional(tokens, Token::Bang);
-    Statement::Return(Box::new(ReturnStatement { return_value }))
+    Statement::Return {
+        return_value: Box::new(return_value),
+    }
 }
