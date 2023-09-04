@@ -23,7 +23,7 @@ function add(a: int, b: int) => {
 }
 
 function main(a: int, b: int) => {
-    return add(23, add(43, 1))!
+    return add(23, add(43, 1)) * 10 + 4!
 }
 "
     .chars()

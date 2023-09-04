@@ -2,8 +2,8 @@ use std::iter::Peekable;
 
 use crate::{
     ast::{
-        Assignment, Call, Declaration, Expression, Function, IfStatement, Operation,
-        Prototype, Statement,
+        Assignment, Call, Declaration, Expression, Function, IfStatement, Operation, Prototype,
+        Statement,
     },
     lexer::Token,
     utils::Mutable,
@@ -47,10 +47,7 @@ pub fn parse_expression<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> 
     if let Some(token) = tokens.next() {
         return match token {
             Token::Symbol(sym) => {
-                if let Some(Token::OpenPar) = tokens.peek() {
-                    tokens.next();
-                    parse_call(tokens, sym)
-                } else if check(tokens, Token::Eq) {
+                if check(tokens, Token::Eq) {
                     expect(tokens, Token::Eq);
                     if let Some(Token::Symbol(rhs)) = tokens.next() {
                         Expression::Assignment(Assignment { lhs: sym, rhs })
@@ -58,7 +55,34 @@ pub fn parse_expression<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> 
                         panic!("Invalid syntax: in assignment")
                     }
                 } else {
-                    parse_equality(Expression::Identifier(sym), tokens)
+                    // TODO: merge with parse_value
+                    let expr = if let Some(Token::OpenPar) = tokens.peek() {
+                        tokens.next();
+                        parse_call(tokens, sym)
+                    } else {
+                        Expression::Identifier(sym)
+                    };
+                    parse_equality(expr, tokens)
+                }
+            }
+            Token::String(str) => Expression::LiteralValue(str),
+            _ => Expression::Unkown,
+        };
+    }
+    panic!("Invalid expression")
+}
+
+// FIX: add proper error handling, rather than panicing
+// Only parses identifiers, litervals or function calls.
+pub fn parse_value<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> Expression {
+    if let Some(token) = tokens.next() {
+        return match token {
+            Token::Symbol(sym) => {
+                if let Some(Token::OpenPar) = tokens.peek() {
+                    tokens.next();
+                    parse_call(tokens, sym)
+                } else {
+                    Expression::Identifier(sym)
                 }
             }
             Token::String(str) => Expression::LiteralValue(str),
@@ -81,12 +105,7 @@ pub fn parse_equality<T: Iterator<Item = Token>>(
             Token::EqEqEqEq => Operation::VeryStrictEquality,
             _ => panic!("Invalid operation"),
         };
-        // Should parse an expression (everything except binary), but oh well for now
-        let rhs = if let Token::Symbol(rhs) = tokens.next().unwrap() {
-            Expression::Identifier(rhs)
-        } else {
-            panic!("No right hand side")
-        };
+        let rhs = parse_value(tokens);
         let rhs = parse_term(rhs, tokens);
         return Expression::Binary {
             lhs: Box::new(expr),
@@ -111,14 +130,10 @@ pub fn parse_term<T: Iterator<Item = Token>>(
             _ => panic!("Invalid operation"),
         };
         // Should parse an expression (everything except binary), but oh well for now
-        let rhs = if let Token::Symbol(rhs) = tokens.next().unwrap() {
-            Expression::Identifier(rhs)
-        } else {
-            panic!("No right hand side")
-        };
+        let rhs = parse_value(tokens);
         let rhs = parse_factor(rhs, tokens);
 
-        expr = Expression::Binary{
+        expr = Expression::Binary {
             lhs: Box::new(expr),
             rhs: Box::new(rhs),
             operation,
@@ -141,13 +156,9 @@ pub fn parse_factor<T: Iterator<Item = Token>>(
             _ => panic!("Invalid operation"),
         };
         // Should parse an expression (everything except binary), but oh well for now
-        let rhs = if let Token::Symbol(rhs) = tokens.next().unwrap() {
-            Expression::Identifier(rhs)
-        } else {
-            panic!("No right hand side")
-        };
+        let rhs = parse_value(tokens);
 
-        expr = Expression::Binary{
+        expr = Expression::Binary {
             lhs: Box::new(expr),
             rhs: Box::new(rhs),
             operation,
@@ -311,5 +322,7 @@ fn parse_return<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> Statemen
     let return_value = parse_expression(tokens);
     // Should probably be in statement
     optional(tokens, Token::Bang);
-    Statement::Return{return_value: Box::new(return_value)}
+    Statement::Return {
+        return_value: Box::new(return_value),
+    }
 }
