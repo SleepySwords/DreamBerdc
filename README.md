@@ -1,4 +1,4 @@
-# [C](https://github.com/TodePond/C)
+# [WhenWillProgrammersStopMakingDecisionsForOurSocietyAndJustLeaveUsAloneAlsoHackerNewsIsAVileWebsite](https://github.com/TodePond/WhenWillProgrammersStopMakingDecisionsForOurSocietyAndJustLeaveUsAloneAlsoHackerNewsIsAVileWebsite)
 An attempt to make my first language, why not make it perfect.
 
 
