@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use inkwell::{
-    builder::Builder, context::Context, execution_engine::JitFunction, module::Module,
+    builder::{Builder, self}, context::Context, execution_engine::JitFunction, module::Module,
     types::BasicMetadataTypeEnum, values::IntValue,
 };
 use itertools::Itertools;
@@ -88,11 +88,39 @@ impl Compiler<'_> {
         }
     }
 
+    // FIX: ensure that basic blocks have stuff in them.
     pub fn build_if<'ctx>(
         &'ctx self,
         if_statement: IfStatement,
         symbol_table: &HashMap<String, IntValue<'ctx>>,
     ) {
+        let condition = self.build_expression(if_statement.boolean_op, symbol_table);
+        let condition = self.builder.build_int_compare(
+            inkwell::IntPredicate::NE,
+            condition,
+            self.context.i32_type().const_zero(),
+            "ifcond",
+        );
+
+        let current_function = self.builder.get_insert_block().unwrap().get_parent().unwrap();
+
+        let then_bb = self.context.append_basic_block(current_function, "then");
+        // let else_bb = self.context.append_basic_block(current_function, "else");
+        let merge_bb = self.context.append_basic_block(current_function, "ifcont");
+
+        self.builder.build_conditional_branch(condition, then_bb, merge_bb);
+
+        self.builder.position_at_end(then_bb);
+        for statement in if_statement.then_statements {
+            self.build_statement(statement, symbol_table);
+        }
+        self.builder.build_unconditional_branch(merge_bb);
+        self.builder.position_at_end(merge_bb);
+        // then_bb = self.builder.get_insert_block();
+
+        // let phi = self.builder.build_phi(self.context.f64_type(), "iftmp");
+        // phi.add_incoming(incoming)
+
         // let entry_basic_box = self.context.append_basic_block(fn_val, "entry");
         // self.builder.position_at_end(entry_basic_box);
     }
@@ -114,7 +142,7 @@ impl Compiler<'_> {
                 self.build_function(*function);
             }
             Statement::Expression(_) => todo!(),
-            Statement::If(_) => todo!(),
+            Statement::If(if_statement) => self.build_if(*if_statement, symbol_table),
         }
     }
 

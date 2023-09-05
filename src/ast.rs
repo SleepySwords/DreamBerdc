@@ -62,7 +62,7 @@ pub struct Declaration {
 #[allow(dead_code)]
 pub struct IfStatement {
     pub boolean_op: Expression,
-    pub then_statemenets: Vec<Statement>,
+    pub then_statements: Vec<Statement>,
     pub else_statements: Option<Vec<Statement>>,
 }
 

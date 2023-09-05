@@ -18,14 +18,22 @@ fn main() {
     //
     // Order function defintion matters for this!!
     let mut tokens = "
+function max(a: int, b: int) => {
+    if (a) {
+        return b!
+    }
+    return a!
+}
+
 function add(a: int, b: int) => {
     return a * b + a!
 }
 
 function main(a: int, b: int) => {
-    return add(23, add(43, 1)) * 10 + 4!
+    return max(0, 34)!
 }
 "
+    // return add(23, add(43, 1)) + add(23, add(43, 1))!
     .chars()
     .peekable();
 

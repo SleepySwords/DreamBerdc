@@ -9,6 +9,10 @@ use crate::{
     utils::Mutable,
 };
 
+
+// FIXME: This is pretty bad that we have to get the next to double peek. Which means we have to
+// pass that variable to functions.
+
 pub fn expect<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>, token: Token) {
     if let Some(t) = tokens.next() {
         if t == token {
@@ -55,7 +59,7 @@ pub fn parse_expression<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> 
                         panic!("Invalid syntax: in assignment")
                     }
                 } else {
-                    // TODO: merge with parse_value
+                    // TODO: merge with parse_value, need to create a parser that peeks twice.
                     let expr = if let Some(Token::OpenPar) = tokens.peek() {
                         tokens.next();
                         parse_call(tokens, sym)
@@ -211,7 +215,7 @@ pub fn parse_if<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> Statemen
 
     Statement::If(Box::new(IfStatement {
         boolean_op: bool_exp,
-        then_statemenets: body,
+        then_statements: body,
         else_statements: None,
     }))
 }
