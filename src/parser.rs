@@ -1,3 +1,5 @@
+use core::panic;
+
 use crate::{
     ast::{
         Assignment, Call, Declaration, Expression, Function, IfStatement, Operation, Prototype,
@@ -6,9 +8,6 @@ use crate::{
     lexer::Token,
     utils::Mutable,
 };
-
-// FIXME: This is pretty bad that we have to get the next to double peek. Which means we have to
-// pass that variable to functions.
 
 pub struct Parser {
     pub tokens: Vec<Token>,
@@ -23,6 +22,10 @@ impl Parser {
 
     pub fn peek(&mut self) -> Option<&Token> {
         return self.tokens.get(self.pos);
+    }
+
+    pub fn peek_forward(&mut self, index: usize) -> Option<&Token> {
+        return self.tokens.get(self.pos + index);
     }
 
     pub fn expect(&mut self, token: Token) {
@@ -45,6 +48,15 @@ impl Parser {
         false
     }
 
+    pub fn check_forward(&mut self, token: Token, index: usize) -> bool {
+        if let Some(t) = self.peek_forward(index) {
+            if *t == token {
+                return true;
+            }
+        }
+        false
+    }
+
     pub fn optional(&mut self, token: Token) {
         if let Some(t) = self.peek() {
             if *t == token {
@@ -59,33 +71,35 @@ impl Parser {
         }
     }
 
+    // FIX: merge this into the parse_value attribute
     pub fn parse_expression(&mut self) -> Expression {
-        if let Some(token) = self.next() {
-            return match token {
-                Token::Symbol(sym) => {
-                    if self.check(Token::Eq) {
+        return match self.peek() {
+            Some(&Token::Symbol(_)) => {
+                if self.check_forward(Token::Eq, 1) {
+                    if let Some(Token::Symbol(lhs)) = self.next() {
+                        self.next().unwrap();
                         self.expect(Token::Eq);
                         if let Some(Token::Symbol(rhs)) = self.next() {
-                            Expression::Assignment(Assignment { lhs: sym, rhs })
+                            Expression::Assignment(Assignment { lhs, rhs })
                         } else {
                             panic!("Invalid syntax: in assignment")
                         }
                     } else {
-                        // TODO: merge with parse_value, need to create a parser that peeks twice.
-                        let expr = if let Some(Token::OpenPar) = self.peek() {
-                            self.next();
-                            self.parse_call(sym)
-                        } else {
-                            Expression::Identifier(sym)
-                        };
-                        self.parse_equality(expr)
+                        panic!("Invalid state")
                     }
+                } else {
+                    self.parse_equality()
                 }
-                Token::String(str) => Expression::LiteralValue(str),
-                _ => Expression::Unkown,
-            };
-        }
-        panic!("Invalid expression")
+            }
+            Some(&Token::String(_)) => {
+                if let Some(Token::String(str)) = self.next() {
+                    Expression::LiteralValue(str)
+                } else {
+                    panic!("ajef")
+                }
+            }
+            _ => Expression::Unkown,
+        };
     }
 
     // FIX: add proper error handling, rather than panicing
@@ -108,8 +122,8 @@ impl Parser {
         panic!("Invalid expression")
     }
 
-    pub fn parse_equality(&mut self, lhs: Expression) -> Expression {
-        let mut expr = self.parse_term(lhs);
+    pub fn parse_equality(&mut self) -> Expression {
+        let mut expr = self.parse_term();
 
         while let Some(Token::EqEq | Token::EqEqEq | Token::EqEqEqEq) = self.peek() {
             let operation = match self.next().unwrap() {
@@ -118,8 +132,7 @@ impl Parser {
                 Token::EqEqEqEq => Operation::VeryStrictEquality,
                 _ => panic!("Invalid operation"),
             };
-            let rhs = self.parse_value();
-            let rhs = self.parse_term(rhs);
+            let rhs = self.parse_term();
             expr = Expression::Binary {
                 lhs: Box::new(expr),
                 operation,
@@ -130,8 +143,8 @@ impl Parser {
         expr
     }
 
-    pub fn parse_term(&mut self, lhs: Expression) -> Expression {
-        let mut expr = self.parse_factor(lhs);
+    pub fn parse_term(&mut self) -> Expression {
+        let mut expr = self.parse_factor();
 
         while let Some(Token::Plus | Token::Dash) = self.peek() {
             let operation = match self.next().unwrap() {
@@ -140,8 +153,7 @@ impl Parser {
                 _ => panic!("Invalid operation"),
             };
             // Should parse an expression (everything except binary), but oh well for now
-            let rhs = self.parse_value();
-            let rhs = self.parse_factor(rhs);
+            let rhs = self.parse_factor();
 
             expr = Expression::Binary {
                 lhs: Box::new(expr),
@@ -153,8 +165,8 @@ impl Parser {
         expr
     }
 
-    pub fn parse_factor(&mut self, lhs: Expression) -> Expression {
-        let mut expr = lhs;
+    pub fn parse_factor(&mut self) -> Expression {
+        let mut expr = self.parse_value();
 
         while let Some(Token::Star | Token::Slash) = self.peek() {
             let operation = match self.next().unwrap() {
