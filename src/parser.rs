@@ -1,5 +1,3 @@
-use std::iter::Peekable;
-
 use crate::{
     ast::{
         Assignment, Call, Declaration, Expression, Function, IfStatement, Operation, Prototype,
@@ -9,324 +7,325 @@ use crate::{
     utils::Mutable,
 };
 
-
 // FIXME: This is pretty bad that we have to get the next to double peek. Which means we have to
 // pass that variable to functions.
 
-pub fn expect<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>, token: Token) {
-    if let Some(t) = tokens.next() {
-        if t == token {
-            return;
-        } else {
-            panic!("Expected \"{:?}\", found \"{:?}\"", token, t)
+pub struct Parser {
+    pub tokens: Vec<Token>,
+    pub pos: usize,
+}
+
+impl Parser {
+    pub fn next(&mut self) -> Option<Token> {
+        self.pos += 1;
+        return self.tokens.get(self.pos - 1).cloned();
+    }
+
+    pub fn peek(&mut self) -> Option<&Token> {
+        return self.tokens.get(self.pos);
+    }
+
+    pub fn expect(&mut self, token: Token) {
+        if let Some(t) = self.next() {
+            if t == token {
+                return;
+            } else {
+                panic!("Expected \"{:?}\", found \"{:?}\"", token, t)
+            }
+        }
+        panic!("No next token found, expected \"{:?}\"", token)
+    }
+
+    pub fn check(&mut self, token: Token) -> bool {
+        if let Some(t) = self.peek() {
+            if *t == token {
+                return true;
+            }
+        }
+        false
+    }
+
+    pub fn optional(&mut self, token: Token) {
+        if let Some(t) = self.peek() {
+            if *t == token {
+                self.next();
+            }
         }
     }
-    panic!("No next token found, expected \"{:?}\"", token)
-}
 
-pub fn check<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>, token: Token) -> bool {
-    if let Some(t) = tokens.peek() {
-        if *t == token {
-            return true;
+    pub fn consume_bang(&mut self) {
+        while self.check(Token::Bang) {
+            self.next();
         }
     }
-    false
-}
 
-pub fn optional<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>, token: Token) {
-    if let Some(t) = tokens.peek() {
-        if *t == token {
-            tokens.next();
-        }
-    }
-}
-
-pub fn consume_bang<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) {
-    while check(tokens, Token::Bang) {
-        tokens.next();
-    }
-}
-
-pub fn parse_expression<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> Expression {
-    if let Some(token) = tokens.next() {
-        return match token {
-            Token::Symbol(sym) => {
-                if check(tokens, Token::Eq) {
-                    expect(tokens, Token::Eq);
-                    if let Some(Token::Symbol(rhs)) = tokens.next() {
-                        Expression::Assignment(Assignment { lhs: sym, rhs })
+    pub fn parse_expression(&mut self) -> Expression {
+        if let Some(token) = self.next() {
+            return match token {
+                Token::Symbol(sym) => {
+                    if self.check(Token::Eq) {
+                        self.expect(Token::Eq);
+                        if let Some(Token::Symbol(rhs)) = self.next() {
+                            Expression::Assignment(Assignment { lhs: sym, rhs })
+                        } else {
+                            panic!("Invalid syntax: in assignment")
+                        }
                     } else {
-                        panic!("Invalid syntax: in assignment")
+                        // TODO: merge with parse_value, need to create a parser that peeks twice.
+                        let expr = if let Some(Token::OpenPar) = self.peek() {
+                            self.next();
+                            self.parse_call(sym)
+                        } else {
+                            Expression::Identifier(sym)
+                        };
+                        self.parse_equality(expr)
                     }
-                } else {
-                    // TODO: merge with parse_value, need to create a parser that peeks twice.
-                    let expr = if let Some(Token::OpenPar) = tokens.peek() {
-                        tokens.next();
-                        parse_call(tokens, sym)
+                }
+                Token::String(str) => Expression::LiteralValue(str),
+                _ => Expression::Unkown,
+            };
+        }
+        panic!("Invalid expression")
+    }
+
+    // FIX: add proper error handling, rather than panicing
+    // Only parses identifiers, litervals or function calls.
+    pub fn parse_value(&mut self) -> Expression {
+        if let Some(token) = self.next() {
+            return match token {
+                Token::Symbol(sym) => {
+                    if let Some(Token::OpenPar) = self.peek() {
+                        self.next();
+                        self.parse_call(sym)
                     } else {
                         Expression::Identifier(sym)
-                    };
-                    parse_equality(expr, tokens)
+                    }
                 }
-            }
-            Token::String(str) => Expression::LiteralValue(str),
-            _ => Expression::Unkown,
-        };
+                Token::String(str) => Expression::LiteralValue(str),
+                _ => Expression::Unkown,
+            };
+        }
+        panic!("Invalid expression")
     }
-    panic!("Invalid expression")
-}
 
-// FIX: add proper error handling, rather than panicing
-// Only parses identifiers, litervals or function calls.
-pub fn parse_value<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> Expression {
-    if let Some(token) = tokens.next() {
-        return match token {
-            Token::Symbol(sym) => {
-                if let Some(Token::OpenPar) = tokens.peek() {
-                    tokens.next();
-                    parse_call(tokens, sym)
+    pub fn parse_equality(&mut self, lhs: Expression) -> Expression {
+        let mut expr = self.parse_term(lhs);
+
+        while let Some(Token::EqEq | Token::EqEqEq | Token::EqEqEqEq) = self.peek() {
+            let operation = match self.next().unwrap() {
+                Token::EqEq => Operation::Equality,
+                Token::EqEqEq => Operation::StrictEquality,
+                Token::EqEqEqEq => Operation::VeryStrictEquality,
+                _ => panic!("Invalid operation"),
+            };
+            let rhs = self.parse_value();
+            let rhs = self.parse_term(rhs);
+            expr = Expression::Binary {
+                lhs: Box::new(expr),
+                operation,
+                rhs: Box::new(rhs),
+            };
+        }
+
+        expr
+    }
+
+    pub fn parse_term(&mut self, lhs: Expression) -> Expression {
+        let mut expr = self.parse_factor(lhs);
+
+        while let Some(Token::Plus | Token::Dash) = self.peek() {
+            let operation = match self.next().unwrap() {
+                Token::Plus => Operation::Add,
+                Token::Dash => Operation::Subtract,
+                _ => panic!("Invalid operation"),
+            };
+            // Should parse an expression (everything except binary), but oh well for now
+            let rhs = self.parse_value();
+            let rhs = self.parse_factor(rhs);
+
+            expr = Expression::Binary {
+                lhs: Box::new(expr),
+                rhs: Box::new(rhs),
+                operation,
+            };
+        }
+
+        expr
+    }
+
+    pub fn parse_factor(&mut self, lhs: Expression) -> Expression {
+        let mut expr = lhs;
+
+        while let Some(Token::Star | Token::Slash) = self.peek() {
+            let operation = match self.next().unwrap() {
+                Token::Star => Operation::Multiply,
+                Token::Slash => Operation::Divide,
+                _ => panic!("Invalid operation"),
+            };
+            // Should parse an expression (everything except binary), but oh well for now
+            let rhs = self.parse_value();
+
+            expr = Expression::Binary {
+                lhs: Box::new(expr),
+                rhs: Box::new(rhs),
+                operation,
+            };
+        }
+
+        expr
+    }
+
+    fn parse_call(&mut self, callee: String) -> Expression {
+        let mut args = Vec::new();
+        while let Some(token) = self.peek() {
+            if *token == Token::ClosePar {
+                self.next();
+                return Expression::Call(Call {
+                    callee,
+                    arguments: args,
+                });
+            }
+
+            args.push(self.parse_expression());
+
+            if Some(&Token::ClosePar) != self.peek() {
+                if let Some(Token::Comma) = self.peek() {
+                    self.next();
                 } else {
-                    Expression::Identifier(sym)
+                    panic!("Invalid syntax: no comma, found instead {:?}", self.peek())
                 }
             }
-            Token::String(str) => Expression::LiteralValue(str),
-            _ => Expression::Unkown,
-        };
-    }
-    panic!("Invalid expression")
-}
-
-pub fn parse_equality<T: Iterator<Item = Token>>(
-    lhs: Expression,
-    tokens: &mut Peekable<T>,
-) -> Expression {
-    let expr = parse_term(lhs, tokens);
-
-    while let Some(Token::EqEq | Token::EqEqEq | Token::EqEqEqEq) = tokens.peek() {
-        let operation = match tokens.next().unwrap() {
-            Token::EqEq => Operation::Equality,
-            Token::EqEqEq => Operation::StrictEquality,
-            Token::EqEqEqEq => Operation::VeryStrictEquality,
-            _ => panic!("Invalid operation"),
-        };
-        let rhs = parse_value(tokens);
-        let rhs = parse_term(rhs, tokens);
-        return Expression::Binary {
-            lhs: Box::new(expr),
-            operation,
-            rhs: Box::new(rhs),
-        };
-    }
-
-    return expr;
-}
-
-pub fn parse_term<T: Iterator<Item = Token>>(
-    lhs: Expression,
-    tokens: &mut Peekable<T>,
-) -> Expression {
-    let mut expr = parse_factor(lhs, tokens);
-
-    while let Some(Token::Plus | Token::Dash) = tokens.peek() {
-        let operation = match tokens.next().unwrap() {
-            Token::Plus => Operation::Add,
-            Token::Dash => Operation::Subtract,
-            _ => panic!("Invalid operation"),
-        };
-        // Should parse an expression (everything except binary), but oh well for now
-        let rhs = parse_value(tokens);
-        let rhs = parse_factor(rhs, tokens);
-
-        expr = Expression::Binary {
-            lhs: Box::new(expr),
-            rhs: Box::new(rhs),
-            operation,
-        };
-    }
-
-    expr
-}
-
-pub fn parse_factor<T: Iterator<Item = Token>>(
-    lhs: Expression,
-    tokens: &mut Peekable<T>,
-) -> Expression {
-    let mut expr = lhs;
-
-    while let Some(Token::Star | Token::Slash) = tokens.peek() {
-        let operation = match tokens.next().unwrap() {
-            Token::Star => Operation::Multiply,
-            Token::Slash => Operation::Divide,
-            _ => panic!("Invalid operation"),
-        };
-        // Should parse an expression (everything except binary), but oh well for now
-        let rhs = parse_value(tokens);
-
-        expr = Expression::Binary {
-            lhs: Box::new(expr),
-            rhs: Box::new(rhs),
-            operation,
-        };
-    }
-
-    expr
-}
-
-fn parse_call<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>, callee: String) -> Expression {
-    let mut args = Vec::new();
-    while let Some(token) = tokens.peek() {
-        if *token == Token::ClosePar {
-            tokens.next();
-            return Expression::Call(Call {
-                callee,
-                arguments: args,
-            });
         }
-
-        args.push(parse_expression(tokens));
-
-        if Some(&Token::ClosePar) != tokens.peek() {
-            if let Some(Token::Comma) = tokens.peek() {
-                tokens.next();
-            } else {
-                panic!(
-                    "Invalid syntax: no comma, found instead {:?}",
-                    tokens.peek()
-                )
-            }
-        }
+        Expression::Unkown
     }
-    Expression::Unkown
-}
 
-pub fn parse_if<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> Statement {
-    expect(tokens, Token::If);
-    expect(tokens, Token::OpenPar);
-    let bool_exp = parse_expression(tokens);
-    expect(tokens, Token::ClosePar);
-    let body = if let Some(Token::OpenCurB) = tokens.peek() {
-        parse_body(tokens)
-    } else {
-        // TODO: Should this be a parse_statement?
-        // Is `function main() => function hi() => {}`
-        // valid?
-        vec![Statement::Expression(parse_expression(tokens))]
-    };
+    pub fn parse_if(&mut self) -> Statement {
+        self.expect(Token::If);
+        self.expect(Token::OpenPar);
+        let bool_exp = self.parse_expression();
+        self.expect(Token::ClosePar);
+        let body = if let Some(Token::OpenCurB) = self.peek() {
+            self.parse_body()
+        } else {
+            // TODO: Should this be a parse_statement?
+            // Is `function main() => function hi() => {}`
+            // valid?
+            vec![Statement::Expression(self.parse_expression())]
+        };
 
-    Statement::If(Box::new(IfStatement {
-        boolean_op: bool_exp,
-        then_statements: body,
-        else_statements: None,
-    }))
-}
+        Statement::If(Box::new(IfStatement {
+            boolean_op: bool_exp,
+            then_statements: body,
+            else_statements: None,
+        }))
+    }
 
-pub fn parse_function<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> Statement {
-    let prototype = parse_prototype(tokens);
-    expect(tokens, Token::Arrow);
-    let body = if let Some(Token::OpenCurB) = tokens.peek() {
-        parse_body(tokens)
-    } else {
-        // TODO: Should this be a parse_statement?
-        // Is `function main() => function hi() => {}`
-        // valid?
-        vec![Statement::Expression(parse_expression(tokens))]
-    };
-    Statement::Function(Box::new(Function { prototype, body }))
-}
+    pub fn parse_function(&mut self) -> Statement {
+        let prototype = self.parse_prototype();
+        self.expect(Token::Arrow);
+        let body = if let Some(Token::OpenCurB) = self.peek() {
+            self.parse_body()
+        } else {
+            // TODO: Should this be a parse_statement?
+            // Is `function main() => function hi() => {}`
+            // valid?
+            vec![Statement::Expression(self.parse_expression())]
+        };
+        Statement::Function(Box::new(Function { prototype, body }))
+    }
 
-pub fn parse_prototype<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> Prototype {
-    expect(tokens, Token::Function);
+    pub fn parse_prototype(&mut self) -> Prototype {
+        self.expect(Token::Function);
 
-    if let Some(Token::Symbol(name)) = tokens.next() {
-        expect(tokens, Token::OpenPar);
-        let mut arguments = Vec::new();
-        while let Some(t) = tokens.next() {
-            if let Token::ClosePar = t {
-                return Prototype { name, arguments };
-            }
+        if let Some(Token::Symbol(name)) = self.next() {
+            self.expect(Token::OpenPar);
+            let mut arguments = Vec::new();
+            while let Some(t) = self.next() {
+                if let Token::ClosePar = t {
+                    return Prototype { name, arguments };
+                }
 
-            if let Token::Symbol(arg) = t {
-                expect(tokens, Token::Colon);
-                if let Some(Token::Symbol(t)) = tokens.next() {
-                    arguments.push((arg, t));
-                    if let Some(Token::ClosePar) = tokens.peek() {
-                        continue;
+                if let Token::Symbol(arg) = t {
+                    self.expect(Token::Colon);
+                    if let Some(Token::Symbol(t)) = self.next() {
+                        arguments.push((arg, t));
+                        if let Some(Token::ClosePar) = self.peek() {
+                            continue;
+                        } else {
+                            self.expect(Token::Comma);
+                        }
                     } else {
-                        expect(tokens, Token::Comma);
+                        panic!("No type")
                     }
                 } else {
-                    panic!("No type")
+                    panic!("Unexpected token")
                 }
+            }
+        }
+
+        panic!("Awef")
+    }
+
+    pub fn parse_body(&mut self) -> Vec<Statement> {
+        let mut statements = Vec::new();
+        self.expect(Token::OpenCurB);
+        while !self.check(Token::CloseCurB) {
+            match self.peek() {
+                Some(Token::Const | Token::Var) => statements.push(self.parse_declaration()),
+                Some(Token::Return) => statements.push(self.parse_return()),
+                Some(Token::If) => statements.push(self.parse_if()),
+                Some(Token::Function) => statements.push(self.parse_function()),
+                _ => {
+                    statements.push(Statement::Expression(self.parse_expression()));
+                    self.consume_bang();
+                }
+            }
+        }
+        self.expect(Token::CloseCurB);
+        statements
+    }
+
+    pub fn parse_declaration(&mut self) -> Statement {
+        let mut flags = Mutable::NONE;
+        if let Some(first_op) = self.next() {
+            if let Some(second_op) = self.next() {
+                const ALLOWED_TOKENS: [Token; 2] = [Token::Var, Token::Const];
+                if !ALLOWED_TOKENS.contains(&first_op) || !ALLOWED_TOKENS.contains(&second_op) {
+                    panic!("invalid declaration syntax.")
+                }
+                if first_op == Token::Var {
+                    flags |= Mutable::Reassignable;
+                }
+                if second_op == Token::Var {
+                    flags |= Mutable::Modifiable;
+                }
+            }
+        }
+
+        if let Some(Token::Symbol(lhs)) = self.next() {
+            if let Some(Token::Eq) = self.next() {
+                let rhs = self.parse_expression();
+                self.consume_bang();
+                Statement::Declaration(Box::new(Declaration {
+                    mutable: flags,
+                    lhs,
+                    rhs,
+                }))
             } else {
-                panic!("Unexpected token")
+                panic!("Expected '=' in the declaration.")
             }
-        }
-    }
-
-    panic!("Awef")
-}
-
-pub fn parse_body<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> Vec<Statement> {
-    let mut statements = Vec::new();
-    expect(tokens, Token::OpenCurB);
-    while !check(tokens, Token::CloseCurB) {
-        if check(tokens, Token::Const) || check(tokens, Token::Var) {
-            statements.push(parse_declaration(tokens));
-        } else if check(tokens, Token::Return) {
-            statements.push(parse_return(tokens));
-        } else if check(tokens, Token::If) {
-            statements.push(parse_if(tokens));
-        } else if check(tokens, Token::Function) {
-            statements.push(parse_function(tokens));
         } else {
-            statements.push(Statement::Expression(parse_expression(tokens)));
-            consume_bang(tokens);
-        }
-    }
-    expect(tokens, Token::CloseCurB);
-    statements
-}
-
-pub fn parse_declaration<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> Statement {
-    let mut flags = Mutable::NONE;
-    if let Some(first_op) = tokens.next() {
-        if let Some(second_op) = tokens.next() {
-            const ALLOWED_TOKENS: [Token; 2] = [Token::Var, Token::Const];
-            if !ALLOWED_TOKENS.contains(&first_op) || !ALLOWED_TOKENS.contains(&second_op) {
-                panic!("invalid declaration syntax.")
-            }
-            if first_op == Token::Var {
-                flags |= Mutable::Reassignable;
-            }
-            if second_op == Token::Var {
-                flags |= Mutable::Modifiable;
-            }
+            panic!("Missing identifier for declaration.")
         }
     }
 
-    if let Some(Token::Symbol(lhs)) = tokens.next() {
-        if let Some(Token::Eq) = tokens.next() {
-            let rhs = parse_expression(tokens);
-            consume_bang(tokens);
-            Statement::Declaration(Box::new(Declaration {
-                mutable: flags,
-                lhs,
-                rhs,
-            }))
-        } else {
-            panic!("Expected '=' in the declaration.")
+    fn parse_return(&mut self) -> Statement {
+        self.expect(Token::Return);
+        let return_value = self.parse_expression();
+        // Should probably be in statement
+        self.optional(Token::Bang);
+        Statement::Return {
+            return_value: Box::new(return_value),
         }
-    } else {
-        panic!("Missing identifier for declaration.")
-    }
-}
-
-fn parse_return<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> Statement {
-    expect(tokens, Token::Return);
-    let return_value = parse_expression(tokens);
-    // Should probably be in statement
-    optional(tokens, Token::Bang);
-    Statement::Return {
-        return_value: Box::new(return_value),
     }
 }

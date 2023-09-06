@@ -2,7 +2,11 @@ use std::collections::HashMap;
 
 use inkwell::context::Context;
 
-use crate::{codegen::Compiler, lexer::{tokenize, Token}, parser::parse_function};
+use crate::{
+    codegen::Compiler,
+    lexer::{tokenize, Token},
+    parser::Parser,
+};
 
 mod ast;
 mod codegen;
@@ -30,7 +34,7 @@ function add(a: int, b: int) => {
 }
 
 function main(a: int, b: int) => {
-    return max(0, 34)!
+    return add(23, add(43, 1)) * 4!
 }
 "
     // return add(23, add(43, 1)) + add(23, add(43, 1))!
@@ -41,10 +45,13 @@ function main(a: int, b: int) => {
 
     println!("{:?}", ts);
 
-    let mut tokens = ts.into_iter().peekable();
+    // let mut tokens = ts.into_iter().peekable();
     let mut statements = Vec::new();
-    while !tokens.peek().is_some_and(|f| *f == Token::Eof) {
-        statements.push(parse_function(&mut tokens));
+
+    let mut parser = Parser { tokens: ts, pos: 0 };
+
+    while !parser.peek().is_some_and(|f| *f == Token::Eof) {
+        statements.push(parser.parse_function());
     }
     println!("{:?}", statements);
     let context = Context::create();

@@ -1,6 +1,6 @@
 use std::iter::Peekable;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Token {
     Eof,
     Symbol(String),
@@ -37,8 +37,7 @@ pub enum Token {
     Function,
     Return,
     If,
-
-//     Unkown,
+    //     Unkown,
 }
 
 pub fn tokenize<T: Iterator<Item = char>>(tokens: &mut Peekable<T>) -> Vec<Token> {

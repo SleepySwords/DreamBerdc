@@ -1,8 +1,12 @@
 use std::collections::HashMap;
 
 use inkwell::{
-    builder::{Builder, self}, context::Context, execution_engine::JitFunction, module::Module,
-    types::BasicMetadataTypeEnum, values::IntValue,
+    builder::{Builder},
+    context::Context,
+    execution_engine::JitFunction,
+    module::Module,
+    types::BasicMetadataTypeEnum,
+    values::IntValue,
 };
 use itertools::Itertools;
 
@@ -102,13 +106,19 @@ impl Compiler<'_> {
             "ifcond",
         );
 
-        let current_function = self.builder.get_insert_block().unwrap().get_parent().unwrap();
+        let current_function = self
+            .builder
+            .get_insert_block()
+            .unwrap()
+            .get_parent()
+            .unwrap();
 
         let then_bb = self.context.append_basic_block(current_function, "then");
         // let else_bb = self.context.append_basic_block(current_function, "else");
         let merge_bb = self.context.append_basic_block(current_function, "ifcont");
 
-        self.builder.build_conditional_branch(condition, then_bb, merge_bb);
+        self.builder
+            .build_conditional_branch(condition, then_bb, merge_bb);
 
         self.builder.position_at_end(then_bb);
         for statement in if_statement.then_statements {
