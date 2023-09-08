@@ -37,6 +37,8 @@ pub enum Token {
     Function,
     Return,
     If,
+    Lt,
+    Gt,
     //     Unkown,
 }
 
@@ -62,6 +64,8 @@ pub fn tokenize<T: Iterator<Item = char>>(tokens: &mut Peekable<T>) -> Vec<Token
             '?' => Token::Question,
             '!' => Token::Bang,
             ',' => Token::Comma,
+            '>' => Token::Lt,
+            '<' => Token::Gt,
             '"' => string(tokens),
             _ => {
                 if !token.is_alphanumeric() {
@@ -82,7 +86,9 @@ pub fn tokenize<T: Iterator<Item = char>>(tokens: &mut Peekable<T>) -> Vec<Token
                     "return" => Token::Return,
                     "if" => Token::If,
                     i => {
-                        if "function".contains(i) {
+                        // FIX: supposed to be in, but like yea turns out it could be detected for
+                        // sybmols (not good)
+                        if "function" == (i) {
                             Token::Function
                         } else {
                             Token::Symbol(i.to_string())
@@ -99,6 +105,7 @@ pub fn tokenize<T: Iterator<Item = char>>(tokens: &mut Peekable<T>) -> Vec<Token
 
 fn equal<T: Iterator<Item = char>>(tokens: &mut Peekable<T>) -> Token {
     if Some(&'>') == tokens.peek() {
+        tokens.next();
         return Token::Arrow;
     }
     let mut eq_count = 1;

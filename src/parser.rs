@@ -125,11 +125,13 @@ impl Parser {
     pub fn parse_equality(&mut self) -> Expression {
         let mut expr = self.parse_term();
 
-        while let Some(Token::EqEq | Token::EqEqEq | Token::EqEqEqEq) = self.peek() {
+        while let Some(Token::EqEq | Token::EqEqEq | Token::EqEqEqEq | Token::Lt | Token::Gt) = self.peek() {
             let operation = match self.next().unwrap() {
-                Token::EqEq => Operation::Equality,
-                Token::EqEqEq => Operation::StrictEquality,
-                Token::EqEqEqEq => Operation::VeryStrictEquality,
+                Token::EqEq => Operation::Equal,
+                Token::EqEqEq => Operation::StrictEqual,
+                Token::EqEqEqEq => Operation::VeryStrictEqual,
+                Token::Lt => Operation::Less,
+                Token::Gt => Operation::Greater,
                 _ => panic!("Invalid operation"),
             };
             let rhs = self.parse_term();
@@ -152,7 +154,6 @@ impl Parser {
                 Token::Dash => Operation::Subtract,
                 _ => panic!("Invalid operation"),
             };
-            // Should parse an expression (everything except binary), but oh well for now
             let rhs = self.parse_factor();
 
             expr = Expression::Binary {
@@ -174,7 +175,6 @@ impl Parser {
                 Token::Slash => Operation::Divide,
                 _ => panic!("Invalid operation"),
             };
-            // Should parse an expression (everything except binary), but oh well for now
             let rhs = self.parse_value();
 
             expr = Expression::Binary {
@@ -270,7 +270,7 @@ impl Parser {
                         panic!("No type")
                     }
                 } else {
-                    panic!("Unexpected token")
+                    panic!("Unexpected token {:?}", t)
                 }
             }
         }

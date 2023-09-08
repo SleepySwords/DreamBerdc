@@ -1,12 +1,8 @@
-use std::collections::HashMap;
+use std::{cmp::Ordering, collections::HashMap};
 
 use inkwell::{
-    builder::{Builder},
-    context::Context,
-    execution_engine::JitFunction,
-    module::Module,
-    types::BasicMetadataTypeEnum,
-    values::IntValue,
+    builder::Builder, context::Context, execution_engine::JitFunction, module::Module,
+    types::BasicMetadataTypeEnum, values::IntValue, IntPredicate,
 };
 use itertools::Itertools;
 
@@ -73,6 +69,18 @@ impl Compiler<'_> {
                     crate::ast::Operation::Multiply => self.builder.build_int_mul(lhs, rhs, "mul"),
                     crate::ast::Operation::Divide => {
                         self.builder.build_int_signed_div(lhs, rhs, "div")
+                    }
+                    crate::ast::Operation::Less => {
+                        self.builder
+                            .build_int_compare(IntPredicate::SLT, lhs, rhs, "cond")
+                    }
+                    crate::ast::Operation::Greater => {
+                        self.builder
+                            .build_int_compare(IntPredicate::SGT, lhs, rhs, "cond")
+                    }
+                    crate::ast::Operation::Equal => {
+                        self.builder
+                            .build_int_compare(IntPredicate::EQ, lhs, rhs, "cond")
                     }
                     _ => panic!("aefj"),
                 }

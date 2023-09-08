@@ -22,9 +22,11 @@ pub enum Operation {
     Subtract,
     Multiply,
     Divide,
-    Equality,
-    StrictEquality,
-    VeryStrictEquality,
+    Equal,
+    StrictEqual,
+    VeryStrictEqual,
+    Greater,
+    Less
 }
 
 #[derive(Debug, Clone)]

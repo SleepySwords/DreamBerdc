@@ -22,9 +22,9 @@ fn main() {
     //
     // Order function defintion matters for this!!
     let mut tokens = "
-function max(a: int, b: int) => {
-    if (a) {
-        return b!
+function max(a: int, b: int, c: int) => {
+    if (a < b) {
+        return c!
     }
     return a!
 }
@@ -34,7 +34,7 @@ function add(a: int, b: int) => {
 }
 
 function main(a: int, b: int) => {
-    return add(23, add(43, 1)) * 4!
+    return max(10, 11, 3)
 }
 "
     // return add(23, add(43, 1)) + add(23, add(43, 1))!
