@@ -32,8 +32,9 @@ function max(a: int, b: int, c: int) => {
         d = 0!
     }
     if (a > b) {
-        d = 1!
+        d = d + 1!
     }
+    d = d +  1!
     return d!
 }
 
@@ -42,7 +43,7 @@ function add(a: int, b: int) => {
 }
 
 function main(a: int, b: int) => {
-    return max(4, 1, 3)
+    return max(4, 12, 3)
 }
 "
     // return add(23, add(43, 1)) + add(23, add(43, 1))!

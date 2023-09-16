@@ -214,6 +214,7 @@ impl Compiler<'_> {
         match statement {
             Statement::Declaration(declaration) => {
                 let variable = self.builder.build_alloca(self.context.i32_type(), &declaration.lhs);
+                self.builder.build_store(variable, self.build_expression(declaration.rhs, symbol_table, ptr_symbol_table));
                 ptr_symbol_table.insert(declaration.lhs, variable);
             }
             Statement::Return { return_value } => {
