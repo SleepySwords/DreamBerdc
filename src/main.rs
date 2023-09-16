@@ -21,12 +21,20 @@ fn main() {
     // Rather than poducing a syntax error.
     //
     // Order function defintion matters for this!!
+    //
+    // for (var var i = 0; i > b; i++) {
+    //     i + a!
+    // }
     let mut tokens = "
 function max(a: int, b: int, c: int) => {
+    var var d = 10!
     if (a < b) {
-        return c!
+        d = 0!
     }
-    return a!
+    if (a > b) {
+        d = 1!
+    }
+    return d!
 }
 
 function add(a: int, b: int) => {
@@ -34,7 +42,7 @@ function add(a: int, b: int) => {
 }
 
 function main(a: int, b: int) => {
-    return max(10, 11, 3)
+    return max(4, 1, 3)
 }
 "
     // return add(23, add(43, 1)) + add(23, add(43, 1))!
@@ -62,9 +70,10 @@ function main(a: int, b: int) => {
         module,
         builder,
     };
-    let hashmap = HashMap::new();
+    let mut hashmap = HashMap::new();
+    let mut ptr_hashmap = HashMap::new();
     for statement in &statements {
-        compiler.build_statement(statement.clone(), &hashmap);
+        compiler.build_statement(statement.clone(), &mut hashmap, &mut ptr_hashmap);
     }
     compiler.compile();
 }

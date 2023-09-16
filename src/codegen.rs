@@ -1,12 +1,12 @@
-use std::{cmp::Ordering, collections::HashMap};
+use std::collections::HashMap;
 
 use inkwell::{
     builder::Builder, context::Context, execution_engine::JitFunction, module::Module,
-    types::BasicMetadataTypeEnum, values::IntValue, IntPredicate,
+    types::BasicMetadataTypeEnum, values::{IntValue, PointerValue}, IntPredicate,
 };
 use itertools::Itertools;
 
-use crate::ast::{Call, Expression, Function, IfStatement, Statement};
+use crate::ast::{Call, Declaration, Expression, ForStatement, Function, IfStatement, Statement};
 
 pub struct Compiler<'ctx> {
     pub context: &'ctx Context,
@@ -32,7 +32,7 @@ impl Compiler<'_> {
         let entry_basic_box = self.context.append_basic_block(fn_val, "entry");
         self.builder.position_at_end(entry_basic_box);
 
-        let symbol_table = function
+        let mut symbol_table = function
             .prototype
             .arguments
             .into_iter()
@@ -45,15 +45,20 @@ impl Compiler<'_> {
             })
             .collect();
 
+        let mut ptr_value = HashMap::new();
+
         for statement in function.body {
-            self.build_statement(statement, &symbol_table);
+            self.build_statement(statement, &mut symbol_table, &mut ptr_value);
         }
+        // FIX: catch all return...
+        self.builder.build_return(None);
     }
 
     fn build_expression<'ctx>(
         &'ctx self,
         expression: Expression,
-        symbol_table: &HashMap<String, IntValue<'ctx>>,
+        symbol_table: &mut HashMap<String, IntValue<'ctx>>,
+        ptr_symbol_table: &mut HashMap<String, PointerValue<'ctx>>,
     ) -> IntValue<'ctx> {
         match expression {
             Expression::Binary {
@@ -61,8 +66,8 @@ impl Compiler<'_> {
                 operation,
                 rhs,
             } => {
-                let lhs = self.build_expression(*lhs, symbol_table);
-                let rhs = self.build_expression(*rhs, symbol_table);
+                let lhs = self.build_expression(*lhs, symbol_table, ptr_symbol_table);
+                let rhs = self.build_expression(*rhs, symbol_table, ptr_symbol_table);
                 match operation {
                     crate::ast::Operation::Add => self.builder.build_int_add(lhs, rhs, "add"),
                     crate::ast::Operation::Subtract => self.builder.build_int_sub(lhs, rhs, "sub"),
@@ -85,15 +90,22 @@ impl Compiler<'_> {
                     _ => panic!("aefj"),
                 }
             }
-            Expression::Call(call) => self.build_call(call, symbol_table),
-            Expression::Assignment(_) => todo!(),
+            Expression::Call(call) => self.build_call(call, symbol_table, ptr_symbol_table),
+            Expression::Assignment(assignment) => {
+                let ptr = ptr_symbol_table[&assignment.lhs];
+                self.builder.build_store(ptr, self.build_expression(*assignment.rhs, symbol_table, ptr_symbol_table));
+                self.context.i32_type().const_zero()
+            },
             Expression::LiteralValue(_) => todo!(),
             Expression::Identifier(id) => {
-                if symbol_table.contains_key(&id) {
+                if ptr_symbol_table.contains_key(&id) {
+                    let value = self.builder.build_load(self.context.i32_type(), ptr_symbol_table[&id], &id);
+                    value.into_int_value()
+                } else if symbol_table.contains_key(&id) {
                     symbol_table[&id]
                 } else {
                     let i32_type = self.context.i32_type();
-                    i32_type.const_int(id.parse().expect("Invalid constant"), false)
+                    i32_type.const_int(id.parse().expect(&format!("Invalid constant: {}", id)), false)
                 }
             }
             Expression::Unkown => todo!(),
@@ -104,9 +116,10 @@ impl Compiler<'_> {
     pub fn build_if<'ctx>(
         &'ctx self,
         if_statement: IfStatement,
-        symbol_table: &HashMap<String, IntValue<'ctx>>,
+        symbol_table: &mut HashMap<String, IntValue<'ctx>>,
+        ptr_symbol_table: &mut HashMap<String, PointerValue<'ctx>>,
     ) {
-        let condition = self.build_expression(if_statement.boolean_op, symbol_table);
+        let condition = self.build_expression(if_statement.boolean_op, symbol_table, ptr_symbol_table);
         let condition = self.builder.build_int_compare(
             inkwell::IntPredicate::NE,
             condition,
@@ -130,44 +143,99 @@ impl Compiler<'_> {
 
         self.builder.position_at_end(then_bb);
         for statement in if_statement.then_statements {
-            self.build_statement(statement, symbol_table);
+            self.build_statement(statement, symbol_table, ptr_symbol_table);
         }
         self.builder.build_unconditional_branch(merge_bb);
         self.builder.position_at_end(merge_bb);
-        // then_bb = self.builder.get_insert_block();
+    }
 
-        // let phi = self.builder.build_phi(self.context.f64_type(), "iftmp");
-        // phi.add_incoming(incoming)
+    pub fn build_for<'ctx>(
+        &'ctx self,
+        for_statement: ForStatement,
+        symbol_table: &mut HashMap<String, IntValue<'ctx>>,
+        ptr_symbol_table: &mut HashMap<String, PointerValue<'ctx>>,
+    ) {
+        let current_function = self
+            .builder
+            .get_insert_block()
+            .unwrap()
+            .get_parent()
+            .unwrap();
+        let entry_bb = self.builder.get_insert_block().unwrap();
 
-        // let entry_basic_box = self.context.append_basic_block(fn_val, "entry");
-        // self.builder.position_at_end(entry_basic_box);
+        let loop_bb = self.context.append_basic_block(current_function, "loop");
+        self.builder.build_unconditional_branch(loop_bb);
+
+        self.builder.position_at_end(loop_bb);
+        if let Statement::Declaration(decl) = for_statement.initialiser {
+            let Declaration {
+                mutable: _,
+                lhs,
+                rhs,
+            } = *decl;
+            let phi_value = self.builder.build_phi(self.context.i32_type(), &lhs);
+            phi_value.add_incoming(&[(&self.build_expression(rhs, symbol_table, ptr_symbol_table), entry_bb)]);
+
+            // May shadow, but too lazy
+            symbol_table.insert(lhs, phi_value.as_basic_value().into_int_value());
+
+            for statement in for_statement.body.unwrap() {
+                self.build_statement(statement, symbol_table, ptr_symbol_table)
+            }
+
+            let step_value = self.context.i32_type().const_int(1, false);
+            let next_var = self.builder.build_int_add(
+                phi_value.as_basic_value().into_int_value(),
+                step_value,
+                "nextvar",
+            );
+
+            let end_value = self.build_expression(for_statement.condition, symbol_table, ptr_symbol_table);
+            let end_cond = self.builder.build_int_compare(IntPredicate::NE, end_value, self.context.i32_type().const_zero(), "loopcond");
+
+            let loopend_bb = self.builder.get_insert_block().unwrap();
+            let after_bb = self.context.append_basic_block(current_function, "afterloop");
+
+            self.builder.build_conditional_branch(end_cond, loop_bb, after_bb);
+            self.builder.position_at_end(after_bb);
+
+            phi_value.add_incoming(&[(&next_var, loopend_bb)]);
+        } else {
+            panic!("What the flip")
+        }
     }
 
     pub fn build_statement<'ctx>(
         &'ctx self,
         statement: Statement,
-        symbol_table: &HashMap<String, IntValue<'ctx>>,
+        symbol_table: &mut HashMap<String, IntValue<'ctx>>,
+        ptr_symbol_table: &mut HashMap<String, PointerValue<'ctx>>,
     ) {
         match statement {
-            Statement::Declaration(_) => {
-                todo!("Implement declaration")
+            Statement::Declaration(declaration) => {
+                let variable = self.builder.build_alloca(self.context.i32_type(), &declaration.lhs);
+                ptr_symbol_table.insert(declaration.lhs, variable);
             }
             Statement::Return { return_value } => {
-                let value = self.build_expression(*return_value, symbol_table);
+                let value = self.build_expression(*return_value, symbol_table, ptr_symbol_table);
                 self.builder.build_return(Some(&value));
             }
             Statement::Function(function) => {
                 self.build_function(*function);
             }
-            Statement::Expression(_) => todo!(),
-            Statement::If(if_statement) => self.build_if(*if_statement, symbol_table),
+            Statement::Expression(expr) => {
+                self.build_expression(expr, symbol_table, ptr_symbol_table);
+            }
+            Statement::If(if_statement) => self.build_if(*if_statement, symbol_table, ptr_symbol_table),
+            Statement::For(for_statement) => self.build_for(*for_statement, symbol_table, ptr_symbol_table),
         }
     }
 
     pub fn build_call<'ctx>(
         &'ctx self,
         call: Call,
-        symbol_table: &HashMap<String, IntValue<'ctx>>,
+        symbol_table: &mut HashMap<String, IntValue<'ctx>>,
+        ptr_symbol_table: &mut HashMap<String, PointerValue<'ctx>>,
     ) -> IntValue<'ctx> {
         if let Some(function) = self.module.get_function(&call.callee) {
             if function.count_params() != call.arguments.len() as u32 {
@@ -178,7 +246,7 @@ impl Compiler<'_> {
                 function,
                 call.arguments
                     .iter()
-                    .map(|f| self.build_expression(f.clone(), symbol_table).into())
+                    .map(|f| self.build_expression(f.clone(), symbol_table, ptr_symbol_table).into())
                     .collect_vec()
                     .as_slice(),
                 "calltmp",

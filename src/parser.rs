@@ -2,8 +2,8 @@ use core::panic;
 
 use crate::{
     ast::{
-        Assignment, Call, Declaration, Expression, Function, IfStatement, Operation, Prototype,
-        Statement,
+        Assignment, Call, Declaration, Expression, ForStatement, Function, IfStatement, Operation,
+        Prototype, Statement,
     },
     lexer::Token,
     utils::Mutable,
@@ -77,13 +77,9 @@ impl Parser {
             Some(&Token::Symbol(_)) => {
                 if self.check_forward(Token::Eq, 1) {
                     if let Some(Token::Symbol(lhs)) = self.next() {
-                        self.next().unwrap();
                         self.expect(Token::Eq);
-                        if let Some(Token::Symbol(rhs)) = self.next() {
-                            Expression::Assignment(Assignment { lhs, rhs })
-                        } else {
-                            panic!("Invalid syntax: in assignment")
-                        }
+                        let rhs = self.parse_expression();
+                        Expression::Assignment(Assignment { lhs, rhs: Box::new(rhs) })
                     } else {
                         panic!("Invalid state")
                     }
@@ -98,7 +94,7 @@ impl Parser {
                     panic!("ajef")
                 }
             }
-            _ => Expression::Unkown,
+            a => panic!("Unkown token: {:?}", a),
         };
     }
 
@@ -125,7 +121,9 @@ impl Parser {
     pub fn parse_equality(&mut self) -> Expression {
         let mut expr = self.parse_term();
 
-        while let Some(Token::EqEq | Token::EqEqEq | Token::EqEqEqEq | Token::Lt | Token::Gt) = self.peek() {
+        while let Some(Token::EqEq | Token::EqEqEq | Token::EqEqEqEq | Token::Lt | Token::Gt) =
+            self.peek()
+        {
             let operation = match self.next().unwrap() {
                 Token::EqEq => Operation::Equal,
                 Token::EqEqEq => Operation::StrictEqual,
@@ -232,6 +230,35 @@ impl Parser {
         }))
     }
 
+    pub fn parse_for(&mut self) -> Statement {
+        self.expect(Token::For);
+        self.expect(Token::OpenPar);
+        let initialiser = self.parse_declaration();
+
+        self.expect(Token::Semicolon);
+        let condition = self.parse_expression();
+
+        self.expect(Token::Semicolon);
+        let accumalator = self.parse_expression();
+        self.expect(Token::ClosePar);
+
+        let body = if let Some(Token::OpenCurB) = self.peek() {
+            self.parse_body()
+        } else {
+            // TODO: Should this be a parse_statement?
+            // Is `function main() => function hi() => {}`
+            // valid?
+            vec![Statement::Expression(self.parse_expression())]
+        };
+
+        Statement::For(Box::new(ForStatement {
+            initialiser,
+            condition,
+            accumalator,
+            body: Some(body),
+        }))
+    }
+
     pub fn parse_function(&mut self) -> Statement {
         let prototype = self.parse_prototype();
         self.expect(Token::Arrow);
@@ -286,6 +313,7 @@ impl Parser {
                 Some(Token::Const | Token::Var) => statements.push(self.parse_declaration()),
                 Some(Token::Return) => statements.push(self.parse_return()),
                 Some(Token::If) => statements.push(self.parse_if()),
+                Some(Token::For) => statements.push(self.parse_for()),
                 Some(Token::Function) => statements.push(self.parse_function()),
                 _ => {
                     statements.push(Statement::Expression(self.parse_expression()));

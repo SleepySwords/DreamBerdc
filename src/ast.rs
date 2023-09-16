@@ -40,13 +40,14 @@ pub struct Call {
 #[allow(dead_code)]
 pub struct Assignment {
     pub lhs: String,
-    pub rhs: String,
+    pub rhs: Box<Expression>,
 }
 
 #[derive(Debug, Clone)]
 pub enum Statement {
     Declaration(Box<Declaration>),
     If(Box<IfStatement>),
+    For(Box<ForStatement>),
     Function(Box<Function>),
     Return { return_value: Box<Expression> },
     Expression(Expression),
@@ -66,6 +67,15 @@ pub struct IfStatement {
     pub boolean_op: Expression,
     pub then_statements: Vec<Statement>,
     pub else_statements: Option<Vec<Statement>>,
+}
+
+#[derive(Debug, Clone)]
+#[allow(dead_code)]
+pub struct ForStatement {
+    pub initialiser: Statement,
+    pub condition: Expression,
+    pub accumalator: Expression,
+    pub body: Option<Vec<Statement>>,
 }
 
 pub type Name = String;

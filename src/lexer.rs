@@ -37,6 +37,7 @@ pub enum Token {
     Function,
     Return,
     If,
+    For,
     Lt,
     Gt,
     //     Unkown,
@@ -64,8 +65,8 @@ pub fn tokenize<T: Iterator<Item = char>>(tokens: &mut Peekable<T>) -> Vec<Token
             '?' => Token::Question,
             '!' => Token::Bang,
             ',' => Token::Comma,
-            '>' => Token::Lt,
-            '<' => Token::Gt,
+            '>' => Token::Gt,
+            '<' => Token::Lt,
             '"' => string(tokens),
             _ => {
                 if !token.is_alphanumeric() {
@@ -85,6 +86,7 @@ pub fn tokenize<T: Iterator<Item = char>>(tokens: &mut Peekable<T>) -> Vec<Token
                     "var" => Token::Var,
                     "return" => Token::Return,
                     "if" => Token::If,
+                    "for" => Token::For,
                     i => {
                         // FIX: supposed to be in, but like yea turns out it could be detected for
                         // sybmols (not good)
