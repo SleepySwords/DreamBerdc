@@ -1,0 +1,5 @@
+function main() => {
+    if (1 < 2) {
+        putchar(65)
+    }
+}

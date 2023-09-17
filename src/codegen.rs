@@ -5,7 +5,7 @@ use inkwell::{
     context::Context,
     execution_engine::JitFunction,
     module::Module,
-    targets::{Target, TargetMachine, InitializationConfig},
+    targets::{InitializationConfig, Target, TargetMachine},
     types::BasicMetadataTypeEnum,
     values::{IntValue, PointerValue},
     IntPredicate,
@@ -57,7 +57,7 @@ impl Compiler<'_> {
             self.build_statement(statement, &mut symbol_table, &mut ptr_value);
         }
         // FIX: catch all return...
-        self.builder.build_return(None);
+        self.builder.build_return(None).expect("Build failed");
     }
 
     fn build_expression<'ctx>(
@@ -75,24 +75,34 @@ impl Compiler<'_> {
                 let lhs = self.build_expression(*lhs, symbol_table, ptr_symbol_table);
                 let rhs = self.build_expression(*rhs, symbol_table, ptr_symbol_table);
                 match operation {
-                    crate::ast::Operation::Add => self.builder.build_int_add(lhs, rhs, "add"),
-                    crate::ast::Operation::Subtract => self.builder.build_int_sub(lhs, rhs, "sub"),
-                    crate::ast::Operation::Multiply => self.builder.build_int_mul(lhs, rhs, "mul"),
-                    crate::ast::Operation::Divide => {
-                        self.builder.build_int_signed_div(lhs, rhs, "div")
-                    }
-                    crate::ast::Operation::Less => {
-                        self.builder
-                            .build_int_compare(IntPredicate::SLT, lhs, rhs, "cond")
-                    }
-                    crate::ast::Operation::Greater => {
-                        self.builder
-                            .build_int_compare(IntPredicate::SGT, lhs, rhs, "cond")
-                    }
-                    crate::ast::Operation::Equal => {
-                        self.builder
-                            .build_int_compare(IntPredicate::EQ, lhs, rhs, "cond")
-                    }
+                    crate::ast::Operation::Add => self
+                        .builder
+                        .build_int_add(lhs, rhs, "add")
+                        .expect("Build failed"),
+                    crate::ast::Operation::Subtract => self
+                        .builder
+                        .build_int_sub(lhs, rhs, "sub")
+                        .expect("Build failed"),
+                    crate::ast::Operation::Multiply => self
+                        .builder
+                        .build_int_mul(lhs, rhs, "mul")
+                        .expect("Build failed"),
+                    crate::ast::Operation::Divide => self
+                        .builder
+                        .build_int_signed_div(lhs, rhs, "div")
+                        .expect("Build failed"),
+                    crate::ast::Operation::Less => self
+                        .builder
+                        .build_int_compare(IntPredicate::SLT, lhs, rhs, "cond")
+                        .expect("Build failed"),
+                    crate::ast::Operation::Greater => self
+                        .builder
+                        .build_int_compare(IntPredicate::SGT, lhs, rhs, "cond")
+                        .expect("Build failed"),
+                    crate::ast::Operation::Equal => self
+                        .builder
+                        .build_int_compare(IntPredicate::EQ, lhs, rhs, "cond")
+                        .expect("Build failed"),
                     _ => panic!("aefj"),
                 }
             }
@@ -102,7 +112,7 @@ impl Compiler<'_> {
                 self.builder.build_store(
                     ptr,
                     self.build_expression(*assignment.rhs, symbol_table, ptr_symbol_table),
-                );
+                ).expect("Build failed");
                 self.context.i32_type().const_zero()
             }
             Expression::LiteralValue(_) => todo!(),
@@ -113,7 +123,7 @@ impl Compiler<'_> {
                         ptr_symbol_table[&id],
                         &id,
                     );
-                    value.into_int_value()
+                    value.expect("Build failed").into_int_value()
                 } else if symbol_table.contains_key(&id) {
                     symbol_table[&id]
                 } else {
@@ -137,12 +147,15 @@ impl Compiler<'_> {
     ) {
         let condition =
             self.build_expression(if_statement.boolean_op, symbol_table, ptr_symbol_table);
-        let condition = self.builder.build_int_compare(
-            inkwell::IntPredicate::NE,
-            condition,
-            self.context.i32_type().const_zero(),
-            "ifcond",
-        );
+        let condition = self
+            .builder
+            .build_int_compare(
+                inkwell::IntPredicate::NE,
+                condition,
+                self.context.i32_type().const_zero(),
+                "ifcond",
+            )
+            .expect("Build failed");
 
         let current_function = self
             .builder
@@ -156,13 +169,13 @@ impl Compiler<'_> {
         let merge_bb = self.context.append_basic_block(current_function, "ifcont");
 
         self.builder
-            .build_conditional_branch(condition, then_bb, merge_bb);
+            .build_conditional_branch(condition, then_bb, merge_bb).expect("Build failed");
 
         self.builder.position_at_end(then_bb);
         for statement in if_statement.then_statements {
             self.build_statement(statement, symbol_table, ptr_symbol_table);
         }
-        self.builder.build_unconditional_branch(merge_bb);
+        self.builder.build_unconditional_branch(merge_bb).expect("Build failed");
         self.builder.position_at_end(merge_bb);
     }
 
@@ -181,7 +194,7 @@ impl Compiler<'_> {
         let entry_bb = self.builder.get_insert_block().unwrap();
 
         let loop_bb = self.context.append_basic_block(current_function, "loop");
-        self.builder.build_unconditional_branch(loop_bb);
+        self.builder.build_unconditional_branch(loop_bb).expect("Build failed");
 
         self.builder.position_at_end(loop_bb);
         if let Statement::Declaration(decl) = for_statement.initialiser {
@@ -190,7 +203,10 @@ impl Compiler<'_> {
                 lhs,
                 rhs,
             } = *decl;
-            let phi_value = self.builder.build_phi(self.context.i32_type(), &lhs);
+            let phi_value = self
+                .builder
+                .build_phi(self.context.i32_type(), &lhs)
+                .expect("Build failed");
             phi_value.add_incoming(&[(
                 &self.build_expression(rhs, symbol_table, ptr_symbol_table),
                 entry_bb,
@@ -204,20 +220,26 @@ impl Compiler<'_> {
             }
 
             let step_value = self.context.i32_type().const_int(1, false);
-            let next_var = self.builder.build_int_add(
-                phi_value.as_basic_value().into_int_value(),
-                step_value,
-                "nextvar",
-            );
+            let next_var = self
+                .builder
+                .build_int_add(
+                    phi_value.as_basic_value().into_int_value(),
+                    step_value,
+                    "nextvar",
+                )
+                .expect("Build failed");
 
             let end_value =
                 self.build_expression(for_statement.condition, symbol_table, ptr_symbol_table);
-            let end_cond = self.builder.build_int_compare(
-                IntPredicate::NE,
-                end_value,
-                self.context.i32_type().const_zero(),
-                "loopcond",
-            );
+            let end_cond = self
+                .builder
+                .build_int_compare(
+                    IntPredicate::NE,
+                    end_value,
+                    self.context.i32_type().const_zero(),
+                    "loopcond",
+                )
+                .expect("Build failed");
 
             let loopend_bb = self.builder.get_insert_block().unwrap();
             let after_bb = self
@@ -225,7 +247,7 @@ impl Compiler<'_> {
                 .append_basic_block(current_function, "afterloop");
 
             self.builder
-                .build_conditional_branch(end_cond, loop_bb, after_bb);
+                .build_conditional_branch(end_cond, loop_bb, after_bb).expect("Build failed");
             self.builder.position_at_end(after_bb);
 
             phi_value.add_incoming(&[(&next_var, loopend_bb)]);
@@ -244,16 +266,17 @@ impl Compiler<'_> {
             Statement::Declaration(declaration) => {
                 let variable = self
                     .builder
-                    .build_alloca(self.context.i32_type(), &declaration.lhs);
+                    .build_alloca(self.context.i32_type(), &declaration.lhs)
+                    .expect("Build failed");
                 self.builder.build_store(
                     variable,
                     self.build_expression(declaration.rhs, symbol_table, ptr_symbol_table),
-                );
+                ).expect("Build failed");
                 ptr_symbol_table.insert(declaration.lhs, variable);
             }
             Statement::Return { return_value } => {
                 let value = self.build_expression(*return_value, symbol_table, ptr_symbol_table);
-                self.builder.build_return(Some(&value));
+                self.builder.build_return(Some(&value)).expect("Build failed");
             }
             Statement::Function(function) => {
                 self.build_function(*function);
@@ -293,7 +316,11 @@ impl Compiler<'_> {
                     .as_slice(),
                 "calltmp",
             );
-            value.try_as_basic_value().unwrap_left().into_int_value()
+            value
+                .expect("Build failed")
+                .try_as_basic_value()
+                .unwrap_left()
+                .into_int_value()
         } else {
             panic!("Function not defined")
         }
@@ -309,6 +336,10 @@ impl Compiler<'_> {
             let main: JitFunction<Main> = execution_engine.get_function("main").unwrap();
             println!("Return code: {}", main.call(10, 3));
         }
+    }
+
+    pub fn write_llvm_ir(&self, path: &Path) {
+        self.module.print_to_file(path).expect("Error");
     }
 
     pub fn compile_to_obj(&self, path: &Path) {
@@ -330,10 +361,7 @@ impl Compiler<'_> {
             .expect("Error");
 
         target_machine
-            .write_to_file(
-                &self.module,
-                inkwell::targets::FileType::Object,
-                &path,
-            ).expect("Error");
+            .write_to_file(&self.module, inkwell::targets::FileType::Object, &path)
+            .expect("Error");
     }
 }

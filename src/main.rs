@@ -1,15 +1,16 @@
-use std::env;
 use std::error::Error;
 use std::fs::read_to_string;
 use std::path::Path;
-use std::{collections::HashMap, fs::File};
+use std::collections::HashMap;
 
+use clap::Parser;
 use inkwell::context::Context;
 
+use crate::args::Args;
 use crate::{
     codegen::Compiler,
     lexer::{tokenize, Token},
-    parser::Parser,
+    parser::Parser as CodeParser,
 };
 
 mod ast;
@@ -17,6 +18,7 @@ mod codegen;
 mod lexer;
 mod parser;
 mod utils;
+pub mod args;
 
 fn main() -> Result<(), Box<dyn Error>> {
     // FIX: bangs are currently not recongnisd
@@ -29,9 +31,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     // for (var var i = 0; i > b; i++) {
     //     i + a!
     // }
-    let args: Vec<String> = env::args().collect();
-    println!("{:?}", args);
-    let file = read_to_string(args[1].clone())?;
+    let args = Args::parse();
+    let file = read_to_string(args.input)?;
     let mut tokens = file // return add(23, add(43, 1)) + add(23, add(43, 1))!
         .chars()
         .peekable();
@@ -43,7 +44,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     // let mut tokens = ts.into_iter().peekable();
     let mut statements = Vec::new();
 
-    let mut parser = Parser { tokens: ts, pos: 0 };
+    let mut parser = CodeParser { tokens: ts, pos: 0 };
 
     while !parser.peek().is_some_and(|f| *f == Token::Eof) {
         statements.push(parser.parse_function());
@@ -66,6 +67,16 @@ fn main() -> Result<(), Box<dyn Error>> {
     for statement in &statements {
         compiler.build_statement(statement.clone(), &mut hashmap, &mut ptr_hashmap);
     }
-    compiler.compile_to_obj(&Path::new(&args[2]));
+    match args.mode {
+        args::Mode::Jit => {
+            compiler.run_jit();
+        },
+        args::Mode::LLVMIR => {
+            compiler.write_llvm_ir(&Path::new(&args.output.unwrap_or(String::from("output.ir"))));
+        },
+        args::Mode::Object => {
+            compiler.compile_to_obj(&Path::new(&args.output.unwrap_or(String::from("output.o"))));
+        },
+    }
     Ok(())
 }
