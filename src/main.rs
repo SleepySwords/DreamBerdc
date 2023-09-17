@@ -72,10 +72,10 @@ fn main() -> Result<(), Box<dyn Error>> {
             compiler.run_jit();
         },
         args::Mode::LLVMIR => {
-            compiler.write_llvm_ir(&Path::new(&args.output.unwrap_or(String::from("output.ir"))));
+            compiler.write_llvm_ir(Path::new(&args.output.unwrap_or(String::from("output.ir"))));
         },
         args::Mode::Object => {
-            compiler.compile_to_obj(&Path::new(&args.output.unwrap_or(String::from("output.o"))));
+            compiler.compile_to_obj(Path::new(&args.output.unwrap_or(String::from("output.o"))));
         },
     }
     Ok(())

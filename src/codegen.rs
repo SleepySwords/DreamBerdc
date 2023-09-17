@@ -129,7 +129,7 @@ impl Compiler<'_> {
                 } else {
                     let i32_type = self.context.i32_type();
                     i32_type.const_int(
-                        id.parse().expect(&format!("Invalid constant: {}", id)),
+                        id.parse().unwrap_or_else(|_| panic!("Invalid constant: {}", id)),
                         false,
                     )
                 }
@@ -361,7 +361,7 @@ impl Compiler<'_> {
             .expect("Error");
 
         target_machine
-            .write_to_file(&self.module, inkwell::targets::FileType::Object, &path)
+            .write_to_file(&self.module, inkwell::targets::FileType::Object, path)
             .expect("Error");
     }
 }
