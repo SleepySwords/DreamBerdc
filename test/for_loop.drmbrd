@@ -1,0 +1,15 @@
+function max(a: int, b: int, c: int) => {
+    var var d = 0!
+    for (var var i = 0; i < 10; 0) {
+        d = d + i!
+    }
+    return d!
+}
+
+function add(a: int, b: int) => {
+    return a * b + a!
+}
+
+function main(a: int, b: int) => {
+    return max(40, 12, 3)
+}
