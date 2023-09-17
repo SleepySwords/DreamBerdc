@@ -1,8 +1,14 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, path::Path};
 
 use inkwell::{
-    builder::Builder, context::Context, execution_engine::JitFunction, module::Module,
-    types::BasicMetadataTypeEnum, values::{IntValue, PointerValue}, IntPredicate,
+    builder::Builder,
+    context::Context,
+    execution_engine::JitFunction,
+    module::Module,
+    targets::{Target, TargetMachine, InitializationConfig},
+    types::BasicMetadataTypeEnum,
+    values::{IntValue, PointerValue},
+    IntPredicate,
 };
 use itertools::Itertools;
 
@@ -93,19 +99,29 @@ impl Compiler<'_> {
             Expression::Call(call) => self.build_call(call, symbol_table, ptr_symbol_table),
             Expression::Assignment(assignment) => {
                 let ptr = ptr_symbol_table[&assignment.lhs];
-                self.builder.build_store(ptr, self.build_expression(*assignment.rhs, symbol_table, ptr_symbol_table));
+                self.builder.build_store(
+                    ptr,
+                    self.build_expression(*assignment.rhs, symbol_table, ptr_symbol_table),
+                );
                 self.context.i32_type().const_zero()
-            },
+            }
             Expression::LiteralValue(_) => todo!(),
             Expression::Identifier(id) => {
                 if ptr_symbol_table.contains_key(&id) {
-                    let value = self.builder.build_load(self.context.i32_type(), ptr_symbol_table[&id], &id);
+                    let value = self.builder.build_load(
+                        self.context.i32_type(),
+                        ptr_symbol_table[&id],
+                        &id,
+                    );
                     value.into_int_value()
                 } else if symbol_table.contains_key(&id) {
                     symbol_table[&id]
                 } else {
                     let i32_type = self.context.i32_type();
-                    i32_type.const_int(id.parse().expect(&format!("Invalid constant: {}", id)), false)
+                    i32_type.const_int(
+                        id.parse().expect(&format!("Invalid constant: {}", id)),
+                        false,
+                    )
                 }
             }
             Expression::Unkown => todo!(),
@@ -119,7 +135,8 @@ impl Compiler<'_> {
         symbol_table: &mut HashMap<String, IntValue<'ctx>>,
         ptr_symbol_table: &mut HashMap<String, PointerValue<'ctx>>,
     ) {
-        let condition = self.build_expression(if_statement.boolean_op, symbol_table, ptr_symbol_table);
+        let condition =
+            self.build_expression(if_statement.boolean_op, symbol_table, ptr_symbol_table);
         let condition = self.builder.build_int_compare(
             inkwell::IntPredicate::NE,
             condition,
@@ -174,7 +191,10 @@ impl Compiler<'_> {
                 rhs,
             } = *decl;
             let phi_value = self.builder.build_phi(self.context.i32_type(), &lhs);
-            phi_value.add_incoming(&[(&self.build_expression(rhs, symbol_table, ptr_symbol_table), entry_bb)]);
+            phi_value.add_incoming(&[(
+                &self.build_expression(rhs, symbol_table, ptr_symbol_table),
+                entry_bb,
+            )]);
 
             // May shadow, but too lazy
             symbol_table.insert(lhs, phi_value.as_basic_value().into_int_value());
@@ -190,13 +210,22 @@ impl Compiler<'_> {
                 "nextvar",
             );
 
-            let end_value = self.build_expression(for_statement.condition, symbol_table, ptr_symbol_table);
-            let end_cond = self.builder.build_int_compare(IntPredicate::NE, end_value, self.context.i32_type().const_zero(), "loopcond");
+            let end_value =
+                self.build_expression(for_statement.condition, symbol_table, ptr_symbol_table);
+            let end_cond = self.builder.build_int_compare(
+                IntPredicate::NE,
+                end_value,
+                self.context.i32_type().const_zero(),
+                "loopcond",
+            );
 
             let loopend_bb = self.builder.get_insert_block().unwrap();
-            let after_bb = self.context.append_basic_block(current_function, "afterloop");
+            let after_bb = self
+                .context
+                .append_basic_block(current_function, "afterloop");
 
-            self.builder.build_conditional_branch(end_cond, loop_bb, after_bb);
+            self.builder
+                .build_conditional_branch(end_cond, loop_bb, after_bb);
             self.builder.position_at_end(after_bb);
 
             phi_value.add_incoming(&[(&next_var, loopend_bb)]);
@@ -213,8 +242,13 @@ impl Compiler<'_> {
     ) {
         match statement {
             Statement::Declaration(declaration) => {
-                let variable = self.builder.build_alloca(self.context.i32_type(), &declaration.lhs);
-                self.builder.build_store(variable, self.build_expression(declaration.rhs, symbol_table, ptr_symbol_table));
+                let variable = self
+                    .builder
+                    .build_alloca(self.context.i32_type(), &declaration.lhs);
+                self.builder.build_store(
+                    variable,
+                    self.build_expression(declaration.rhs, symbol_table, ptr_symbol_table),
+                );
                 ptr_symbol_table.insert(declaration.lhs, variable);
             }
             Statement::Return { return_value } => {
@@ -227,8 +261,12 @@ impl Compiler<'_> {
             Statement::Expression(expr) => {
                 self.build_expression(expr, symbol_table, ptr_symbol_table);
             }
-            Statement::If(if_statement) => self.build_if(*if_statement, symbol_table, ptr_symbol_table),
-            Statement::For(for_statement) => self.build_for(*for_statement, symbol_table, ptr_symbol_table),
+            Statement::If(if_statement) => {
+                self.build_if(*if_statement, symbol_table, ptr_symbol_table)
+            }
+            Statement::For(for_statement) => {
+                self.build_for(*for_statement, symbol_table, ptr_symbol_table)
+            }
         }
     }
 
@@ -247,7 +285,10 @@ impl Compiler<'_> {
                 function,
                 call.arguments
                     .iter()
-                    .map(|f| self.build_expression(f.clone(), symbol_table, ptr_symbol_table).into())
+                    .map(|f| {
+                        self.build_expression(f.clone(), symbol_table, ptr_symbol_table)
+                            .into()
+                    })
                     .collect_vec()
                     .as_slice(),
                 "calltmp",
@@ -258,7 +299,7 @@ impl Compiler<'_> {
         }
     }
 
-    pub fn compile(&self) {
+    pub fn run_jit(&self) {
         let execution_engine = self
             .module
             .create_jit_execution_engine(inkwell::OptimizationLevel::None)
@@ -268,5 +309,31 @@ impl Compiler<'_> {
             let main: JitFunction<Main> = execution_engine.get_function("main").unwrap();
             println!("Return code: {}", main.call(10, 3));
         }
+    }
+
+    pub fn compile_to_obj(&self, path: &Path) {
+        Target::initialize_all(&InitializationConfig::default());
+        let target_triple = TargetMachine::get_default_triple();
+        let cpu = TargetMachine::get_host_cpu_name().to_string();
+        let features = TargetMachine::get_host_cpu_features().to_string();
+
+        let target = Target::from_triple(&target_triple).expect("Error");
+        let target_machine = target
+            .create_target_machine(
+                &target_triple,
+                &cpu,
+                &features,
+                inkwell::OptimizationLevel::None,
+                inkwell::targets::RelocMode::Default,
+                inkwell::targets::CodeModel::Default,
+            )
+            .expect("Error");
+
+        target_machine
+            .write_to_file(
+                &self.module,
+                inkwell::targets::FileType::Object,
+                &path,
+            ).expect("Error");
     }
 }
