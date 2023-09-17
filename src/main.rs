@@ -1,4 +1,7 @@
-use std::collections::HashMap;
+use std::env;
+use std::error::Error;
+use std::fs::read_to_string;
+use std::{collections::HashMap, fs::File};
 
 use inkwell::context::Context;
 
@@ -14,7 +17,7 @@ mod lexer;
 mod parser;
 mod utils;
 
-fn main() {
+fn main() -> Result<(), Box<dyn Error>> {
     // FIX: bangs are currently not recongnisd
     // could lead to `var var test = tes print("AWEf")`
     // being interperted as `var var test = tes!print("AWEF")`
@@ -25,30 +28,11 @@ fn main() {
     // for (var var i = 0; i > b; i++) {
     //     i + a!
     // }
-    let mut tokens = "
-function max(a: int, b: int, c: int) => {
-    var var d = 10!
-    if (a < b) {
-        d = 0!
-    }
-    if (a > b) {
-        d = d + 1!
-    }
-    d = d +  1!
-    return d!
-}
-
-function add(a: int, b: int) => {
-    return a * b + a!
-}
-
-function main(a: int, b: int) => {
-    return max(4, 12, 3)
-}
-"
-    // return add(23, add(43, 1)) + add(23, add(43, 1))!
-    .chars()
-    .peekable();
+    let args: Vec<String> = env::args().collect();
+    let file = read_to_string(args[1].clone())?;
+    let mut tokens = file // return add(23, add(43, 1)) + add(23, add(43, 1))!
+        .chars()
+        .peekable();
 
     let ts = tokenize(&mut tokens);
 
@@ -77,4 +61,5 @@ function main(a: int, b: int) => {
         compiler.build_statement(statement.clone(), &mut hashmap, &mut ptr_hashmap);
     }
     compiler.compile();
+    Ok(())
 }
