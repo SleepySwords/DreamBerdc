@@ -148,16 +148,52 @@ impl Compiler<'_> {
         symbol_table: &mut HashMap<String, IntValue<'ctx>>,
         ptr_symbol_table: &mut HashMap<String, PointerValue<'ctx>>,
     ) {
-        let condition =
-            self.build_expression(if_statement.boolean_op, symbol_table, ptr_symbol_table);
+        // let condition =
+        //     self.build_expression(if_statement.boolean_op, symbol_table, ptr_symbol_table);
+        let (lhs, rhs, operation) = match if_statement.boolean_op {
+            Expression::Binary {
+                lhs,
+                operation,
+                rhs,
+            } => match operation {
+                crate::ast::Operation::Equal => (
+                    self.build_expression(*lhs, symbol_table, ptr_symbol_table),
+                    self.build_expression(*rhs, symbol_table, ptr_symbol_table),
+                    IntPredicate::EQ,
+                ),
+                crate::ast::Operation::Greater => (
+                    self.build_expression(*lhs, symbol_table, ptr_symbol_table),
+                    self.build_expression(*rhs, symbol_table, ptr_symbol_table),
+                    IntPredicate::SGT,
+                ),
+                crate::ast::Operation::Less => (
+                    self.build_expression(*lhs, symbol_table, ptr_symbol_table),
+                    self.build_expression(*rhs, symbol_table, ptr_symbol_table),
+                    IntPredicate::SLT,
+                ),
+                op => (
+                    self.build_expression(
+                        Expression::Binary {
+                            lhs,
+                            operation: op,
+                            rhs,
+                        },
+                        symbol_table,
+                        ptr_symbol_table,
+                    ),
+                    self.context.i32_type().const_zero(),
+                    IntPredicate::NE,
+                ),
+            },
+            expr => (
+                self.build_expression(expr, symbol_table, ptr_symbol_table),
+                self.context.i32_type().const_zero(),
+                IntPredicate::NE,
+            ),
+        };
         let condition = self
             .builder
-            .build_int_compare(
-                inkwell::IntPredicate::NE,
-                condition,
-                self.context.i32_type().const_zero(),
-                "ifcond",
-            )
+            .build_int_compare(operation, lhs, rhs, "ifcond")
             .expect("Build failed");
 
         let current_function = self
@@ -199,27 +235,34 @@ impl Compiler<'_> {
             .unwrap();
         let entry_bb = self.builder.get_insert_block().unwrap();
 
-        let loop_bb = self.context.append_basic_block(current_function, "loop");
-        self.builder.build_unconditional_branch(loop_bb).expect("Build failed");
-
-        self.builder.position_at_end(loop_bb);
         if let Statement::Declaration(decl) = for_statement.initialiser {
             let Declaration {
                 mutable: _,
                 lhs,
                 rhs,
             } = *decl;
-            let phi_value = self
+
+            let variable = self
                 .builder
-                .build_phi(self.context.i32_type(), &lhs)
+                .build_alloca(self.context.i32_type(), &lhs)
                 .expect("Build failed");
-            phi_value.add_incoming(&[(
-                &self.build_expression(rhs, symbol_table, ptr_symbol_table),
-                entry_bb,
-            )]);
+
+            ptr_symbol_table.insert(lhs, variable);
+
+            self.builder
+                .build_store(
+                    variable,
+                    self.build_expression(rhs, symbol_table, ptr_symbol_table),
+                )
+                .expect("Build failed");
+
+            let loop_bb = self.context.append_basic_block(current_function, "loop");
+            self.builder
+                .build_unconditional_branch(loop_bb)
+                .expect("Build failed");
+            self.builder.position_at_end(loop_bb);
 
             // May shadow, but too lazy
-            symbol_table.insert(lhs, phi_value.as_basic_value().into_int_value());
 
             for statement in for_statement.body.unwrap() {
                 self.build_statement(statement, symbol_table, ptr_symbol_table)
@@ -229,34 +272,79 @@ impl Compiler<'_> {
             let next_var = self
                 .builder
                 .build_int_add(
-                    phi_value.as_basic_value().into_int_value(),
+                    self.builder
+                        .build_load(self.context.i32_type(), variable, "var")
+                        .expect("Failed")
+                        .into_int_value(),
                     step_value,
                     "nextvar",
                 )
                 .expect("Build failed");
 
-            let end_value =
-                self.build_expression(for_statement.condition, symbol_table, ptr_symbol_table);
+            self.builder
+                .build_store(variable, next_var)
+                .expect("Build failed");
+
+            let (lhs, rhs, operation) = match for_statement.condition {
+                Expression::Binary {
+                    lhs,
+                    operation,
+                    rhs,
+                } => match operation {
+                    crate::ast::Operation::Equal => (
+                        self.build_expression(*lhs, symbol_table, ptr_symbol_table),
+                        self.build_expression(*rhs, symbol_table, ptr_symbol_table),
+                        IntPredicate::EQ,
+                    ),
+                    crate::ast::Operation::Greater => (
+                        self.build_expression(*lhs, symbol_table, ptr_symbol_table),
+                        self.build_expression(*rhs, symbol_table, ptr_symbol_table),
+                        IntPredicate::SGT,
+                    ),
+                    crate::ast::Operation::Less => (
+                        self.build_expression(*lhs, symbol_table, ptr_symbol_table),
+                        self.build_expression(*rhs, symbol_table, ptr_symbol_table),
+                        IntPredicate::SLT,
+                    ),
+                    op => (
+                        self.build_expression(
+                            Expression::Binary {
+                                lhs,
+                                operation: op,
+                                rhs,
+                            },
+                            symbol_table,
+                            ptr_symbol_table,
+                        ),
+                        self.context.i32_type().const_zero(),
+                        IntPredicate::NE,
+                    ),
+                },
+                expr => (
+                    self.build_expression(expr, symbol_table, ptr_symbol_table),
+                    self.context.i32_type().const_zero(),
+                    IntPredicate::NE,
+                ),
+            };
+
             let end_cond = self
                 .builder
                 .build_int_compare(
-                    IntPredicate::NE,
-                    end_value,
-                    self.context.i32_type().const_zero(),
+                    operation,
+                    lhs,
+                    rhs,
                     "loopcond",
                 )
                 .expect("Build failed");
 
-            let loopend_bb = self.builder.get_insert_block().unwrap();
             let after_bb = self
                 .context
                 .append_basic_block(current_function, "afterloop");
 
             self.builder
-                .build_conditional_branch(end_cond, loop_bb, after_bb).expect("Build failed");
+                .build_conditional_branch(end_cond, loop_bb, after_bb)
+                .expect("Build failed");
             self.builder.position_at_end(after_bb);
-
-            phi_value.add_incoming(&[(&next_var, loopend_bb)]);
         } else {
             panic!("What the flip")
         }
@@ -274,10 +362,12 @@ impl Compiler<'_> {
                     .builder
                     .build_alloca(self.context.i32_type(), &declaration.lhs)
                     .expect("Build failed");
-                self.builder.build_store(
-                    variable,
-                    self.build_expression(declaration.rhs, symbol_table, ptr_symbol_table),
-                ).expect("Build failed");
+                self.builder
+                    .build_store(
+                        variable,
+                        self.build_expression(declaration.rhs, symbol_table, ptr_symbol_table),
+                    )
+                    .expect("Build failed");
                 ptr_symbol_table.insert(declaration.lhs, variable);
             }
             Statement::Return { return_value } => {

@@ -1,5 +1,10 @@
-function main() => {
-    if (1 < 2) {
-        putchar(65)
+function test(a: int, b: int) => {
+    var var d = a == b!
+    if (d == 0) {
+            putchar(65)!
     }
+}
+
+function main() => {
+    test(1, 1)!
 }

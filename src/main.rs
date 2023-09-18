@@ -32,6 +32,9 @@ fn main() -> Result<(), Box<dyn Error>> {
     // for (var var i = 0; i > b; i++) {
     //     i + a!
     // }
+    //
+    // FIX: potential error when storing a boolean as it stores with alignment of 1
+    // and fetches with alignment of 4
     let args = Args::parse();
     let optimisation = match args.optimisation {
         args::Optimisation::None => OptimizationLevel::None,
