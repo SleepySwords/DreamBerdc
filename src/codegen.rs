@@ -7,8 +7,8 @@ use inkwell::{
     module::Module,
     targets::{InitializationConfig, Target, TargetMachine},
     types::BasicMetadataTypeEnum,
-    values::{IntValue, PointerValue},
-    IntPredicate,
+    values::{BasicValue, IntValue, PointerValue},
+    IntPredicate, OptimizationLevel,
 };
 use itertools::Itertools;
 
@@ -109,10 +109,12 @@ impl Compiler<'_> {
             Expression::Call(call) => self.build_call(call, symbol_table, ptr_symbol_table),
             Expression::Assignment(assignment) => {
                 let ptr = ptr_symbol_table[&assignment.lhs];
-                self.builder.build_store(
-                    ptr,
-                    self.build_expression(*assignment.rhs, symbol_table, ptr_symbol_table),
-                ).expect("Build failed");
+                self.builder
+                    .build_store(
+                        ptr,
+                        self.build_expression(*assignment.rhs, symbol_table, ptr_symbol_table),
+                    )
+                    .expect("Build failed");
                 self.context.i32_type().const_zero()
             }
             Expression::LiteralValue(_) => todo!(),
@@ -129,7 +131,8 @@ impl Compiler<'_> {
                 } else {
                     let i32_type = self.context.i32_type();
                     i32_type.const_int(
-                        id.parse().unwrap_or_else(|_| panic!("Invalid constant: {}", id)),
+                        id.parse()
+                            .unwrap_or_else(|_| panic!("Invalid constant: {}", id)),
                         false,
                     )
                 }
@@ -169,13 +172,16 @@ impl Compiler<'_> {
         let merge_bb = self.context.append_basic_block(current_function, "ifcont");
 
         self.builder
-            .build_conditional_branch(condition, then_bb, merge_bb).expect("Build failed");
+            .build_conditional_branch(condition, then_bb, merge_bb)
+            .expect("Build failed");
 
         self.builder.position_at_end(then_bb);
         for statement in if_statement.then_statements {
             self.build_statement(statement, symbol_table, ptr_symbol_table);
         }
-        self.builder.build_unconditional_branch(merge_bb).expect("Build failed");
+        self.builder
+            .build_unconditional_branch(merge_bb)
+            .expect("Build failed");
         self.builder.position_at_end(merge_bb);
     }
 
@@ -276,7 +282,9 @@ impl Compiler<'_> {
             }
             Statement::Return { return_value } => {
                 let value = self.build_expression(*return_value, symbol_table, ptr_symbol_table);
-                self.builder.build_return(Some(&value)).expect("Build failed");
+                self.builder
+                    .build_return(Some(&value))
+                    .expect("Build failed");
             }
             Statement::Function(function) => {
                 self.build_function(*function);
@@ -326,10 +334,10 @@ impl Compiler<'_> {
         }
     }
 
-    pub fn run_jit(&self) {
+    pub fn run_jit(&self, optimisation: OptimizationLevel) {
         let execution_engine = self
             .module
-            .create_jit_execution_engine(inkwell::OptimizationLevel::None)
+            .create_jit_execution_engine(optimisation)
             .unwrap();
         unsafe {
             type Main = unsafe extern "C" fn(i32, i32) -> i32;
@@ -342,7 +350,7 @@ impl Compiler<'_> {
         self.module.print_to_file(path).expect("Error");
     }
 
-    pub fn compile_to_obj(&self, path: &Path) {
+    pub fn compile_to_obj(&self, path: &Path, optimisation: OptimizationLevel) {
         Target::initialize_all(&InitializationConfig::default());
         let target_triple = TargetMachine::get_default_triple();
         let cpu = TargetMachine::get_host_cpu_name().to_string();
@@ -354,7 +362,7 @@ impl Compiler<'_> {
                 &target_triple,
                 &cpu,
                 &features,
-                inkwell::OptimizationLevel::None,
+                optimisation,
                 inkwell::targets::RelocMode::Default,
                 inkwell::targets::CodeModel::Default,
             )

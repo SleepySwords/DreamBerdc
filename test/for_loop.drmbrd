@@ -11,5 +11,7 @@ function add(a: int, b: int) => {
 }
 
 function main(a: int, b: int) => {
-    return max(40, 12, 3)
+    putchar(max(1, 2, 3))!
+    putchar(10)!
+    return 0!
 }

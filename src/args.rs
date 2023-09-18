@@ -1,10 +1,10 @@
 use std::fmt::Display;
 
 use clap::{Parser, ValueEnum};
-
+use inkwell::OptimizationLevel;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
-pub enum Mode{
+pub enum Mode {
     Jit,
     LLVMIR,
     Object,
@@ -16,6 +16,25 @@ impl Display for Mode {
             Mode::Jit => "jit",
             Mode::LLVMIR => "llvmir",
             Mode::Object => "object",
+        })
+    }
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
+pub enum Optimisation {
+    None,
+    Less,
+    Default,
+    Aggresive,
+}
+
+impl Display for Optimisation {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            Optimisation::None => "none",
+            Optimisation::Less => "less",
+            Optimisation::Default => "default",
+            Optimisation::Aggresive => "aggresive",
         })
     }
 }
@@ -32,4 +51,8 @@ pub struct Args {
     #[arg(default_value_t = Mode::Jit)]
     #[arg(short, long)]
     pub mode: Mode,
+
+    #[arg(short = 'O', long)]
+    #[arg(default_value_t = Optimisation::None)]
+    pub optimisation: Optimisation,
 }

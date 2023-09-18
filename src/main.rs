@@ -4,6 +4,7 @@ use std::path::Path;
 use std::collections::HashMap;
 
 use clap::Parser;
+use inkwell::OptimizationLevel;
 use inkwell::context::Context;
 
 use crate::args::Args;
@@ -32,6 +33,12 @@ fn main() -> Result<(), Box<dyn Error>> {
     //     i + a!
     // }
     let args = Args::parse();
+    let optimisation = match args.optimisation {
+        args::Optimisation::None => OptimizationLevel::None,
+        args::Optimisation::Less => OptimizationLevel::Less,
+        args::Optimisation::Default => OptimizationLevel::Default,
+        args::Optimisation::Aggresive => OptimizationLevel::Aggressive,
+    };
     let file = read_to_string(args.input)?;
     let mut tokens = file // return add(23, add(43, 1)) + add(23, add(43, 1))!
         .chars()
@@ -53,8 +60,13 @@ fn main() -> Result<(), Box<dyn Error>> {
     let context = Context::create();
     let module = context.create_module("global");
     let builder = context.create_builder();
+
+    // Add functions
     let putchar_fn_type = context.i32_type().fn_type(&[context.i32_type().into()], false);
     module.add_function("putchar", putchar_fn_type, Some(inkwell::module::Linkage::External));
+
+    let putchar_fn_type = context.i32_type().fn_type(&[], false);
+    module.add_function("getchar", putchar_fn_type, Some(inkwell::module::Linkage::External));
 
     let compiler = Compiler {
         context: &context,
@@ -69,13 +81,13 @@ fn main() -> Result<(), Box<dyn Error>> {
     }
     match args.mode {
         args::Mode::Jit => {
-            compiler.run_jit();
+            compiler.run_jit(optimisation);
         },
         args::Mode::LLVMIR => {
             compiler.write_llvm_ir(Path::new(&args.output.unwrap_or(String::from("output.ir"))));
         },
         args::Mode::Object => {
-            compiler.compile_to_obj(Path::new(&args.output.unwrap_or(String::from("output.o"))));
+            compiler.compile_to_obj(Path::new(&args.output.unwrap_or(String::from("output.o"))), optimisation);
         },
     }
     Ok(())
