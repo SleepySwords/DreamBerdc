@@ -20,8 +20,8 @@ mod ast;
 mod codegen;
 mod lexer;
 mod parser;
-mod symboltable;
 mod utils;
+mod symboltable;
 
 fn main() -> Result<(), Box<dyn Error>> {
     // FIX: bangs are currently not recongnisd
@@ -83,15 +83,15 @@ fn main() -> Result<(), Box<dyn Error>> {
         Some(inkwell::module::Linkage::External),
     );
 
-    let compiler = Compiler {
+    let mut compiler = Compiler {
         context: &context,
         module,
         builder,
+        symbol_table: SymbolTable::default(),
     };
-    let mut symbol_table = SymbolTable::default();
 
     for statement in &statements {
-        compiler.build_statement(&mut symbol_table, statement.clone());
+        compiler.build_statement(statement.clone());
     }
     match args.mode {
         args::Mode::Jit => {

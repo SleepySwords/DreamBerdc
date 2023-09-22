@@ -24,6 +24,20 @@ impl<'a> SymbolTable<'a> {
         }
     }
 
+    pub fn fetch_value(&mut self, name: &String) -> Option<IntValue<'a>> {
+        for i in 0..self.ptr_symbol_table.len() {
+            if self.ptr_symbol_table[i].contains_key(name) {
+                return Some(self.symbol_table[i][name]);
+            }
+        }
+        return None;
+    }
+
+    // FIX: Should return a result
+    pub fn store_value(&mut self, name: String, ptr: IntValue<'a>) {
+        self.symbol_table[0].insert(name, ptr);
+    }
+
     pub fn fetch_variable_ptr(&mut self, name: &String) -> Option<PointerValue<'a>> {
         for i in 0..self.ptr_symbol_table.len() {
             if self.ptr_symbol_table[i].contains_key(name) {

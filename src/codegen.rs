@@ -1,4 +1,4 @@
-use std::{path::Path};
+use std::path::Path;
 
 use inkwell::{
     builder::Builder,
@@ -21,10 +21,11 @@ pub struct Compiler<'ctx> {
     pub context: &'ctx Context,
     pub module: Module<'ctx>,
     pub builder: Builder<'ctx>,
+    pub symbol_table: SymbolTable<'ctx>,
 }
 
-impl Compiler<'_> {
-    pub fn build_function<'ctx>(&'ctx self, symbol_table: &mut SymbolTable<'ctx>, function: Function) {
+impl<'ctx> Compiler<'ctx> {
+    pub fn build_function(&mut self, function: Function) {
         let i32_type = self.context.i32_type();
         let types = function
             .prototype
@@ -41,34 +42,36 @@ impl Compiler<'_> {
         let entry_basic_box = self.context.append_basic_block(fn_val, "entry");
         self.builder.position_at_end(entry_basic_box);
 
-        symbol_table.push_scope();
+        self.symbol_table.push_scope();
 
         for (index, (name, _)) in function.prototype.arguments.into_iter().enumerate() {
-            symbol_table.store_variable_ptr(
+            self.symbol_table.store_value(
                 name,
                 fn_val
                     .get_nth_param(index as u32)
                     .unwrap()
-                    .into_pointer_value(),
+                    .into_int_value(),
             )
         }
 
         for statement in function.body {
-            self.build_statement(symbol_table, statement);
+            self.build_statement(statement);
         }
         // FIX: catch all return...
         self.builder.build_return(None).expect("Build failed");
+
+        self.symbol_table.pop_scope()
     }
 
-    fn build_expression<'ctx>(&'ctx self, symbol_table: &mut SymbolTable<'ctx>, expression: Expression) -> IntValue<'ctx> {
+    fn build_expression(&mut self, expression: Expression) -> IntValue<'ctx> {
         match expression {
             Expression::Binary {
                 lhs,
                 operation,
                 rhs,
             } => {
-                let lhs = self.build_expression(symbol_table, *lhs);
-                let rhs = self.build_expression(symbol_table, *rhs);
+                let lhs = self.build_expression(*lhs);
+                let rhs = self.build_expression(*rhs);
                 match operation {
                     crate::ast::Operation::Add => self
                         .builder
@@ -101,21 +104,25 @@ impl Compiler<'_> {
                     _ => panic!("aefj"),
                 }
             }
-            Expression::Call(call) => self.build_call(symbol_table, call),
+            Expression::Call(call) => self.build_call(call),
             Expression::Assignment(assignment) => {
-                let ptr = symbol_table
+                let ptr = self
+                    .symbol_table
                     .fetch_variable_ptr(&assignment.lhs)
                     .unwrap();
+                let expression = self.build_expression(*assignment.rhs);
                 self.builder
-                    .build_store(ptr, self.build_expression(symbol_table, *assignment.rhs))
+                    .build_store(ptr, expression)
                     .expect("Build failed");
                 self.context.i32_type().const_zero()
             }
             Expression::LiteralValue(_) => todo!(),
             Expression::Identifier(id) => {
-                if let Some(ptr) = symbol_table.fetch_variable_ptr(&id) {
+                if let Some(ptr) = self.symbol_table.fetch_variable_ptr(&id) {
                     let value = self.builder.build_load(self.context.i32_type(), ptr, &id);
                     value.unwrap().into_int_value()
+                } else if let Some(value) = self.symbol_table.fetch_value(&id) {
+                    value
                 } else {
                     let i32_type = self.context.i32_type();
                     i32_type.const_int(
@@ -130,9 +137,10 @@ impl Compiler<'_> {
     }
 
     // FIX: ensure that basic blocks have stuff in them.
-    pub fn build_if<'ctx>(&'ctx self, symbol_table: &mut SymbolTable<'ctx>, if_statement: IfStatement) {
+    pub fn build_if(&mut self, if_statement: IfStatement) {
         // let condition =
         //     self.build_expression(if_statement.boolean_op, symbol_table, ptr_symbol_table);
+        self.symbol_table.push_scope();
         let (lhs, rhs, operation) = match if_statement.boolean_op {
             Expression::Binary {
                 lhs,
@@ -140,22 +148,22 @@ impl Compiler<'_> {
                 rhs,
             } => match operation {
                 crate::ast::Operation::Equal => (
-                    self.build_expression(symbol_table, *lhs),
-                    self.build_expression(symbol_table, *rhs),
+                    self.build_expression(*lhs),
+                    self.build_expression(*rhs),
                     IntPredicate::EQ,
                 ),
                 crate::ast::Operation::Greater => (
-                    self.build_expression(symbol_table, *lhs),
-                    self.build_expression(symbol_table, *rhs),
+                    self.build_expression(*lhs),
+                    self.build_expression(*rhs),
                     IntPredicate::SGT,
                 ),
                 crate::ast::Operation::Less => (
-                    self.build_expression(symbol_table, *lhs),
-                    self.build_expression(symbol_table, *rhs),
+                    self.build_expression(*lhs),
+                    self.build_expression(*rhs),
                     IntPredicate::SLT,
                 ),
                 op => (
-                    self.build_expression(symbol_table, Expression::Binary {
+                    self.build_expression(Expression::Binary {
                         lhs,
                         operation: op,
                         rhs,
@@ -165,7 +173,7 @@ impl Compiler<'_> {
                 ),
             },
             expr => (
-                self.build_expression(symbol_table, expr),
+                self.build_expression(expr),
                 self.context.i32_type().const_zero(),
                 IntPredicate::NE,
             ),
@@ -192,15 +200,16 @@ impl Compiler<'_> {
 
         self.builder.position_at_end(then_bb);
         for statement in if_statement.then_statements {
-            self.build_statement(symbol_table, statement);
+            self.build_statement(statement);
         }
         self.builder
             .build_unconditional_branch(merge_bb)
             .expect("Build failed");
         self.builder.position_at_end(merge_bb);
+        self.symbol_table.pop_scope();
     }
 
-    pub fn build_for<'ctx>(&'ctx self, symbol_table: &mut SymbolTable<'ctx>, for_statement: ForStatement) {
+    pub fn build_for(&mut self, for_statement: ForStatement) {
         let current_function = self
             .builder
             .get_insert_block()
@@ -209,6 +218,7 @@ impl Compiler<'_> {
             .unwrap();
 
         if let Statement::Declaration(decl) = for_statement.initialiser {
+            self.symbol_table.push_scope();
             let Declaration {
                 mutable: _,
                 lhs,
@@ -220,10 +230,11 @@ impl Compiler<'_> {
                 .build_alloca(self.context.i32_type(), &lhs)
                 .expect("Build failed");
 
-            symbol_table.store_variable_ptr(lhs, variable);
+            self.symbol_table.store_variable_ptr(lhs, variable);
 
+            let initial_expression = self.build_expression(rhs);
             self.builder
-                .build_store(variable, self.build_expression(symbol_table, rhs))
+                .build_store(variable, initial_expression)
                 .expect("Build failed");
 
             let loop_bb = self.context.append_basic_block(current_function, "loop");
@@ -235,7 +246,7 @@ impl Compiler<'_> {
             // May shadow, but too lazy
 
             for statement in for_statement.body.unwrap() {
-                self.build_statement(symbol_table, statement)
+                self.build_statement(statement)
             }
 
             let step_value = self.context.i32_type().const_int(1, false);
@@ -262,22 +273,22 @@ impl Compiler<'_> {
                     rhs,
                 } => match operation {
                     crate::ast::Operation::Equal => (
-                        self.build_expression(symbol_table, *lhs),
-                        self.build_expression(symbol_table, *rhs),
+                        self.build_expression(*lhs),
+                        self.build_expression(*rhs),
                         IntPredicate::EQ,
                     ),
                     crate::ast::Operation::Greater => (
-                        self.build_expression(symbol_table, *lhs),
-                        self.build_expression(symbol_table, *rhs),
+                        self.build_expression(*lhs),
+                        self.build_expression(*rhs),
                         IntPredicate::SGT,
                     ),
                     crate::ast::Operation::Less => (
-                        self.build_expression(symbol_table, *lhs),
-                        self.build_expression(symbol_table, *rhs),
+                        self.build_expression(*lhs),
+                        self.build_expression(*rhs),
                         IntPredicate::SLT,
                     ),
                     op => (
-                        self.build_expression(symbol_table, Expression::Binary {
+                        self.build_expression(Expression::Binary {
                             lhs,
                             operation: op,
                             rhs,
@@ -287,7 +298,7 @@ impl Compiler<'_> {
                     ),
                 },
                 expr => (
-                    self.build_expression(symbol_table, expr),
+                    self.build_expression(expr),
                     self.context.i32_type().const_zero(),
                     IntPredicate::NE,
                 ),
@@ -306,56 +317,55 @@ impl Compiler<'_> {
                 .build_conditional_branch(end_cond, loop_bb, after_bb)
                 .expect("Build failed");
             self.builder.position_at_end(after_bb);
+            self.symbol_table.pop_scope();
         } else {
             panic!("What the flip")
         }
     }
 
-    pub fn build_statement<'ctx>(&'ctx self, symbol_table: &mut SymbolTable<'ctx>, statement: Statement) {
+    pub fn build_statement(&mut self, statement: Statement) {
         match statement {
             Statement::Declaration(declaration) => {
                 let variable = self
                     .builder
                     .build_alloca(self.context.i32_type(), &declaration.lhs)
                     .expect("Build failed");
+                let rhs = self.build_expression(declaration.rhs);
                 self.builder
-                    .build_store(variable, self.build_expression(symbol_table, declaration.rhs))
+                    .build_store(variable, rhs)
                     .expect("Build failed");
-                symbol_table
+                self.symbol_table
                     .store_variable_ptr(declaration.lhs, variable)
             }
             Statement::Return { return_value } => {
-                let value = self.build_expression(symbol_table, *return_value);
+                let value = self.build_expression(*return_value);
                 self.builder
                     .build_return(Some(&value))
                     .expect("Build failed");
             }
             Statement::Function(function) => {
-                self.build_function(symbol_table, *function);
+                self.build_function(*function);
             }
             Statement::Expression(expr) => {
-                self.build_expression(symbol_table, expr);
+                self.build_expression(expr);
             }
-            Statement::If(if_statement) => self.build_if(symbol_table, *if_statement),
-            Statement::For(for_statement) => self.build_for(symbol_table, *for_statement),
+            Statement::If(if_statement) => self.build_if(*if_statement),
+            Statement::For(for_statement) => self.build_for(*for_statement),
         }
     }
 
-    pub fn build_call<'ctx>(&'ctx self, symbol_table: &mut SymbolTable<'ctx>, call: Call) -> IntValue<'ctx> {
+    pub fn build_call(&mut self, call: Call) -> IntValue<'ctx> {
         if let Some(function) = self.module.get_function(&call.callee) {
             if function.count_params() != call.arguments.len() as u32 {
                 panic!("Not enough arguments")
             }
 
-            let value = self.builder.build_call(
-                function,
-                call.arguments
-                    .iter()
-                    .map(|f| self.build_expression(symbol_table, f.clone()).into())
-                    .collect_vec()
-                    .as_slice(),
-                "calltmp",
-            );
+            let args = call
+                .arguments
+                .iter()
+                .map(|f| self.build_expression(f.clone()).into())
+                .collect_vec();
+            let value = self.builder.build_call(function, args.as_slice(), "calltmp");
             value
                 .expect("Build failed")
                 .try_as_basic_value()
