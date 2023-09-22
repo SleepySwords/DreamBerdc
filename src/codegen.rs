@@ -1,4 +1,4 @@
-use std::{collections::HashMap, path::Path};
+use std::{path::Path};
 
 use inkwell::{
     builder::Builder,
@@ -7,12 +7,15 @@ use inkwell::{
     module::Module,
     targets::{InitializationConfig, Target, TargetMachine},
     types::BasicMetadataTypeEnum,
-    values::{BasicValue, IntValue, PointerValue},
+    values::IntValue,
     IntPredicate, OptimizationLevel,
 };
 use itertools::Itertools;
 
-use crate::ast::{Call, Declaration, Expression, ForStatement, Function, IfStatement, Statement};
+use crate::{
+    ast::{Call, Declaration, Expression, ForStatement, Function, IfStatement, Statement},
+    symboltable::SymbolTable,
+};
 
 pub struct Compiler<'ctx> {
     pub context: &'ctx Context,
@@ -21,7 +24,7 @@ pub struct Compiler<'ctx> {
 }
 
 impl Compiler<'_> {
-    pub fn build_function(&self, function: Function) {
+    pub fn build_function<'ctx>(&'ctx self, symbol_table: &mut SymbolTable<'ctx>, function: Function) {
         let i32_type = self.context.i32_type();
         let types = function
             .prototype
@@ -38,42 +41,34 @@ impl Compiler<'_> {
         let entry_basic_box = self.context.append_basic_block(fn_val, "entry");
         self.builder.position_at_end(entry_basic_box);
 
-        let mut symbol_table = function
-            .prototype
-            .arguments
-            .into_iter()
-            .enumerate()
-            .map(|(index, (name, _))| {
-                (
-                    name,
-                    fn_val.get_nth_param(index as u32).unwrap().into_int_value(),
-                )
-            })
-            .collect();
+        symbol_table.push_scope();
 
-        let mut ptr_value = HashMap::new();
+        for (index, (name, _)) in function.prototype.arguments.into_iter().enumerate() {
+            symbol_table.store_variable_ptr(
+                name,
+                fn_val
+                    .get_nth_param(index as u32)
+                    .unwrap()
+                    .into_pointer_value(),
+            )
+        }
 
         for statement in function.body {
-            self.build_statement(statement, &mut symbol_table, &mut ptr_value);
+            self.build_statement(symbol_table, statement);
         }
         // FIX: catch all return...
         self.builder.build_return(None).expect("Build failed");
     }
 
-    fn build_expression<'ctx>(
-        &'ctx self,
-        expression: Expression,
-        symbol_table: &mut HashMap<String, IntValue<'ctx>>,
-        ptr_symbol_table: &mut HashMap<String, PointerValue<'ctx>>,
-    ) -> IntValue<'ctx> {
+    fn build_expression<'ctx>(&'ctx self, symbol_table: &mut SymbolTable<'ctx>, expression: Expression) -> IntValue<'ctx> {
         match expression {
             Expression::Binary {
                 lhs,
                 operation,
                 rhs,
             } => {
-                let lhs = self.build_expression(*lhs, symbol_table, ptr_symbol_table);
-                let rhs = self.build_expression(*rhs, symbol_table, ptr_symbol_table);
+                let lhs = self.build_expression(symbol_table, *lhs);
+                let rhs = self.build_expression(symbol_table, *rhs);
                 match operation {
                     crate::ast::Operation::Add => self
                         .builder
@@ -106,28 +101,21 @@ impl Compiler<'_> {
                     _ => panic!("aefj"),
                 }
             }
-            Expression::Call(call) => self.build_call(call, symbol_table, ptr_symbol_table),
+            Expression::Call(call) => self.build_call(symbol_table, call),
             Expression::Assignment(assignment) => {
-                let ptr = ptr_symbol_table[&assignment.lhs];
+                let ptr = symbol_table
+                    .fetch_variable_ptr(&assignment.lhs)
+                    .unwrap();
                 self.builder
-                    .build_store(
-                        ptr,
-                        self.build_expression(*assignment.rhs, symbol_table, ptr_symbol_table),
-                    )
+                    .build_store(ptr, self.build_expression(symbol_table, *assignment.rhs))
                     .expect("Build failed");
                 self.context.i32_type().const_zero()
             }
             Expression::LiteralValue(_) => todo!(),
             Expression::Identifier(id) => {
-                if ptr_symbol_table.contains_key(&id) {
-                    let value = self.builder.build_load(
-                        self.context.i32_type(),
-                        ptr_symbol_table[&id],
-                        &id,
-                    );
-                    value.expect("Build failed").into_int_value()
-                } else if symbol_table.contains_key(&id) {
-                    symbol_table[&id]
+                if let Some(ptr) = symbol_table.fetch_variable_ptr(&id) {
+                    let value = self.builder.build_load(self.context.i32_type(), ptr, &id);
+                    value.unwrap().into_int_value()
                 } else {
                     let i32_type = self.context.i32_type();
                     i32_type.const_int(
@@ -142,12 +130,7 @@ impl Compiler<'_> {
     }
 
     // FIX: ensure that basic blocks have stuff in them.
-    pub fn build_if<'ctx>(
-        &'ctx self,
-        if_statement: IfStatement,
-        symbol_table: &mut HashMap<String, IntValue<'ctx>>,
-        ptr_symbol_table: &mut HashMap<String, PointerValue<'ctx>>,
-    ) {
+    pub fn build_if<'ctx>(&'ctx self, symbol_table: &mut SymbolTable<'ctx>, if_statement: IfStatement) {
         // let condition =
         //     self.build_expression(if_statement.boolean_op, symbol_table, ptr_symbol_table);
         let (lhs, rhs, operation) = match if_statement.boolean_op {
@@ -157,36 +140,32 @@ impl Compiler<'_> {
                 rhs,
             } => match operation {
                 crate::ast::Operation::Equal => (
-                    self.build_expression(*lhs, symbol_table, ptr_symbol_table),
-                    self.build_expression(*rhs, symbol_table, ptr_symbol_table),
+                    self.build_expression(symbol_table, *lhs),
+                    self.build_expression(symbol_table, *rhs),
                     IntPredicate::EQ,
                 ),
                 crate::ast::Operation::Greater => (
-                    self.build_expression(*lhs, symbol_table, ptr_symbol_table),
-                    self.build_expression(*rhs, symbol_table, ptr_symbol_table),
+                    self.build_expression(symbol_table, *lhs),
+                    self.build_expression(symbol_table, *rhs),
                     IntPredicate::SGT,
                 ),
                 crate::ast::Operation::Less => (
-                    self.build_expression(*lhs, symbol_table, ptr_symbol_table),
-                    self.build_expression(*rhs, symbol_table, ptr_symbol_table),
+                    self.build_expression(symbol_table, *lhs),
+                    self.build_expression(symbol_table, *rhs),
                     IntPredicate::SLT,
                 ),
                 op => (
-                    self.build_expression(
-                        Expression::Binary {
-                            lhs,
-                            operation: op,
-                            rhs,
-                        },
-                        symbol_table,
-                        ptr_symbol_table,
-                    ),
+                    self.build_expression(symbol_table, Expression::Binary {
+                        lhs,
+                        operation: op,
+                        rhs,
+                    }),
                     self.context.i32_type().const_zero(),
                     IntPredicate::NE,
                 ),
             },
             expr => (
-                self.build_expression(expr, symbol_table, ptr_symbol_table),
+                self.build_expression(symbol_table, expr),
                 self.context.i32_type().const_zero(),
                 IntPredicate::NE,
             ),
@@ -213,7 +192,7 @@ impl Compiler<'_> {
 
         self.builder.position_at_end(then_bb);
         for statement in if_statement.then_statements {
-            self.build_statement(statement, symbol_table, ptr_symbol_table);
+            self.build_statement(symbol_table, statement);
         }
         self.builder
             .build_unconditional_branch(merge_bb)
@@ -221,19 +200,13 @@ impl Compiler<'_> {
         self.builder.position_at_end(merge_bb);
     }
 
-    pub fn build_for<'ctx>(
-        &'ctx self,
-        for_statement: ForStatement,
-        symbol_table: &mut HashMap<String, IntValue<'ctx>>,
-        ptr_symbol_table: &mut HashMap<String, PointerValue<'ctx>>,
-    ) {
+    pub fn build_for<'ctx>(&'ctx self, symbol_table: &mut SymbolTable<'ctx>, for_statement: ForStatement) {
         let current_function = self
             .builder
             .get_insert_block()
             .unwrap()
             .get_parent()
             .unwrap();
-        let entry_bb = self.builder.get_insert_block().unwrap();
 
         if let Statement::Declaration(decl) = for_statement.initialiser {
             let Declaration {
@@ -247,13 +220,10 @@ impl Compiler<'_> {
                 .build_alloca(self.context.i32_type(), &lhs)
                 .expect("Build failed");
 
-            ptr_symbol_table.insert(lhs, variable);
+            symbol_table.store_variable_ptr(lhs, variable);
 
             self.builder
-                .build_store(
-                    variable,
-                    self.build_expression(rhs, symbol_table, ptr_symbol_table),
-                )
+                .build_store(variable, self.build_expression(symbol_table, rhs))
                 .expect("Build failed");
 
             let loop_bb = self.context.append_basic_block(current_function, "loop");
@@ -265,7 +235,7 @@ impl Compiler<'_> {
             // May shadow, but too lazy
 
             for statement in for_statement.body.unwrap() {
-                self.build_statement(statement, symbol_table, ptr_symbol_table)
+                self.build_statement(symbol_table, statement)
             }
 
             let step_value = self.context.i32_type().const_int(1, false);
@@ -292,36 +262,32 @@ impl Compiler<'_> {
                     rhs,
                 } => match operation {
                     crate::ast::Operation::Equal => (
-                        self.build_expression(*lhs, symbol_table, ptr_symbol_table),
-                        self.build_expression(*rhs, symbol_table, ptr_symbol_table),
+                        self.build_expression(symbol_table, *lhs),
+                        self.build_expression(symbol_table, *rhs),
                         IntPredicate::EQ,
                     ),
                     crate::ast::Operation::Greater => (
-                        self.build_expression(*lhs, symbol_table, ptr_symbol_table),
-                        self.build_expression(*rhs, symbol_table, ptr_symbol_table),
+                        self.build_expression(symbol_table, *lhs),
+                        self.build_expression(symbol_table, *rhs),
                         IntPredicate::SGT,
                     ),
                     crate::ast::Operation::Less => (
-                        self.build_expression(*lhs, symbol_table, ptr_symbol_table),
-                        self.build_expression(*rhs, symbol_table, ptr_symbol_table),
+                        self.build_expression(symbol_table, *lhs),
+                        self.build_expression(symbol_table, *rhs),
                         IntPredicate::SLT,
                     ),
                     op => (
-                        self.build_expression(
-                            Expression::Binary {
-                                lhs,
-                                operation: op,
-                                rhs,
-                            },
-                            symbol_table,
-                            ptr_symbol_table,
-                        ),
+                        self.build_expression(symbol_table, Expression::Binary {
+                            lhs,
+                            operation: op,
+                            rhs,
+                        }),
                         self.context.i32_type().const_zero(),
                         IntPredicate::NE,
                     ),
                 },
                 expr => (
-                    self.build_expression(expr, symbol_table, ptr_symbol_table),
+                    self.build_expression(symbol_table, expr),
                     self.context.i32_type().const_zero(),
                     IntPredicate::NE,
                 ),
@@ -329,12 +295,7 @@ impl Compiler<'_> {
 
             let end_cond = self
                 .builder
-                .build_int_compare(
-                    operation,
-                    lhs,
-                    rhs,
-                    "loopcond",
-                )
+                .build_int_compare(operation, lhs, rhs, "loopcond")
                 .expect("Build failed");
 
             let after_bb = self
@@ -350,12 +311,7 @@ impl Compiler<'_> {
         }
     }
 
-    pub fn build_statement<'ctx>(
-        &'ctx self,
-        statement: Statement,
-        symbol_table: &mut HashMap<String, IntValue<'ctx>>,
-        ptr_symbol_table: &mut HashMap<String, PointerValue<'ctx>>,
-    ) {
+    pub fn build_statement<'ctx>(&'ctx self, symbol_table: &mut SymbolTable<'ctx>, statement: Statement) {
         match statement {
             Statement::Declaration(declaration) => {
                 let variable = self
@@ -363,40 +319,29 @@ impl Compiler<'_> {
                     .build_alloca(self.context.i32_type(), &declaration.lhs)
                     .expect("Build failed");
                 self.builder
-                    .build_store(
-                        variable,
-                        self.build_expression(declaration.rhs, symbol_table, ptr_symbol_table),
-                    )
+                    .build_store(variable, self.build_expression(symbol_table, declaration.rhs))
                     .expect("Build failed");
-                ptr_symbol_table.insert(declaration.lhs, variable);
+                symbol_table
+                    .store_variable_ptr(declaration.lhs, variable)
             }
             Statement::Return { return_value } => {
-                let value = self.build_expression(*return_value, symbol_table, ptr_symbol_table);
+                let value = self.build_expression(symbol_table, *return_value);
                 self.builder
                     .build_return(Some(&value))
                     .expect("Build failed");
             }
             Statement::Function(function) => {
-                self.build_function(*function);
+                self.build_function(symbol_table, *function);
             }
             Statement::Expression(expr) => {
-                self.build_expression(expr, symbol_table, ptr_symbol_table);
+                self.build_expression(symbol_table, expr);
             }
-            Statement::If(if_statement) => {
-                self.build_if(*if_statement, symbol_table, ptr_symbol_table)
-            }
-            Statement::For(for_statement) => {
-                self.build_for(*for_statement, symbol_table, ptr_symbol_table)
-            }
+            Statement::If(if_statement) => self.build_if(symbol_table, *if_statement),
+            Statement::For(for_statement) => self.build_for(symbol_table, *for_statement),
         }
     }
 
-    pub fn build_call<'ctx>(
-        &'ctx self,
-        call: Call,
-        symbol_table: &mut HashMap<String, IntValue<'ctx>>,
-        ptr_symbol_table: &mut HashMap<String, PointerValue<'ctx>>,
-    ) -> IntValue<'ctx> {
+    pub fn build_call<'ctx>(&'ctx self, symbol_table: &mut SymbolTable<'ctx>, call: Call) -> IntValue<'ctx> {
         if let Some(function) = self.module.get_function(&call.callee) {
             if function.count_params() != call.arguments.len() as u32 {
                 panic!("Not enough arguments")
@@ -406,10 +351,7 @@ impl Compiler<'_> {
                 function,
                 call.arguments
                     .iter()
-                    .map(|f| {
-                        self.build_expression(f.clone(), symbol_table, ptr_symbol_table)
-                            .into()
-                    })
+                    .map(|f| self.build_expression(symbol_table, f.clone()).into())
                     .collect_vec()
                     .as_slice(),
                 "calltmp",

@@ -1,4 +1,4 @@
-function max(a: int, b: int, c: int) => {
+fun max(a: int, b: int, c: int) => {
     if (a - 4 == 0) {
         putchar(65)
     }

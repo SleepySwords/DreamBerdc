@@ -8,6 +8,7 @@ use inkwell::context::Context;
 use inkwell::OptimizationLevel;
 
 use crate::args::Args;
+use crate::symboltable::SymbolTable;
 use crate::{
     codegen::Compiler,
     lexer::{tokenize, Token},
@@ -19,6 +20,7 @@ mod ast;
 mod codegen;
 mod lexer;
 mod parser;
+mod symboltable;
 mod utils;
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -86,11 +88,10 @@ fn main() -> Result<(), Box<dyn Error>> {
         module,
         builder,
     };
+    let mut symbol_table = SymbolTable::default();
 
-    let mut hashmap = HashMap::new();
-    let mut ptr_hashmap = HashMap::new();
     for statement in &statements {
-        compiler.build_statement(statement.clone(), &mut hashmap, &mut ptr_hashmap);
+        compiler.build_statement(&mut symbol_table, statement.clone());
     }
     match args.mode {
         args::Mode::Jit => {

@@ -88,10 +88,19 @@ pub fn tokenize<T: Iterator<Item = char>>(tokens: &mut Peekable<T>) -> Vec<Token
                     "if" => Token::If,
                     "for" => Token::For,
                     i => {
-                        // FIX: supposed to be in, but like yea turns out it could be detected for
-                        // sybmols (not good)
-                        if "function" == (i) {
-                            Token::Function
+                        if "function".contains(i) {
+                            // NOTE: this should work with current functionality, however
+                            // when adding new features that allow for a symbol followed
+                            // by a letter (such as an infix function or in operators),
+                            // would need to modify this
+                            while tokens.peek().is_some_and(|x| x.is_whitespace()) {
+                                tokens.next();
+                            }
+                            if tokens.peek().is_some_and(|x| x.is_alphanumeric()) {
+                                Token::Function
+                            } else {
+                                Token::Symbol(i.to_string())
+                            }
                         } else {
                             Token::Symbol(i.to_string())
                         }
