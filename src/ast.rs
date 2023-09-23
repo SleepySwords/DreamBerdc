@@ -1,4 +1,4 @@
-use crate::utils::Mutable;
+use crate::{utils::Mutable, types::Type};
 
 // Expressions return values, statements do not.
 #[derive(Debug, Clone)]
@@ -79,13 +79,13 @@ pub struct ForStatement {
 }
 
 pub type Name = String;
-pub type Type = String;
 
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
 pub struct Prototype {
     pub name: String,
     pub arguments: Vec<(Name, Type)>,
+    pub return_type: Type,
 }
 
 #[derive(Debug, Clone)]

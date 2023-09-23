@@ -6,7 +6,7 @@ use crate::{
         Prototype, Statement,
     },
     lexer::Token,
-    utils::Mutable,
+    utils::Mutable, types::Type,
 };
 
 pub struct Parser {
@@ -79,7 +79,10 @@ impl Parser {
                     if let Some(Token::Symbol(lhs)) = self.next() {
                         self.expect(Token::Eq);
                         let rhs = self.parse_expression();
-                        Expression::Assignment(Assignment { lhs, rhs: Box::new(rhs) })
+                        Expression::Assignment(Assignment {
+                            lhs,
+                            rhs: Box::new(rhs),
+                        })
                     } else {
                         panic!("Invalid state")
                     }
@@ -281,13 +284,22 @@ impl Parser {
             let mut arguments = Vec::new();
             while let Some(t) = self.next() {
                 if let Token::ClosePar = t {
-                    return Prototype { name, arguments };
+                    if self.peek() == Some(&Token::Colon) {
+                        self.next();
+                        if let Some(Token::Symbol(t)) = self.next() {
+                            return Prototype { name, arguments, return_type: Type::parse(t) };
+                        } else {
+                            panic!("Unexpected symbol!!")
+                        }
+                    } else {
+                        return Prototype { name, arguments, return_type: Type::Void };
+                    }
                 }
 
                 if let Token::Symbol(arg) = t {
                     self.expect(Token::Colon);
                     if let Some(Token::Symbol(t)) = self.next() {
-                        arguments.push((arg, t));
+                        arguments.push((arg, Type::parse(t)));
                         if let Some(Token::ClosePar) = self.peek() {
                             continue;
                         } else {

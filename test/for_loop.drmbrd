@@ -1,6 +1,7 @@
 function max(a: int, b: int, c: int) => {
     var var d = 0!
     for (var var i = 0; i < 10; 0) {
+	const const d = 0!
         d = d + i!
     }
     return d!
@@ -11,7 +12,5 @@ function add(a: int, b: int) => {
 }
 
 function main(a: int, b: int) => {
-    putchar(max(1, 2, 3))!
-    putchar(10)!
-    return 0!
+    return max(1, 2, 3)!
 }

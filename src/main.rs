@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::error::Error;
 use std::fs::read_to_string;
 use std::path::Path;
@@ -22,6 +21,7 @@ mod lexer;
 mod parser;
 mod utils;
 mod symboltable;
+mod types;
 
 fn main() -> Result<(), Box<dyn Error>> {
     // FIX: bangs are currently not recongnisd
@@ -37,7 +37,14 @@ fn main() -> Result<(), Box<dyn Error>> {
     //
     // FIX: potential error when storing a boolean as it stores with alignment of 1
     // and fetches with alignment of 4
+
     let args = Args::parse();
+    // let args = Args {
+    //     input: String::from("test/for_loop.drmbrd"),
+    //     output: None,
+    //     mode: args::Mode::Jit,
+    //     optimisation: args::Optimisation::None,
+    // };
     let optimisation = match args.optimisation {
         args::Optimisation::None => OptimizationLevel::None,
         args::Optimisation::Less => OptimizationLevel::Less,
