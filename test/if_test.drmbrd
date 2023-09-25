@@ -7,4 +7,5 @@ function test(a: int, b: int) => {
 
 function main() => {
     test(1, 1)!
+    return 0!
 }

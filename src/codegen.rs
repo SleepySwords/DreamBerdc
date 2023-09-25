@@ -319,7 +319,7 @@ impl<'ctx> Compiler<'ctx> {
             self.builder.position_at_end(after_bb);
             self.symbol_table.pop_scope();
         } else {
-            panic!("What the flip")
+            panic!("Expected declaration found {:?}", for_statement.initialiser)
         }
     }
 

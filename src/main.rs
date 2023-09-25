@@ -22,6 +22,7 @@ mod parser;
 mod utils;
 mod symboltable;
 mod types;
+pub mod compile_error;
 
 fn main() -> Result<(), Box<dyn Error>> {
     // FIX: bangs are currently not recongnisd
@@ -66,7 +67,14 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut parser = CodeParser { tokens: ts, pos: 0 };
 
     while !parser.peek().is_some_and(|f| *f == Token::Eof) {
-        statements.push(parser.parse_function());
+        let function = match parser.parse_function() {
+            Ok(func) => func,
+            Err(e) => {
+                println!("{}", e);
+                return Ok(());
+            },
+        };
+        statements.push(function);
     }
     println!("{:?}", statements);
     let context = Context::create();
