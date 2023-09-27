@@ -5,24 +5,25 @@ use std::path::Path;
 use clap::Parser;
 use inkwell::context::Context;
 use inkwell::OptimizationLevel;
+use itertools::Itertools;
 
 use crate::args::Args;
+use crate::lexer::Lexer;
 use crate::symboltable::SymbolTable;
-use crate::{
-    codegen::Compiler,
-    lexer::{tokenize, Token},
-    parser::Parser as CodeParser,
-};
+use crate::{codegen::Compiler, lexer::TokenKind, parser::Parser as CodeParser};
 
 pub mod args;
 mod ast;
 mod codegen;
+pub mod compile_error;
 mod lexer;
 mod parser;
-mod utils;
 mod symboltable;
 mod types;
-pub mod compile_error;
+mod utils;
+
+#[cfg(test)]
+mod test;
 
 fn main() -> Result<(), Box<dyn Error>> {
     // FIX: bangs are currently not recongnisd
@@ -53,30 +54,34 @@ fn main() -> Result<(), Box<dyn Error>> {
         args::Optimisation::Aggresive => OptimizationLevel::Aggressive,
     };
     let file = read_to_string(args.input)?;
-    let mut tokens = file // return add(23, add(43, 1)) + add(23, add(43, 1))!
-        .chars()
-        .peekable();
+    let data = file.chars().collect_vec();
 
-    let ts = tokenize(&mut tokens);
+    // Step 2: Tokenise
+    let mut lexer = Lexer::new(data);
 
-    println!("{:?}", ts);
+    let tokens = lexer.tokenise();
+    println!("{:?}", tokens);
 
-    // let mut tokens = ts.into_iter().peekable();
+    // Step 2: Parse
+    let mut parser = CodeParser {
+        tokens: tokens.into_iter().map(|tkn| tkn.kind).collect_vec(),
+        pos: 0,
+    };
+
     let mut statements = Vec::new();
-
-    let mut parser = CodeParser { tokens: ts, pos: 0 };
-
-    while !parser.peek().is_some_and(|f| *f == Token::Eof) {
+    while !parser.peek().is_some_and(|f| *f == TokenKind::Eof) {
         let function = match parser.parse_function() {
             Ok(func) => func,
             Err(e) => {
                 println!("{}", e);
                 return Ok(());
-            },
+            }
         };
         statements.push(function);
     }
     println!("{:?}", statements);
+
+    // Step 3: Codegen
     let context = Context::create();
     let module = context.create_module("global");
     let builder = context.create_builder();
@@ -85,6 +90,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let putchar_fn_type = context
         .i32_type()
         .fn_type(&[context.i32_type().into()], false);
+
     module.add_function(
         "putchar",
         putchar_fn_type,
