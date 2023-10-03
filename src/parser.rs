@@ -233,19 +233,26 @@ impl Parser {
         self.expect(TokenKind::OpenPar)?;
         let bool_exp = self.parse_expression();
         self.expect(TokenKind::ClosePar)?;
-        let body = if let Some(TokenKind::OpenCurB) = self.peek() {
-            self.parse_body()?
+        let (body, else_body) = if let Some(TokenKind::OpenCurB) = self.peek() {
+            let body = self.parse_body()?;
+            if self.check(TokenKind::Else) {
+                self.expect(TokenKind::Else)?;
+                let else_body = self.parse_body()?;
+                (body, Some(else_body))
+            } else {
+                (body, None)
+            }
         } else {
             // TODO: Should this be a parse_statement?
             // Is `function main() => function hi() => {}`
             // valid?
-            vec![Statement::Expression(self.parse_expression()?)]
+            (vec![Statement::Expression(self.parse_expression()?)], None)
         };
 
         Ok(Statement::If(Box::new(IfStatement {
             boolean_op: bool_exp?,
             then_statements: body,
-            else_statements: None,
+            else_statements: else_body,
         })))
     }
 

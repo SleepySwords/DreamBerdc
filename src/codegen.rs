@@ -166,11 +166,11 @@ impl<'ctx> Compiler<'ctx> {
             .unwrap();
 
         let then_bb = self.context.append_basic_block(current_function, "then");
-        // let else_bb = self.context.append_basic_block(current_function, "else");
+        let else_bb = self.context.append_basic_block(current_function, "else");
         let merge_bb = self.context.append_basic_block(current_function, "ifcont");
 
         self.builder
-            .build_conditional_branch(condition, then_bb, merge_bb)
+            .build_conditional_branch(condition, then_bb, else_bb)
             .expect("Build failed");
 
         self.builder.position_at_end(then_bb);
@@ -180,6 +180,17 @@ impl<'ctx> Compiler<'ctx> {
         self.builder
             .build_unconditional_branch(merge_bb)
             .expect("Build failed");
+
+        self.builder.position_at_end(else_bb);
+        if let Some(else_st) = if_statement.else_statements {
+            for statement in else_st {
+                self.build_statement(statement);
+            }
+        }
+        self.builder
+            .build_unconditional_branch(merge_bb)
+            .expect("Build failed");
+
         self.builder.position_at_end(merge_bb);
         self.symbol_table.pop_scope();
     }

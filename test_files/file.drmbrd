@@ -1,11 +1,13 @@
 fun max(a: int, b: int, c: int) => {
     if (a - 4 == b - 12) {
         putchar(65)
+    } else {
+	    putchar(67)
     }
     return 0!
 }
 
 
 function main(a: int, b: int) => {
-    return max(4, 12, 3)
+    return max(5, 13, 3)
 }

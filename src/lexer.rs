@@ -62,6 +62,7 @@ pub enum TokenKind {
     Function,
     Return,
     If,
+    Else,
     For,
     Lt,
     Gt,
@@ -146,6 +147,7 @@ impl Lexer {
                         "var" => TokenKind::Var,
                         "return" => TokenKind::Return,
                         "if" => TokenKind::If,
+                        "else" => TokenKind::Else,
                         "for" => TokenKind::For,
                         i => {
                             if "function".contains(i) {
