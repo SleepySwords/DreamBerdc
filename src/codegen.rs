@@ -149,46 +149,13 @@ impl<'ctx> Compiler<'ctx> {
 
     // FIX: ensure that basic blocks have stuff in them.
     pub fn build_if(&mut self, if_statement: IfStatement) {
-        // let condition =
-        //     self.build_expression(if_statement.boolean_op, symbol_table, ptr_symbol_table);
         self.symbol_table.push_scope();
-        let (lhs, rhs, operation) = match if_statement.boolean_op {
-            Expression::Binary {
-                lhs,
-                operation,
-                rhs,
-            } => {
-                if let Operation::Equal | Operation::Greater | Operation::Less = operation {
-                    let lhs_value = self.build_expression(*lhs).into_int_value();
-                    let rhs_value = self.build_expression(*rhs).into_int_value();
-                    match operation {
-                        crate::ast::Operation::Equal => (lhs_value, rhs_value, IntPredicate::EQ),
-                        crate::ast::Operation::Greater => (lhs_value, rhs_value, IntPredicate::SGT),
-                        crate::ast::Operation::Less => (lhs_value, rhs_value, IntPredicate::SLT),
-                        _ => panic!("Impossible"),
-                    }
-                } else {
-                    (
-                        self.build_expression(Expression::Binary {
-                            lhs,
-                            operation,
-                            rhs,
-                        })
-                        .into_int_value(),
-                        self.context.i32_type().const_zero(),
-                        IntPredicate::NE,
-                    )
-                }
-            }
-            expr => (
-                self.build_expression(expr).into_int_value(),
-                self.context.i32_type().const_zero(),
-                IntPredicate::NE,
-            ),
-        };
+
+        let value = self.build_expression(if_statement.boolean_op).into_int_value();
+
         let condition = self
             .builder
-            .build_int_compare(operation, lhs, rhs, "ifcond")
+            .build_int_compare(IntPredicate::NE, self.context.i32_type().const_zero(), value, "ifcond")
             .expect("Build failed");
 
         let current_function = self
@@ -274,50 +241,11 @@ impl<'ctx> Compiler<'ctx> {
                 .build_store(variable, next_var)
                 .expect("Build failed");
 
-            let (lhs, rhs, operation) = match for_statement.condition {
-                Expression::Binary {
-                    lhs,
-                    operation,
-                    rhs,
-                } => {
-                    if let Operation::Equal | Operation::Greater | Operation::Less = operation {
-                        let lhs_value = self.build_expression(*lhs).into_int_value();
-                        let rhs_value = self.build_expression(*rhs).into_int_value();
-                        match operation {
-                            crate::ast::Operation::Equal => {
-                                (lhs_value, rhs_value, IntPredicate::EQ)
-                            }
-                            crate::ast::Operation::Greater => {
-                                (lhs_value, rhs_value, IntPredicate::SGT)
-                            }
-                            crate::ast::Operation::Less => {
-                                (lhs_value, rhs_value, IntPredicate::SLT)
-                            }
-                            _ => panic!("Impossible"),
-                        }
-                    } else {
-                        (
-                            self.build_expression(Expression::Binary {
-                                lhs,
-                                operation,
-                                rhs,
-                            })
-                            .into_int_value(),
-                            self.context.i32_type().const_zero(),
-                            IntPredicate::NE,
-                        )
-                    }
-                }
-                expr => (
-                    self.build_expression(expr).into_int_value(),
-                    self.context.i32_type().const_zero(),
-                    IntPredicate::NE,
-                ),
-            };
+            let value = self.build_expression(for_statement.condition).into_int_value();
 
             let end_cond = self
                 .builder
-                .build_int_compare(operation, lhs, rhs, "loopcond")
+                .build_int_compare(IntPredicate::NE, self.context.i32_type().const_zero(), value, "loopcond")
                 .expect("Build failed");
 
             let after_bb = self

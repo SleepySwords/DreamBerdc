@@ -1,5 +1,5 @@
 fun max(a: int, b: int, c: int) => {
-    if (a - 4 == 0) {
+    if (a - 4 == b - 12) {
         putchar(65)
     }
     return 0!
