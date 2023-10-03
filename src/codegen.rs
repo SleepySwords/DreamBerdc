@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::{path::Path, thread::panicking};
 
 use inkwell::{
     builder::Builder,
@@ -7,13 +7,15 @@ use inkwell::{
     module::Module,
     targets::{InitializationConfig, Target, TargetMachine},
     types::BasicMetadataTypeEnum,
-    values::IntValue,
+    values::BasicValueEnum,
     IntPredicate, OptimizationLevel,
 };
 use itertools::Itertools;
 
 use crate::{
-    ast::{Call, Declaration, Expression, ForStatement, Function, IfStatement, Statement},
+    ast::{
+        Call, Declaration, Expression, ForStatement, Function, IfStatement, Operation, Statement,
+    },
     symboltable::SymbolTable,
 };
 
@@ -34,7 +36,11 @@ impl<'ctx> Compiler<'ctx> {
             .map(|(_, _t)| i32_type.into())
             .collect::<Vec<BasicMetadataTypeEnum>>();
         // FIXME: No good forced i32 return types for now.
-        let fn_type = self.context.i32_type().fn_type(types.as_slice(), false);
+        let fn_type =
+            function
+                .prototype
+                .return_type
+                .function(self.context, types.as_slice(), false);
         let fn_val = self
             .module
             .add_function(&function.prototype.name, fn_type, None);
@@ -47,10 +53,7 @@ impl<'ctx> Compiler<'ctx> {
         for (index, (name, _)) in function.prototype.arguments.into_iter().enumerate() {
             self.symbol_table.store_value(
                 name,
-                fn_val
-                    .get_nth_param(index as u32)
-                    .unwrap()
-                    .into_int_value(),
+                fn_val.get_nth_param(index as u32).unwrap().into_int_value(),
             )
         }
 
@@ -63,7 +66,7 @@ impl<'ctx> Compiler<'ctx> {
         self.symbol_table.pop_scope()
     }
 
-    fn build_expression(&mut self, expression: Expression) -> IntValue<'ctx> {
+    fn build_expression(&mut self, expression: Expression) -> BasicValueEnum<'ctx> {
         match expression {
             Expression::Binary {
                 lhs,
@@ -72,6 +75,11 @@ impl<'ctx> Compiler<'ctx> {
             } => {
                 let lhs = self.build_expression(*lhs);
                 let rhs = self.build_expression(*rhs);
+                if !lhs.is_int_value() || !rhs.is_int_value() {
+                    panic!("Invalid int value")
+                }
+                let lhs = lhs.into_int_value();
+                let rhs = rhs.into_int_value();
                 match operation {
                     crate::ast::Operation::Add => self
                         .builder
@@ -103,6 +111,7 @@ impl<'ctx> Compiler<'ctx> {
                         .expect("Build failed"),
                     _ => panic!("aefj"),
                 }
+                .into()
             }
             Expression::Call(call) => self.build_call(call),
             Expression::Assignment(assignment) => {
@@ -114,22 +123,24 @@ impl<'ctx> Compiler<'ctx> {
                 self.builder
                     .build_store(ptr, expression)
                     .expect("Build failed");
-                self.context.i32_type().const_zero()
+                self.context.i32_type().const_zero().into()
             }
             Expression::LiteralValue(_) => todo!(),
             Expression::Identifier(id) => {
                 if let Some(ptr) = self.symbol_table.fetch_variable_ptr(&id) {
                     let value = self.builder.build_load(self.context.i32_type(), ptr, &id);
-                    value.unwrap().into_int_value()
+                    value.unwrap().into()
                 } else if let Some(value) = self.symbol_table.fetch_value(&id) {
-                    value
+                    value.into()
                 } else {
                     let i32_type = self.context.i32_type();
-                    i32_type.const_int(
-                        id.parse()
-                            .unwrap_or_else(|_| panic!("Invalid constant: {}", id)),
-                        false,
-                    )
+                    i32_type
+                        .const_int(
+                            id.parse()
+                                .unwrap_or_else(|_| panic!("Invalid constant: {}", id)),
+                            false,
+                        )
+                        .into()
                 }
             }
             Expression::Unkown => todo!(),
@@ -146,34 +157,31 @@ impl<'ctx> Compiler<'ctx> {
                 lhs,
                 operation,
                 rhs,
-            } => match operation {
-                crate::ast::Operation::Equal => (
-                    self.build_expression(*lhs),
-                    self.build_expression(*rhs),
-                    IntPredicate::EQ,
-                ),
-                crate::ast::Operation::Greater => (
-                    self.build_expression(*lhs),
-                    self.build_expression(*rhs),
-                    IntPredicate::SGT,
-                ),
-                crate::ast::Operation::Less => (
-                    self.build_expression(*lhs),
-                    self.build_expression(*rhs),
-                    IntPredicate::SLT,
-                ),
-                op => (
-                    self.build_expression(Expression::Binary {
-                        lhs,
-                        operation: op,
-                        rhs,
-                    }),
-                    self.context.i32_type().const_zero(),
-                    IntPredicate::NE,
-                ),
-            },
+            } => {
+                if let Operation::Equal | Operation::Greater | Operation::Less = operation {
+                    let lhs_value = self.build_expression(*lhs).into_int_value();
+                    let rhs_value = self.build_expression(*rhs).into_int_value();
+                    match operation {
+                        crate::ast::Operation::Equal => (lhs_value, rhs_value, IntPredicate::EQ),
+                        crate::ast::Operation::Greater => (lhs_value, rhs_value, IntPredicate::SGT),
+                        crate::ast::Operation::Less => (lhs_value, rhs_value, IntPredicate::SLT),
+                        _ => panic!("Impossible"),
+                    }
+                } else {
+                    (
+                        self.build_expression(Expression::Binary {
+                            lhs,
+                            operation,
+                            rhs,
+                        })
+                        .into_int_value(),
+                        self.context.i32_type().const_zero(),
+                        IntPredicate::NE,
+                    )
+                }
+            }
             expr => (
-                self.build_expression(expr),
+                self.build_expression(expr).into_int_value(),
                 self.context.i32_type().const_zero(),
                 IntPredicate::NE,
             ),
@@ -271,34 +279,37 @@ impl<'ctx> Compiler<'ctx> {
                     lhs,
                     operation,
                     rhs,
-                } => match operation {
-                    crate::ast::Operation::Equal => (
-                        self.build_expression(*lhs),
-                        self.build_expression(*rhs),
-                        IntPredicate::EQ,
-                    ),
-                    crate::ast::Operation::Greater => (
-                        self.build_expression(*lhs),
-                        self.build_expression(*rhs),
-                        IntPredicate::SGT,
-                    ),
-                    crate::ast::Operation::Less => (
-                        self.build_expression(*lhs),
-                        self.build_expression(*rhs),
-                        IntPredicate::SLT,
-                    ),
-                    op => (
-                        self.build_expression(Expression::Binary {
-                            lhs,
-                            operation: op,
-                            rhs,
-                        }),
-                        self.context.i32_type().const_zero(),
-                        IntPredicate::NE,
-                    ),
-                },
+                } => {
+                    if let Operation::Equal | Operation::Greater | Operation::Less = operation {
+                        let lhs_value = self.build_expression(*lhs).into_int_value();
+                        let rhs_value = self.build_expression(*rhs).into_int_value();
+                        match operation {
+                            crate::ast::Operation::Equal => {
+                                (lhs_value, rhs_value, IntPredicate::EQ)
+                            }
+                            crate::ast::Operation::Greater => {
+                                (lhs_value, rhs_value, IntPredicate::SGT)
+                            }
+                            crate::ast::Operation::Less => {
+                                (lhs_value, rhs_value, IntPredicate::SLT)
+                            }
+                            _ => panic!("Impossible"),
+                        }
+                    } else {
+                        (
+                            self.build_expression(Expression::Binary {
+                                lhs,
+                                operation,
+                                rhs,
+                            })
+                            .into_int_value(),
+                            self.context.i32_type().const_zero(),
+                            IntPredicate::NE,
+                        )
+                    }
+                }
                 expr => (
-                    self.build_expression(expr),
+                    self.build_expression(expr).into_int_value(),
                     self.context.i32_type().const_zero(),
                     IntPredicate::NE,
                 ),
@@ -354,7 +365,7 @@ impl<'ctx> Compiler<'ctx> {
         }
     }
 
-    pub fn build_call(&mut self, call: Call) -> IntValue<'ctx> {
+    pub fn build_call(&mut self, call: Call) -> BasicValueEnum<'ctx> {
         if let Some(function) = self.module.get_function(&call.callee) {
             if function.count_params() != call.arguments.len() as u32 {
                 panic!("Not enough arguments")
@@ -365,12 +376,13 @@ impl<'ctx> Compiler<'ctx> {
                 .iter()
                 .map(|f| self.build_expression(f.clone()).into())
                 .collect_vec();
-            let value = self.builder.build_call(function, args.as_slice(), "calltmp");
+            let value = self
+                .builder
+                .build_call(function, args.as_slice(), "calltmp");
             value
                 .expect("Build failed")
                 .try_as_basic_value()
-                .unwrap_left()
-                .into_int_value()
+                .left_or(self.context.i32_type().const_int(0, false).into())
         } else {
             panic!("Function not defined")
         }

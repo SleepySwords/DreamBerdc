@@ -2,7 +2,7 @@
 
 use std::collections::{HashMap, VecDeque};
 
-use inkwell::values::{IntValue, PointerValue};
+use inkwell::values::{IntValue, PointerValue, FloatValue, AnyValueEnum};
 
 use crate::{types::Type, utils::Mutable};
 
@@ -43,7 +43,7 @@ impl<'a> SymbolTable<'a> {
     pub fn fetch_variable_ptr(&mut self, name: &String) -> Option<PointerValue<'a>> {
         for i in 0..self.ptr_symbol_table.len() {
             if self.ptr_symbol_table[i].contains_key(name) {
-                return Some(self.ptr_symbol_table[i][name].value_ptr);
+                return Some(self.ptr_symbol_table[i][name].pointer_value());
             }
         }
         return None;
@@ -53,15 +53,33 @@ impl<'a> SymbolTable<'a> {
     pub fn store_variable_ptr(&mut self, name: String, ptr: PointerValue<'a>) {
         let variable = Variable {
             value_type: Type::Void,
-            value_ptr: ptr,
+            value: ptr.into(),
             mutability: Mutable::ALL,
         };
         self.ptr_symbol_table[0].insert(name, variable);
     }
 }
 
-struct Variable<'ctx> {
+pub struct Variable<'ctx> {
+    // value could also act as value_type
     value_type: Type,
-    value_ptr: PointerValue<'ctx>,
+    value: AnyValueEnum<'ctx>,
     mutability: Mutable,
+}
+
+impl<'ctx> Variable<'ctx> {
+    pub fn int_value(&self) -> IntValue<'ctx> {
+        // Should panic if not correct type.
+        return self.value.into_int_value()
+    }
+
+    pub fn float_value(&self) -> FloatValue<'ctx> {
+        // Should panic if not correct cast.
+        return self.value.into_float_value()
+    }
+
+    pub fn pointer_value(&self) -> PointerValue<'ctx> {
+        // Should panic if not correct cast.
+        return self.value.into_pointer_value()
+    }
 }
