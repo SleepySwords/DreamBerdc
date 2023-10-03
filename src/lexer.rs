@@ -1,5 +1,5 @@
-use std::fmt::Display;
 use std::fmt::Debug;
+use std::fmt::Display;
 
 #[derive(PartialEq, Clone)]
 pub struct Token {
@@ -95,7 +95,7 @@ impl Lexer {
         } else {
             self.current_col += 1;
         }
-        return Some(*ch);
+        Some(*ch)
     }
 
     pub fn peek(&mut self) -> Option<&char> {
@@ -107,7 +107,11 @@ impl Lexer {
 
         while let Some(token) = self.next() {
             let lnum = self.current_lnum;
-            let col = if self.current_col > 0 {self.current_col - 1} else {self.current_col}; // as added by self.next() but i'm lazy
+            let col = if self.current_col > 0 {
+                self.current_col - 1
+            } else {
+                self.current_col
+            }; // as added by self.next() but i'm lazy
             let token_kind = match token {
                 '=' => self.equal(),
                 '(' => TokenKind::OpenPar,
@@ -172,7 +176,11 @@ impl Lexer {
             };
             tokens.push(Token::new(token_kind, lnum, col))
         }
-        tokens.push(Token::new(TokenKind::Eof, self.current_lnum, self.current_col));
+        tokens.push(Token::new(
+            TokenKind::Eof,
+            self.current_lnum,
+            self.current_col,
+        ));
         tokens
     }
 

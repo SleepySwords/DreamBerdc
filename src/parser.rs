@@ -140,8 +140,13 @@ impl Parser {
     pub fn parse_equality(&mut self) -> Result<Expression, CompileError> {
         let mut expr = self.parse_term()?;
 
-        while let Some(TokenKind::EqEq | TokenKind::EqEqEq | TokenKind::EqEqEqEq | TokenKind::Lt | TokenKind::Gt) =
-            self.peek()
+        while let Some(
+            TokenKind::EqEq
+            | TokenKind::EqEqEq
+            | TokenKind::EqEqEqEq
+            | TokenKind::Lt
+            | TokenKind::Gt,
+        ) = self.peek()
         {
             let operation = match self.next().unwrap() {
                 TokenKind::EqEq => Operation::Equal,
@@ -353,7 +358,9 @@ impl Parser {
         self.expect(TokenKind::OpenCurB)?;
         while !self.check(TokenKind::CloseCurB) {
             match self.peek() {
-                Some(TokenKind::Const | TokenKind::Var) => statements.push(self.parse_declaration()?),
+                Some(TokenKind::Const | TokenKind::Var) => {
+                    statements.push(self.parse_declaration()?)
+                }
                 Some(TokenKind::Return) => statements.push(self.parse_return()?),
                 Some(TokenKind::If) => statements.push(self.parse_if()?),
                 Some(TokenKind::For) => statements.push(self.parse_for()?),
@@ -374,7 +381,9 @@ impl Parser {
             if let Some(second_op) = self.next() {
                 const ALLOWED_TOKENS: [TokenKind; 2] = [TokenKind::Var, TokenKind::Const];
                 if !ALLOWED_TOKENS.contains(&first_op) || !ALLOWED_TOKENS.contains(&second_op) {
-                    return Err(CompileError::SyntaxError(String::from("Declaration is missing var/const")));
+                    return Err(CompileError::SyntaxError(String::from(
+                        "Declaration is missing var/const",
+                    )));
                 }
                 if first_op == TokenKind::Var {
                     flags |= Mutable::Reassignable;
@@ -395,10 +404,14 @@ impl Parser {
                     rhs: rhs?,
                 })))
             } else {
-                Err(CompileError::SyntaxError(String::from("Expected '=' in the declaration.")))
+                Err(CompileError::SyntaxError(String::from(
+                    "Expected '=' in the declaration.",
+                )))
             }
         } else {
-            Err(CompileError::SyntaxError(String::from("Missing identifier in declaration")))
+            Err(CompileError::SyntaxError(String::from(
+                "Missing identifier in declaration",
+            )))
         }
     }
 

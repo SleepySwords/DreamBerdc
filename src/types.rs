@@ -28,7 +28,7 @@ impl Type {
         match t.as_str() {
             "int" => Type::Int,
             "float" => Type::Int,
-            _ => panic!("Type {t} not implemented!")
+            _ => panic!("Type {t} not implemented!"),
         }
     }
 }

@@ -1,6 +1,6 @@
 use itertools::Itertools;
 
-use crate::{TokenKind, lexer::Lexer};
+use crate::{lexer::Lexer, TokenKind};
 use std::{error::Error, fs, vec};
 
 #[test]

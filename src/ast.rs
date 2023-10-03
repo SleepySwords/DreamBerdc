@@ -1,4 +1,4 @@
-use crate::{utils::Mutable, types::Type};
+use crate::{types::Type, utils::Mutable};
 
 // Expressions return values, statements do not.
 #[derive(Debug, Clone)]
@@ -26,7 +26,7 @@ pub enum Operation {
     StrictEqual,
     VeryStrictEqual,
     Greater,
-    Less
+    Less,
 }
 
 #[derive(Debug, Clone)]

@@ -1,4 +1,4 @@
-use std::{path::Path, thread::panicking};
+use std::{path::Path};
 
 use inkwell::{
     builder::Builder,
@@ -14,7 +14,7 @@ use itertools::Itertools;
 
 use crate::{
     ast::{
-        Call, Declaration, Expression, ForStatement, Function, IfStatement, Operation, Statement,
+        Call, Declaration, Expression, ForStatement, Function, IfStatement, Statement,
     },
     symboltable::SymbolTable,
 };
@@ -129,7 +129,7 @@ impl<'ctx> Compiler<'ctx> {
             Expression::Identifier(id) => {
                 if let Some(ptr) = self.symbol_table.fetch_variable_ptr(&id) {
                     let value = self.builder.build_load(self.context.i32_type(), ptr, &id);
-                    value.unwrap().into()
+                    value.unwrap()
                 } else if let Some(value) = self.symbol_table.fetch_value(&id) {
                     value.into()
                 } else {
@@ -151,11 +151,18 @@ impl<'ctx> Compiler<'ctx> {
     pub fn build_if(&mut self, if_statement: IfStatement) {
         self.symbol_table.push_scope();
 
-        let value = self.build_expression(if_statement.boolean_op).into_int_value();
+        let value = self
+            .build_expression(if_statement.boolean_op)
+            .into_int_value();
 
         let condition = self
             .builder
-            .build_int_compare(IntPredicate::NE, self.context.i32_type().const_zero(), value, "ifcond")
+            .build_int_compare(
+                IntPredicate::NE,
+                self.context.i32_type().const_zero(),
+                value,
+                "ifcond",
+            )
             .expect("Build failed");
 
         let current_function = self
@@ -252,11 +259,18 @@ impl<'ctx> Compiler<'ctx> {
                 .build_store(variable, next_var)
                 .expect("Build failed");
 
-            let value = self.build_expression(for_statement.condition).into_int_value();
+            let value = self
+                .build_expression(for_statement.condition)
+                .into_int_value();
 
             let end_cond = self
                 .builder
-                .build_int_compare(IntPredicate::NE, self.context.i32_type().const_zero(), value, "loopcond")
+                .build_int_compare(
+                    IntPredicate::NE,
+                    self.context.i32_type().const_zero(),
+                    value,
+                    "loopcond",
+                )
                 .expect("Build failed");
 
             let after_bb = self

@@ -1,7 +1,6 @@
 use std::fmt::Display;
 
 use clap::{Parser, ValueEnum};
-use inkwell::OptimizationLevel;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
 pub enum Mode {
