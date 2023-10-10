@@ -135,7 +135,7 @@ impl<'ctx> Compiler<'ctx> {
                     let value = self.builder.build_load(self.context.i32_type(), ptr, &id);
                     value.unwrap()
                 } else if let Some(value) = self.symbol_table.fetch_value(&id) {
-                    value.into()
+                    value
                 } else {
                     let var_i32 = id.parse::<i32>();
                     if let Ok(var) = var_i32 {

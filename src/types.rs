@@ -24,7 +24,7 @@ impl Type {
         }
     }
 
-    pub fn basic_metadata_enum<'a>(self, context: &'a Context) -> BasicMetadataTypeEnum<'a> {
+    pub fn basic_metadata_enum(self, context: &Context) -> BasicMetadataTypeEnum<'_> {
         match self {
             Type::Int => context.i32_type().into(),
             Type::Float => context.f32_type().into(),

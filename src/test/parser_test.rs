@@ -90,10 +90,7 @@ fn test_parse_for() -> Result<(), Box<dyn Error>> {
         statements.push(function);
     }
 
-    assert_eq!(
-        statements,
-        vec![]
-    );
+    assert_eq!(statements, vec![]);
     // '<,'>s/\[/vec![/g
     //'<,'>s/\(".\{-}"\)/\1.to_string/g
     Ok(()) // '<,'>s/\(.\{-}\)-(\(.\{-}\), \(.\{-}\)),/Token::new(\1, \3, \2), /g

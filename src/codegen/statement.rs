@@ -59,10 +59,8 @@ impl<'ctx> Compiler<'ctx> {
         self.symbol_table.push_scope();
 
         for (index, (name, _)) in function.prototype.arguments.into_iter().enumerate() {
-            self.symbol_table.store_value(
-                name,
-                fn_val.get_nth_param(index as u32).unwrap(),
-            )
+            self.symbol_table
+                .store_value(name, fn_val.get_nth_param(index as u32).unwrap())
         }
 
         for statement in function.body {

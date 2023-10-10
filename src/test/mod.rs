@@ -1,2 +1,2 @@
-mod tokenizer_test;
 mod parser_test;
+mod tokenizer_test;

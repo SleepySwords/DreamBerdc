@@ -2,7 +2,7 @@
 
 use std::collections::{HashMap, VecDeque};
 
-use inkwell::{values::{AnyValueEnum, FloatValue, IntValue, PointerValue, BasicValueEnum}};
+use inkwell::values::{AnyValueEnum, BasicValueEnum, FloatValue, IntValue, PointerValue};
 
 use crate::{types::Type, utils::Mutable};
 
