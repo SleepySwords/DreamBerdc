@@ -1,7 +1,7 @@
 use crate::{types::Type, utils::Mutable};
 
 // Expressions return values, statements do not.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[allow(dead_code)]
 pub enum Expression {
     Binary {
@@ -29,21 +29,21 @@ pub enum Operation {
     Less,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[allow(dead_code)]
 pub struct Call {
     pub callee: String,
     pub arguments: Vec<Expression>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[allow(dead_code)]
 pub struct Assignment {
     pub lhs: String,
     pub rhs: Box<Expression>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Statement {
     Declaration(Box<Declaration>),
     If(Box<IfStatement>),
@@ -53,7 +53,7 @@ pub enum Statement {
     Expression(Expression),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[allow(dead_code)]
 pub struct Declaration {
     pub mutable: Mutable,
@@ -61,7 +61,7 @@ pub struct Declaration {
     pub rhs: Expression,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[allow(dead_code)]
 pub struct IfStatement {
     pub boolean_op: Expression,
@@ -69,7 +69,7 @@ pub struct IfStatement {
     pub else_statements: Option<Vec<Statement>>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[allow(dead_code)]
 pub struct ForStatement {
     pub initialiser: Statement,
@@ -80,7 +80,7 @@ pub struct ForStatement {
 
 pub type Name = String;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[allow(dead_code)]
 pub struct Prototype {
     pub name: String,
@@ -88,7 +88,7 @@ pub struct Prototype {
     pub return_type: Type,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Function {
     pub prototype: Prototype,
     pub body: Vec<Statement>,

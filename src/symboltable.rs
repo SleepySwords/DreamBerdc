@@ -2,13 +2,13 @@
 
 use std::collections::{HashMap, VecDeque};
 
-use inkwell::values::{AnyValueEnum, FloatValue, IntValue, PointerValue};
+use inkwell::{values::{AnyValueEnum, FloatValue, IntValue, PointerValue, BasicValueEnum}};
 
 use crate::{types::Type, utils::Mutable};
 
 #[derive(Default)]
 pub struct SymbolTable<'ctx> {
-    symbol_table: VecDeque<HashMap<String, IntValue<'ctx>>>,
+    symbol_table: VecDeque<HashMap<String, BasicValueEnum<'ctx>>>,
     ptr_symbol_table: VecDeque<HashMap<String, Variable<'ctx>>>,
 }
 
@@ -26,7 +26,7 @@ impl<'a> SymbolTable<'a> {
         }
     }
 
-    pub fn fetch_value(&mut self, name: &String) -> Option<IntValue<'a>> {
+    pub fn fetch_value(&mut self, name: &String) -> Option<BasicValueEnum<'a>> {
         for i in 0..self.symbol_table.len() {
             if self.symbol_table[i].contains_key(name) {
                 return Some(self.symbol_table[i][name]);
@@ -36,7 +36,7 @@ impl<'a> SymbolTable<'a> {
     }
 
     // FIX: Should return a result
-    pub fn store_value(&mut self, name: String, ptr: IntValue<'a>) {
+    pub fn store_value(&mut self, name: String, ptr: BasicValueEnum<'a>) {
         self.symbol_table[0].insert(name, ptr);
     }
 

@@ -11,3 +11,4 @@ inkwell = { git = "https://github.com/TheDan64/inkwell", branch = "master", feat
 itertools = "0.11.0"
 clap = { version = "4.4.3", features = ["derive"] }
 thiserror = "1.0.48"
+pretty_assertions = "1.4.0"

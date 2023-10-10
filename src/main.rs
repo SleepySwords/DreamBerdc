@@ -60,7 +60,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut lexer = Lexer::new(data);
 
     let tokens = lexer.tokenise();
-    println!("{:?}", tokens);
+    println!("{:#?}", tokens);
 
     // Step 2: Parse
     let mut parser = CodeParser {
@@ -79,7 +79,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         };
         statements.push(function);
     }
-    println!("{:?}", statements);
+    println!("{:#?}", statements);
 
     // Step 3: Codegen
     let context = Context::create();

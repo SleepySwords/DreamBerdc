@@ -3,7 +3,7 @@ use inkwell::{
     types::{BasicMetadataTypeEnum, FunctionType},
 };
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Type {
     Int,
     Float,
@@ -24,10 +24,18 @@ impl Type {
         }
     }
 
+    pub fn basic_metadata_enum<'a>(self, context: &'a Context) -> BasicMetadataTypeEnum<'a> {
+        match self {
+            Type::Int => context.i32_type().into(),
+            Type::Float => context.f32_type().into(),
+            Type::Void => panic!("Invalid type"),
+        }
+    }
+
     pub(crate) fn parse(t: String) -> Type {
         match t.as_str() {
             "int" => Type::Int,
-            "float" => Type::Int,
+            "float" => Type::Float,
             _ => panic!("Type {t} not implemented!"),
         }
     }

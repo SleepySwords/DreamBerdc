@@ -16,12 +16,12 @@ impl Token {
 
 impl Debug for Token {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}-({}, {})", self.kind, self.col, self.lnum)
+        write!(f, "{:?}{{{}, {}}}", self.kind, self.lnum, self.col)
     }
 }
 impl Display for Token {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}, ({}, {})", self.kind, self.col, self.lnum)
+        write!(f, "{:?}, ({}, {})", self.kind, self.lnum, self.col)
     }
 }
 
@@ -140,7 +140,8 @@ impl Lexer {
                     let mut word = String::new();
                     word.push(token);
                     while let Some(token) = self.peek() {
-                        if !token.is_alphanumeric() {
+                        // FIXME: this needs to be parsed above seperately (for method calls)
+                        if !token.is_alphanumeric() && *token != '.' {
                             break;
                         }
                         word.push(*token);
