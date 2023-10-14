@@ -1,0 +1,9 @@
+function add(a: int, b: int): float => {
+	return a + b!
+}
+
+function main() => {
+	puts("aekeifjaiojeioffj")!
+	puts(gets("aekeifjaiojeioffj"))!
+	return 0!
+}

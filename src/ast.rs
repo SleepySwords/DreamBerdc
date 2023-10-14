@@ -13,6 +13,7 @@ pub enum Expression {
     Assignment(Assignment),
     LiteralValue(String),
     Identifier(String),
+    Array(Vec<Expression>),
     Unkown,
 }
 

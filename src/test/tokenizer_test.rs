@@ -11,7 +11,7 @@ use pretty_assertions::assert_eq;
 
 #[test]
 fn test_tokenize() -> Result<(), Box<dyn Error>> {
-    let contents = fs::read_to_string("./test_files/add.drmbrd")?;
+    let contents = fs::read_to_string("./test_files/add.db")?;
     let mut lexer = Lexer::new(contents.chars().collect_vec());
     let tokens = lexer.tokenise();
     assert_eq!(

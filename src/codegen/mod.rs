@@ -1,4 +1,5 @@
 mod statement;
+mod expression;
 
 use std::path::Path;
 
@@ -8,7 +9,7 @@ use inkwell::{
     execution_engine::JitFunction,
     module::Module,
     targets::{InitializationConfig, Target, TargetMachine},
-    values::BasicValueEnum,
+    values::{ArrayValue, BasicValueEnum},
     FloatPredicate, IntPredicate, OptimizationLevel,
 };
 use itertools::Itertools;
@@ -129,7 +130,25 @@ impl<'ctx> Compiler<'ctx> {
                     .expect("Build failed");
                 self.context.i32_type().const_zero().into()
             }
-            Expression::LiteralValue(_) => todo!(),
+            Expression::LiteralValue(strs) => {
+                let mut string = strs
+                    .chars()
+                    .map(|f| self.context.i8_type().const_int(f.into(), false))
+                    .collect_vec();
+                string.push(self.context.i8_type().const_zero());
+                let value: ArrayValue = self.context.i8_type().const_array(&string[..]).into();
+                let ptr = self.builder
+                    .build_array_alloca(
+                        self.context.i8_type(),
+                        self.context.i8_type().const_int(string.len() as u64, false),
+                        "pointer",
+                    )
+                    .unwrap();
+                self.builder
+                    .build_store(ptr, value)
+                    .expect("Build failed");
+                ptr.into()
+            }
             Expression::Identifier(id) => {
                 if let Some(ptr) = self.symbol_table.fetch_variable_ptr(&id) {
                     let value = self.builder.build_load(self.context.i32_type(), ptr, &id);
@@ -148,7 +167,7 @@ impl<'ctx> Compiler<'ctx> {
                     }
                 }
             }
-            Expression::Unkown => todo!(),
+            _ => todo!(),
         }
     }
 
@@ -181,7 +200,7 @@ impl<'ctx> Compiler<'ctx> {
             .create_jit_execution_engine(optimisation)
             .unwrap();
         unsafe {
-            type Main = unsafe extern "C" fn() -> f32;
+            type Main = unsafe extern "C" fn() -> u32;
             let main: JitFunction<Main> = execution_engine.get_function("main").unwrap();
             println!("Return code: {}", main.call());
             // println!("Return code: {}", main.call(10, 3));
@@ -214,4 +233,27 @@ impl<'ctx> Compiler<'ctx> {
             .write_to_file(&self.module, inkwell::targets::FileType::Object, path)
             .expect("Error");
     }
+
+    // FIXME: need to implement ast locations
+    // pub fn create_debug_symbols(&self) {
+    //     let (dibuilder, compile_unit) = self.module.create_debug_info_builder(
+    //         false,
+    //         inkwell::debug_info::DWARFSourceLanguage::C,
+    //         "source_file",
+    //         ".",
+    //         "my llvm compiler frontend",
+    //         false,
+    //         "",
+    //         0,
+    //         "",
+    //         inkwell::debug_info::DWARFEmissionKind::Full,
+    //         0,
+    //         false,
+    //         false,
+    //         "",
+    //         "",
+    //     );
+    //     dibuilder.finalize();
+    //     dibuilder.create_file(compile_unit.get_file(), compile_unit.get_file())
+    // }
 }

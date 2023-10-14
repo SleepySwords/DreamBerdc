@@ -105,6 +105,9 @@ impl Parser {
                     panic!("Should not be here.")
                 }
             }
+            Some(&TokenKind::OpenSqB) => {
+                return self.parse_array();
+            }
             tkn => Err(CompileError::SyntaxError(format!(
                 "Expected expression, found {:?}",
                 tkn
@@ -423,5 +426,23 @@ impl Parser {
         Ok(Statement::Return {
             return_value: Box::new(return_value),
         })
+    }
+    
+    fn parse_array(&mut self) -> Result<Expression, CompileError> {
+        self.expect(TokenKind::OpenSqB)?;
+        let mut values = vec![];
+        while !self.check(TokenKind::CloseSqB) {
+            let expr = self.parse_expression()?;
+            values.push(expr);
+            // FIXME: Disgusting syntax
+            if self.check(TokenKind::Comma) {
+                self.expect(TokenKind::Comma)?;
+            } else if !self.check(TokenKind::CloseSqB) {
+                // FIXME: do this better
+                return Err(CompileError::SyntaxError(String::from("Unexpected symbol")));
+            }
+        }
+        self.expect(TokenKind::CloseSqB)?;
+        return Ok(Expression::Array(values));
     }
 }

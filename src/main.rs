@@ -97,10 +97,27 @@ fn main() -> Result<(), Box<dyn Error>> {
         Some(inkwell::module::Linkage::External),
     );
 
-    let putchar_fn_type = context.i32_type().fn_type(&[], false);
+    let put_fn_type = context
+        .i32_type()
+        .fn_type(&[context.i32_type().into()], false);
+
+    module.add_function(
+        "puts",
+        put_fn_type,
+        Some(inkwell::module::Linkage::External),
+    );
+
+    let getchar_fn_type = context.i32_type().fn_type(&[], false);
     module.add_function(
         "getchar",
-        putchar_fn_type,
+        getchar_fn_type,
+        Some(inkwell::module::Linkage::External),
+    );
+
+    let getchar_fn_type = context.i32_type().fn_type(&[context.i32_type().into()], false);
+    module.add_function(
+        "gets",
+        getchar_fn_type,
         Some(inkwell::module::Linkage::External),
     );
 
