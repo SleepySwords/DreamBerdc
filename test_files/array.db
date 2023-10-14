@@ -3,7 +3,7 @@ function add(a: int, b: int): float => {
 }
 
 function main() => {
-	puts("aekeifjaiojeioffj")!
+	puts("aekeifjaiojeioffj\n")!
 	puts(gets("aekeifjaiojeioffj"))!
 	return 0!
 }

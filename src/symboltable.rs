@@ -1,5 +1,3 @@
-// TODO: create scopes
-
 use std::collections::{HashMap, VecDeque};
 
 use inkwell::values::{AnyValueEnum, BasicValueEnum, FloatValue, IntValue, PointerValue};

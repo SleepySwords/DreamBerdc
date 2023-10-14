@@ -26,27 +26,7 @@ mod utils;
 mod test;
 
 fn main() -> Result<(), Box<dyn Error>> {
-    // FIX: bangs are currently not recongnisd
-    // could lead to `var var test = tes print("AWEf")`
-    // being interperted as `var var test = tes!print("AWEF")`
-    // Rather than poducing a syntax error.
-    //
-    // Order function defintion matters for this!!
-    //
-    // for (var var i = 0; i > b; i++) {
-    //     i + a!
-    // }
-    //
-    // FIX: potential error when storing a boolean as it stores with alignment of 1
-    // and fetches with alignment of 4
-
     let args = Args::parse();
-    // let args = Args {
-    //     input: String::from("test/for_loop.drmbrd"),
-    //     output: None,
-    //     mode: args::Mode::Jit,
-    //     optimisation: args::Optimisation::None,
-    // };
     let optimisation = match args.optimisation {
         args::Optimisation::None => OptimizationLevel::None,
         args::Optimisation::Less => OptimizationLevel::Less,
@@ -64,7 +44,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     // Step 2: Parse
     let mut parser = CodeParser {
-        tokens: tokens.into_iter().map(|tkn| tkn.kind).collect_vec(),
+        tokens,
         pos: 0,
     };
 

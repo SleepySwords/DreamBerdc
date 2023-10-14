@@ -6,28 +6,38 @@ use crate::{
         Prototype, Statement,
     },
     compile_error::CompileError,
-    lexer::TokenKind,
+    lexer::{Token, TokenKind},
     types::Type,
     utils::Mutable,
 };
 
 pub struct Parser {
-    pub tokens: Vec<TokenKind>,
+    pub tokens: Vec<Token>,
     pub pos: usize,
 }
 
 impl Parser {
     pub fn next(&mut self) -> Option<TokenKind> {
         self.pos += 1;
-        return self.tokens.get(self.pos - 1).cloned();
+        return self.tokens.get(self.pos - 1).map(|f| f.kind.clone());
     }
 
     pub fn peek(&mut self) -> Option<&TokenKind> {
-        return self.tokens.get(self.pos);
+        return self.tokens.get(self.pos).map(|x| &x.kind);
     }
 
     pub fn peek_forward(&mut self, index: usize) -> Option<&TokenKind> {
-        return self.tokens.get(self.pos + index);
+        return self.tokens.get(self.pos + index).map(|f| &f.kind);
+    }
+
+    pub fn current_pos(&self) -> (usize, usize) {
+        let token = self.tokens.get(self.pos).unwrap();
+        (token.col, token.lnum)
+    }
+
+    pub fn previous_pos(&self) -> (usize, usize) {
+        let token = self.tokens.get(self.pos - 1).unwrap();
+        (token.col, token.lnum)
     }
 
     pub fn expect(&mut self, token: TokenKind) -> Result<(), CompileError> {
@@ -35,16 +45,16 @@ impl Parser {
             if t == token {
                 return Ok(());
             } else {
-                return Err(CompileError::SyntaxError(format!(
-                    "Expected \"{:?}\", found \"{:?}\"",
-                    token, t
-                )));
+                return Err(CompileError::SyntaxError(
+                    self.previous_pos(),
+                    format!("Expected \"{:?}\", found \"{:?}\"", token, t,),
+                ));
             }
         }
-        Err(CompileError::SyntaxError(format!(
-            "Expected \"{:?}\", found EOF",
-            token
-        )))
+        Err(CompileError::SyntaxError(
+            self.current_pos(),
+            format!("Expected \"{:?}\", found EOF", token),
+        ))
     }
 
     pub fn check(&mut self, token: TokenKind) -> bool {
@@ -81,6 +91,7 @@ impl Parser {
 
     // FIX: merge this into the parse_value attribute
     pub fn parse_expression(&mut self) -> Result<Expression, CompileError> {
+        let pos = self.current_pos();
         return match self.peek() {
             Some(&TokenKind::Symbol(_)) => {
                 if self.check_forward(TokenKind::Eq, 1) {
@@ -108,10 +119,10 @@ impl Parser {
             Some(&TokenKind::OpenSqB) => {
                 return self.parse_array();
             }
-            tkn => Err(CompileError::SyntaxError(format!(
-                "Expected expression, found {:?}",
-                tkn
-            ))),
+            tkn => Err(CompileError::SyntaxError(
+                pos,
+                format!("Expected expression, found {:?}", tkn),
+            )),
         };
     }
 
@@ -129,15 +140,13 @@ impl Parser {
                     }
                 }
                 TokenKind::String(str) => Ok(Expression::LiteralValue(str)),
-                tkn => Err(CompileError::SyntaxError(format!(
-                    "Unkown token {:?} found in place of value",
-                    tkn
-                ))),
+                tkn => Err(CompileError::SyntaxError(
+                    self.previous_pos(),
+                    format!("Expected value, found {:?}", tkn),
+                )),
             };
         }
-        Err(CompileError::SyntaxError(String::from(
-            "Found eof instead of value",
-        )))
+        panic!("Should not happen")
     }
 
     pub fn parse_equality(&mut self) -> Result<Expression, CompileError> {
@@ -384,9 +393,10 @@ impl Parser {
             if let Some(second_op) = self.next() {
                 const ALLOWED_TOKENS: [TokenKind; 2] = [TokenKind::Var, TokenKind::Const];
                 if !ALLOWED_TOKENS.contains(&first_op) || !ALLOWED_TOKENS.contains(&second_op) {
-                    return Err(CompileError::SyntaxError(String::from(
-                        "Declaration is missing var/const",
-                    )));
+                    return Err(CompileError::SyntaxError(
+                        self.current_pos(),
+                        String::from("Declaration is missing var/const"),
+                    ));
                 }
                 if first_op == TokenKind::Var {
                     flags |= Mutable::Reassignable;
@@ -407,14 +417,16 @@ impl Parser {
                     rhs: rhs?,
                 })))
             } else {
-                Err(CompileError::SyntaxError(String::from(
-                    "Expected '=' in the declaration.",
-                )))
+                Err(CompileError::SyntaxError(
+                    self.current_pos(),
+                    String::from("Expected '=' in the declaration."),
+                ))
             }
         } else {
-            Err(CompileError::SyntaxError(String::from(
-                "Missing identifier in declaration",
-            )))
+            Err(CompileError::SyntaxError(
+                self.current_pos(),
+                String::from("Missing identifier in declaration"),
+            ))
         }
     }
 
@@ -427,7 +439,7 @@ impl Parser {
             return_value: Box::new(return_value),
         })
     }
-    
+
     fn parse_array(&mut self) -> Result<Expression, CompileError> {
         self.expect(TokenKind::OpenSqB)?;
         let mut values = vec![];
@@ -439,7 +451,10 @@ impl Parser {
                 self.expect(TokenKind::Comma)?;
             } else if !self.check(TokenKind::CloseSqB) {
                 // FIXME: do this better
-                return Err(CompileError::SyntaxError(String::from("Unexpected symbol")));
+                return Err(CompileError::SyntaxError(
+                    self.current_pos(),
+                    String::from("Unexpected symbol"),
+                ));
             }
         }
         self.expect(TokenKind::CloseSqB)?;

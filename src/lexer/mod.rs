@@ -87,7 +87,6 @@ impl Lexer {
     }
 
     pub fn next(&mut self) -> Option<char> {
-        self.pos += 1;
         let ch = self.data.get(self.pos)?;
         if ch == &'\n' {
             self.current_col = 0;
@@ -95,11 +94,12 @@ impl Lexer {
         } else {
             self.current_col += 1;
         }
+        self.pos += 1;
         Some(*ch)
     }
 
     pub fn peek(&mut self) -> Option<&char> {
-        self.data.get(self.pos + 1)
+        self.data.get(self.pos)
     }
 
     pub fn tokenise(&mut self) -> Vec<Token> {
@@ -107,11 +107,7 @@ impl Lexer {
 
         while let Some(token) = self.next() {
             let lnum = self.current_lnum;
-            let col = if self.current_col > 0 {
-                self.current_col - 1
-            } else {
-                self.current_col
-            }; // as added by self.next() but i'm lazy
+            let col = self.current_col;
             let token_kind = match token {
                 '=' => self.equal(),
                 '(' => TokenKind::OpenPar,
@@ -134,14 +130,14 @@ impl Lexer {
                 '<' => TokenKind::Lt,
                 '"' => self.string(),
                 _ => {
-                    if !token.is_alphanumeric() {
+                    if !token.is_alphanumeric() || token.is_whitespace() {
                         continue;
                     }
                     let mut word = String::new();
                     word.push(token);
                     while let Some(token) = self.peek() {
                         // FIXME: this needs to be parsed above seperately (for method calls)
-                        if !token.is_alphanumeric() && *token != '.' {
+                        if (!token.is_alphanumeric() && *token != '.') || token.is_whitespace() {
                             break;
                         }
                         word.push(*token);
@@ -175,7 +171,7 @@ impl Lexer {
                     }
                 }
             };
-            tokens.push(Token::new(token_kind, lnum, col))
+            tokens.push(Token::new(token_kind, lnum, col - 1)) // as added by self.next() but i'm lazy
         }
         tokens.push(Token::new(
             TokenKind::Eof,
