@@ -1,6 +1,6 @@
 use inkwell::{types::BasicMetadataTypeEnum, IntPredicate};
 
-use crate::ast::{Declaration, ForStatement, Function, IfStatement, Statement};
+use crate::{ast::{Declaration, ForStatement, Function, IfStatement, Statement}};
 
 use super::Compiler;
 
@@ -17,7 +17,7 @@ impl<'ctx> Compiler<'ctx> {
                     .build_store(variable, rhs)
                     .expect("Build failed");
                 self.symbol_table
-                    .store_variable_ptr(declaration.lhs, variable)
+                    .store_variable_ptr(declaration.lhs, variable, declaration.mutable)
             }
             Statement::Return { return_value } => {
                 let value = self.build_expression(*return_value);
@@ -151,7 +151,7 @@ impl<'ctx> Compiler<'ctx> {
                 .build_alloca(self.context.i32_type(), &lhs)
                 .expect("Build failed");
 
-            self.symbol_table.store_variable_ptr(lhs, variable);
+            self.symbol_table.store_variable_ptr(lhs, variable, decl.mutable);
 
             let initial_expression = self.build_expression(rhs);
             self.builder

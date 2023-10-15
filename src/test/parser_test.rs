@@ -16,7 +16,7 @@ use pretty_assertions::assert_eq;
 fn test_parse_addtokenize() -> Result<(), Box<dyn Error>> {
     let contents = fs::read_to_string("./test_files/add.db")?;
     let mut lexer = Lexer::new(contents.chars().collect_vec());
-    let tokens = lexer.tokenise().into_iter().map(|f| f.kind).collect_vec();
+    let tokens = lexer.tokenise();
     let mut parser = Parser { tokens, pos: 0 };
 
     let mut statements = Vec::new();
@@ -75,7 +75,7 @@ fn test_parse_addtokenize() -> Result<(), Box<dyn Error>> {
 fn test_parse_for() -> Result<(), Box<dyn Error>> {
     let contents = fs::read_to_string("./test_files/for_loop.db")?;
     let mut lexer = Lexer::new(contents.chars().collect_vec());
-    let tokens = lexer.tokenise().into_iter().map(|f| f.kind).collect_vec();
+    let tokens = lexer.tokenise();
     let mut parser = Parser { tokens, pos: 0 };
 
     let mut statements = Vec::new();

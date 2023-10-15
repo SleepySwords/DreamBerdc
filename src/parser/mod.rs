@@ -121,7 +121,11 @@ impl Parser {
             }
             tkn => Err(CompileError::SyntaxError(
                 pos,
-                format!("Expected expression, found {:?}", tkn),
+                format!(
+                    "Expected expression, found {:?}",
+                    tkn.map(|f| format!("{:?}", f))
+                        .unwrap_or("none".to_string())
+                ),
             )),
         };
     }
@@ -240,11 +244,12 @@ impl Parser {
                 } else {
                     return Err(CompileError::SyntaxError(
                         self.current_pos(),
-                        if let Some(tkn) = self.peek() {
-                            format!("Expected comma or closing bracked, found {:?}", tkn)
-                        } else {
-                            format!("Expected comma or closing bracked, found none")
-                        },
+                        format!(
+                            "Expected comma or closing bracked, found {:?}",
+                            self.peek()
+                                .map(|f| format!("{:?}", f))
+                                .unwrap_or("none".to_string())
+                        ),
                     ));
                 }
             }
@@ -465,6 +470,6 @@ impl Parser {
             }
         }
         self.expect(TokenKind::CloseSqB)?;
-        return Ok(Expression::Array(values));
+        Ok(Expression::Array(values))
     }
 }

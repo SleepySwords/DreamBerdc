@@ -1,10 +1,18 @@
-use inkwell::{values::{BasicValueEnum, ArrayValue}, IntPredicate, FloatPredicate};
+
+
+use inkwell::{
+    values::{ArrayValue, BasicValueEnum},
+    FloatPredicate, IntPredicate,
+};
 use itertools::Itertools;
 
-use crate::ast::{Expression, Call};
+use crate::{
+    ast::{Call, Expression},
+    compile_error::CompileError,
+    utils::Mutable,
+};
 
 use super::Compiler;
-
 
 impl<'ctx> Compiler<'ctx> {
     pub fn build_expression(&mut self, expression: Expression) -> BasicValueEnum<'ctx> {
@@ -100,10 +108,15 @@ impl<'ctx> Compiler<'ctx> {
             }
             Expression::Call(call) => self.build_call(call),
             Expression::Assignment(assignment) => {
-                let ptr = self
-                    .symbol_table
-                    .fetch_variable_ptr(&assignment.lhs)
-                    .unwrap();
+                let var = self.symbol_table.fetch_variable(&assignment.lhs).unwrap();
+                if !var.mutability.contains(Mutable::Reassignable) {
+                    // FIXME: proper error handling for compiling
+                    panic!(
+                        "Compile Error: {}",
+                        CompileError::CompileError("Cannot reassign a constant variable".to_string())
+                    )
+                }
+                let ptr = var.pointer_value();
                 let expression = self.build_expression(*assignment.rhs);
                 self.builder
                     .build_store(ptr, expression)
@@ -116,17 +129,16 @@ impl<'ctx> Compiler<'ctx> {
                     .map(|f| self.context.i8_type().const_int(f.into(), false))
                     .collect_vec();
                 string.push(self.context.i8_type().const_zero());
-                let value: ArrayValue = self.context.i8_type().const_array(&string[..]).into();
-                let ptr = self.builder
+                let value: ArrayValue = self.context.i8_type().const_array(&string[..]);
+                let ptr = self
+                    .builder
                     .build_array_alloca(
                         self.context.i8_type(),
                         self.context.i8_type().const_int(string.len() as u64, false),
                         "pointer",
                     )
                     .unwrap();
-                self.builder
-                    .build_store(ptr, value)
-                    .expect("Build failed");
+                self.builder.build_store(ptr, value).expect("Build failed");
                 ptr.into()
             }
             Expression::Identifier(id) => {

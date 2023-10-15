@@ -5,6 +5,7 @@ use colored::Colorize;
 #[derive(Debug)]
 pub enum CompileError {
     SyntaxError((usize, usize), String),
+    CompileError(String),
 }
 
 impl Display for CompileError {
@@ -16,6 +17,14 @@ impl Display for CompileError {
                     "{} {}",
                     format!("ERROR({}, {}):", (lnum + 1).to_string().white(), (col + 1).to_string().white()).bold().red(),
                     format!("Syntax Error: {}", msg).bold(),
+                )
+            }
+            CompileError::CompileError(msg) => {
+                write!(
+                    f,
+                    "{} {}",
+                    "ERROR:".to_string().bold().red(),
+                    format!("Compile Error: {}", msg).bold(),
                 )
             }
         }

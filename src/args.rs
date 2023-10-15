@@ -39,7 +39,7 @@ impl Display for Optimisation {
 }
 
 #[derive(Parser, Debug)]
-#[command(name = "MyApp")]
+#[command(name = "dreamberdc")]
 #[command(version = "1.0")]
 pub struct Args {
     pub input: String,

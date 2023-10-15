@@ -1,8 +1,10 @@
 use std::error::Error;
 use std::fs::read_to_string;
 use std::path::Path;
+use std::process::exit;
 
 use clap::Parser;
+use colored::Colorize;
 use inkwell::context::Context;
 use inkwell::OptimizationLevel;
 use itertools::Itertools;
@@ -56,7 +58,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             Ok(func) => func,
             Err(e) => {
                 println!("{}", e);
-                return Ok(());
+                exit(1);
             }
         };
         statements.push(function);
@@ -115,6 +117,9 @@ fn main() -> Result<(), Box<dyn Error>> {
     for statement in &statements {
         compiler.build_statement(statement.clone());
     }
+
+    println!("{}", "Compiled succesfully".green().bold());
+
     match args.mode {
         args::Mode::Jit => {
             compiler.run_jit(optimisation);

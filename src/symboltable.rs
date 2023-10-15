@@ -38,6 +38,15 @@ impl<'a> SymbolTable<'a> {
         self.symbol_table[0].insert(name, ptr);
     }
 
+    pub fn fetch_variable(&mut self, name: &String) -> Option<&Variable<'a>> {
+        for i in 0..self.ptr_symbol_table.len() {
+            if self.ptr_symbol_table[i].contains_key(name) {
+                return Some(&self.ptr_symbol_table[i][name]);
+            }
+        }
+        None
+    }
+
     pub fn fetch_variable_ptr(&mut self, name: &String) -> Option<PointerValue<'a>> {
         for i in 0..self.ptr_symbol_table.len() {
             if self.ptr_symbol_table[i].contains_key(name) {
@@ -48,11 +57,11 @@ impl<'a> SymbolTable<'a> {
     }
 
     // FIX: Should return a result
-    pub fn store_variable_ptr(&mut self, name: String, ptr: PointerValue<'a>) {
+    pub fn store_variable_ptr(&mut self, name: String, ptr: PointerValue<'a>, mutability: Mutable) {
         let variable = Variable {
             value_type: Type::Void,
             value: ptr.into(),
-            mutability: Mutable::ALL,
+            mutability,
         };
         self.ptr_symbol_table[0].insert(name, variable);
     }
@@ -62,7 +71,7 @@ pub struct Variable<'ctx> {
     // value could also act as value_type
     value_type: Type,
     value: AnyValueEnum<'ctx>,
-    mutability: Mutable,
+    pub mutability: Mutable,
 }
 
 impl<'ctx> Variable<'ctx> {
