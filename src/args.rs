@@ -51,6 +51,9 @@ pub struct Args {
     #[arg(short, long)]
     pub mode: Mode,
 
+    #[arg(short, long, action)]
+    pub log_info: bool,
+
     #[arg(short = 'O', long)]
     #[arg(default_value_t = Optimisation::None)]
     pub optimisation: Optimisation,

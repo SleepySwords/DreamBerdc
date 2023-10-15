@@ -3,5 +3,5 @@ function add(a: int, b: int): float => {
 }
 
 function main() => {
-  return add(1,5)!
+  return add(1,5!
 }

@@ -22,7 +22,7 @@ impl Parser {
         return self.tokens.get(self.pos - 1).map(|f| f.kind.clone());
     }
 
-    pub fn peek(&mut self) -> Option<&TokenKind> {
+    pub fn peek(&self) -> Option<&TokenKind> {
         return self.tokens.get(self.pos).map(|x| &x.kind);
     }
 
@@ -47,7 +47,7 @@ impl Parser {
             } else {
                 return Err(CompileError::SyntaxError(
                     self.previous_pos(),
-                    format!("Expected \"{:?}\", found \"{:?}\"", token, t,),
+                    format!("Expected \"{:?}\", found \"{:?}\"", token, t),
                 ));
             }
         }
@@ -238,7 +238,14 @@ impl Parser {
                 if let Some(TokenKind::Comma) = self.peek() {
                     self.next();
                 } else {
-                    panic!("Invalid syntax: no comma, found instead {:?}", self.peek())
+                    return Err(CompileError::SyntaxError(
+                        self.current_pos(),
+                        if let Some(tkn) = self.peek() {
+                            format!("Expected comma or closing bracked, found {:?}", tkn)
+                        } else {
+                            format!("Expected comma or closing bracked, found none")
+                        },
+                    ));
                 }
             }
         }
