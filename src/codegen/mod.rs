@@ -1,5 +1,5 @@
-mod expression;
-mod statement;
+mod codegen_expression;
+mod codegen_statement;
 
 use std::path::Path;
 

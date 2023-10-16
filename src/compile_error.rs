@@ -1,8 +1,9 @@
 use std::fmt::Display;
 
 use colored::Colorize;
+use thiserror::Error;
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum CompileError {
     SyntaxError((usize, usize), String),
     CompileError(String),

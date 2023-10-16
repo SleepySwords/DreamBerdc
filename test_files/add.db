@@ -1,12 +1,15 @@
 fun add(a: int, b: int): int => {
-  return a + b!
+    if (a > 1) {
+        puts(66)
+    }
+    return a + b!
 }
 
 function main() => {
-  const const test = add(6, 59)!
-  test = add(1, 2 + 7)!
-  putchar(test)
-  putchar(add(1, 2 + 7))
-  puts("Hello world")!
-  return 0!
+    var const test = add(6, 59)!
+    test = add(1, 64)!
+    putchar(test)
+    putchar(add(1, 2 + 7))
+    puts("Hello world")!
+    return 0!
 }

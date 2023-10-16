@@ -38,7 +38,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let file = read_to_string(args.input)?;
     let data = file.chars().collect_vec();
 
-    // Step 2: Tokenise
+    // Step 1: Tokenise
     let mut lexer = Lexer::new(data);
     let tokens = lexer.tokenise();
 
@@ -107,6 +107,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         Some(inkwell::module::Linkage::External),
     );
 
+    // FIXME: functions must be defined first before can be used.
+    // Should be able to be done by just adding the function first, and then define later.
     let mut compiler = Compiler {
         context: &context,
         module,

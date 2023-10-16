@@ -1,6 +1,6 @@
 use inkwell::{types::BasicMetadataTypeEnum, IntPredicate};
 
-use crate::{ast::{Declaration, ForStatement, Function, IfStatement, Statement}};
+use crate::ast::{Declaration, ForStatement, Function, IfStatement, Statement};
 
 use super::Compiler;
 

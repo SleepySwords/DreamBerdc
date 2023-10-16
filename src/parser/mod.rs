@@ -272,9 +272,6 @@ impl Parser {
                 (body, None)
             }
         } else {
-            // TODO: Should this be a parse_statement?
-            // Is `function main() => function hi() => {}`
-            // valid?
             (vec![Statement::Expression(self.parse_expression()?)], None)
         };
 
@@ -300,9 +297,6 @@ impl Parser {
         let body = if let Some(TokenKind::OpenCurB) = self.peek() {
             self.parse_body()?
         } else {
-            // TODO: Should this be a parse_statement?
-            // Is `function main() => function hi() => {}`
-            // valid?
             vec![Statement::Expression(self.parse_expression()?)]
         };
 

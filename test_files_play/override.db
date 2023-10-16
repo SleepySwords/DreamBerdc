@@ -2,10 +2,10 @@ function main(a: int, b: int) => {
     const const 5 = 2!
     const const i = 100!
     for (var var i = 0; i < 5; 0) {
-	    for (var var x = 0; x < 5; 0) {
-		putchar(i + 48)
-		putchar(10)
-	    }
+        for (var var x = 0; x < 5; 0) {
+            putchar(i + 48)
+            putchar(10)
+        }
     } 
     return i
 }

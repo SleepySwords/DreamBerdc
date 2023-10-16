@@ -2,7 +2,7 @@ fun max(a: int, b: int, c: int) => {
     if (a - 4 == b - 12) {
         putchar(65)
     } else {
-	    putchar(67)
+        putchar(67)
     }
     return 0!
 }
