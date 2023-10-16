@@ -89,7 +89,6 @@ impl Parser {
         }
     }
 
-    // FIX: merge this into the parse_value attribute
     pub fn parse_expression(&mut self) -> Result<Expression, CompileError> {
         let pos = self.current_pos();
         return match self.peek() {
@@ -150,7 +149,10 @@ impl Parser {
                 )),
             };
         }
-        panic!("Should not happen")
+        Err(CompileError::SyntaxError(
+            self.current_pos(),
+            format!("Expected value, found none"),
+        ))
     }
 
     pub fn parse_equality(&mut self) -> Result<Expression, CompileError> {
@@ -170,7 +172,7 @@ impl Parser {
                 TokenKind::EqEqEqEq => Operation::VeryStrictEqual,
                 TokenKind::Lt => Operation::Less,
                 TokenKind::Gt => Operation::Greater,
-                _ => panic!("Cannot enter"),
+                _ => panic!("Invalid operation (the compiler should not do this)"),
             };
             let rhs = self.parse_term();
             expr = Expression::Binary {
@@ -190,7 +192,7 @@ impl Parser {
             let operation = match self.next().unwrap() {
                 TokenKind::Plus => Operation::Add,
                 TokenKind::Dash => Operation::Subtract,
-                _ => panic!("Invalid operation"),
+                _ => panic!("Invalid operation (the compiler should not do this)"),
             };
             let rhs = self.parse_factor();
 
@@ -330,40 +332,61 @@ impl Parser {
             let mut arguments = Vec::new();
             while let Some(t) = self.next() {
                 if let TokenKind::ClosePar = t {
-                    if self.peek() == Some(&TokenKind::Colon) {
+                    return if self.peek() == Some(&TokenKind::Colon) {
                         self.next();
-                        if let Some(TokenKind::Symbol(t)) = self.next() {
-                            return Ok(Prototype {
+                        match self.next() {
+                            Some(TokenKind::Symbol(t)) => Ok(Prototype {
                                 name,
                                 arguments,
                                 return_type: Type::parse(t),
-                            });
-                        } else {
-                            panic!("Unexpected symbol!!")
+                            }),
+                            Some(tkn) => Err(CompileError::SyntaxError(
+                                self.previous_pos(),
+                                format!("Expected type, found {:?}", tkn),
+                            )),
+                            None => Err(CompileError::SyntaxError(
+                                self.previous_pos(),
+                                format!("Expected type, found none"),
+                            )),
                         }
                     } else {
-                        return Ok(Prototype {
+                        Ok(Prototype {
                             name,
                             arguments,
                             return_type: Type::Void,
-                        });
-                    }
+                        })
+                    };
                 }
 
                 if let TokenKind::Symbol(arg) = t {
                     self.expect(TokenKind::Colon)?;
-                    if let Some(TokenKind::Symbol(t)) = self.next() {
-                        arguments.push((arg, Type::parse(t)));
-                        if let Some(TokenKind::ClosePar) = self.peek() {
-                            continue;
-                        } else {
-                            self.expect(TokenKind::Comma)?;
+                    match self.next() {
+                        Some(TokenKind::Symbol(t)) => {
+                            arguments.push((arg, Type::parse(t)));
+                            if let Some(TokenKind::ClosePar) = self.peek() {
+                                continue;
+                            } else {
+                                self.expect(TokenKind::Comma)?;
+                            }
                         }
-                    } else {
-                        panic!("No type")
+                        Some(tkn) => {
+                            return Err(CompileError::SyntaxError(
+                                self.previous_pos(),
+                                format!("Expected type, found {:?}", tkn),
+                            ))
+                        }
+                        None => {
+                            return Err(CompileError::SyntaxError(
+                                self.previous_pos(),
+                                format!("Expected type, found none"),
+                            ))
+                        }
                     }
                 } else {
-                    panic!("Unexpected token {:?}", t)
+                    return Err(CompileError::SyntaxError(
+                        self.previous_pos(),
+                        format!("Expected symbol, found {:?}", t),
+                    ));
                 }
             }
         }
