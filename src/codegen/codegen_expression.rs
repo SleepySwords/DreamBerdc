@@ -1,5 +1,3 @@
-
-
 use inkwell::{
     values::{ArrayValue, BasicValueEnum},
     FloatPredicate, IntPredicate,
@@ -113,7 +111,9 @@ impl<'ctx> Compiler<'ctx> {
                     // FIXME: proper error handling for compiling
                     panic!(
                         "Compile Error: {}",
-                        CompileError::CompileError("Cannot reassign a constant variable".to_string())
+                        CompileError::CompileError(
+                            "Cannot reassign a constant variable".to_string()
+                        )
                     )
                 }
                 let ptr = var.pointer_value();

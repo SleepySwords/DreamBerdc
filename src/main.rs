@@ -47,10 +47,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     }
 
     // Step 2: Parse
-    let mut parser = CodeParser {
-        tokens,
-        pos: 0,
-    };
+    let mut parser = CodeParser { tokens, pos: 0 };
 
     let mut statements = Vec::new();
     while !parser.peek().is_some_and(|f| *f == TokenKind::Eof) {
@@ -100,7 +97,9 @@ fn main() -> Result<(), Box<dyn Error>> {
         Some(inkwell::module::Linkage::External),
     );
 
-    let getchar_fn_type = context.i32_type().fn_type(&[context.i32_type().into()], false);
+    let getchar_fn_type = context
+        .i32_type()
+        .fn_type(&[context.i32_type().into()], false);
     module.add_function(
         "gets",
         getchar_fn_type,
@@ -108,7 +107,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     );
 
     // FIXME: functions must be defined first before can be used.
-    // Should be able to be done by just adding the function first, and then define later.
+    // Should be able to be done by just adding the function first, and then build it later.
     let mut compiler = Compiler {
         context: &context,
         module,

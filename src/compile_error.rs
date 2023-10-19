@@ -16,7 +16,13 @@ impl Display for CompileError {
                 write!(
                     f,
                     "{} {}",
-                    format!("ERROR({}, {}):", (lnum + 1).to_string().white(), (col + 1).to_string().white()).bold().red(),
+                    format!(
+                        "ERROR({}, {}):",
+                        (lnum + 1).to_string().white(),
+                        (col + 1).to_string().white()
+                    )
+                    .bold()
+                    .red(),
                     format!("Syntax Error: {}", msg).bold(),
                 )
             }

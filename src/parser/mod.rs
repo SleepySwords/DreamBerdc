@@ -121,16 +121,13 @@ impl Parser {
             tkn => Err(CompileError::SyntaxError(
                 pos,
                 format!(
-                    "Expected expression, found {:?}",
-                    tkn.map(|f| format!("{:?}", f))
-                        .unwrap_or("none".to_string())
+                    "Expected expression, found {}",
+                    tkn.map_or("none".to_string(), |f| format!("{:?}", f))
                 ),
             )),
         };
     }
 
-    // FIX: add proper error handling, rather than panicing
-    // Only parses identifiers, litervals or function calls.
     pub fn parse_value(&mut self) -> Result<Expression, CompileError> {
         if let Some(token) = self.next() {
             return match token {
@@ -151,7 +148,7 @@ impl Parser {
         }
         Err(CompileError::SyntaxError(
             self.current_pos(),
-            format!("Expected value, found none"),
+            "Expected value, found none".to_string(),
         ))
     }
 
@@ -340,13 +337,12 @@ impl Parser {
                                 arguments,
                                 return_type: Type::parse(t),
                             }),
-                            Some(tkn) => Err(CompileError::SyntaxError(
+                            tkn => Err(CompileError::SyntaxError(
                                 self.previous_pos(),
-                                format!("Expected type, found {:?}", tkn),
-                            )),
-                            None => Err(CompileError::SyntaxError(
-                                self.previous_pos(),
-                                format!("Expected type, found none"),
+                                format!(
+                                    "Expected type, found {:?}",
+                                    tkn.map_or("none".to_string(), |f| format!("{:?}", f))
+                                ),
                             )),
                         }
                     } else {
@@ -369,16 +365,13 @@ impl Parser {
                                 self.expect(TokenKind::Comma)?;
                             }
                         }
-                        Some(tkn) => {
+                        tkn => {
                             return Err(CompileError::SyntaxError(
                                 self.previous_pos(),
-                                format!("Expected type, found {:?}", tkn),
-                            ))
-                        }
-                        None => {
-                            return Err(CompileError::SyntaxError(
-                                self.previous_pos(),
-                                format!("Expected type, found none"),
+                                format!(
+                                    "Expected type, found {:?}",
+                                    tkn.map_or("none".to_string(), |f| format!("{:?}", f))
+                                ),
                             ))
                         }
                     }
@@ -475,15 +468,18 @@ impl Parser {
         while !self.check(TokenKind::CloseSqB) {
             let expr = self.parse_expression()?;
             values.push(expr);
-            // FIXME: Disgusting syntax
-            if self.check(TokenKind::Comma) {
-                self.expect(TokenKind::Comma)?;
-            } else if !self.check(TokenKind::CloseSqB) {
-                // FIXME: do this better
-                return Err(CompileError::SyntaxError(
-                    self.current_pos(),
-                    String::from("Unexpected symbol"),
-                ));
+            match self.peek() {
+                Some(TokenKind::Comma) => self.expect(TokenKind::Comma)?,
+                Some(TokenKind::CloseSqB) => {}
+                tkn => {
+                    return Err(CompileError::SyntaxError(
+                        self.current_pos(),
+                        format!(
+                            "Expected comma or bracket, found {}",
+                            tkn.map_or("none".to_string(), |f| format!("{:?}", f))
+                        ),
+                    ));
+                }
             }
         }
         self.expect(TokenKind::CloseSqB)?;

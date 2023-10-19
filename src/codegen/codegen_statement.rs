@@ -151,7 +151,8 @@ impl<'ctx> Compiler<'ctx> {
                 .build_alloca(self.context.i32_type(), &lhs)
                 .expect("Build failed");
 
-            self.symbol_table.store_variable_ptr(lhs, variable, decl.mutable);
+            self.symbol_table
+                .store_variable_ptr(lhs, variable, decl.mutable);
 
             let initial_expression = self.build_expression(rhs);
             self.builder

@@ -1,6 +1,8 @@
 fun add(a: int, b: int): int => {
     if (a > 1) {
-        puts(66)
+        puts("first")
+    } else {
+        puts("second")
     }
     return a + b!
 }
