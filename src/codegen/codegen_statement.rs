@@ -20,18 +20,18 @@ impl<'ctx> Compiler<'ctx> {
                     .store_variable_ptr(declaration.lhs, variable, declaration.mutable)
             }
             Statement::Return { return_value } => {
-                let value = self.build_expression(*return_value);
+                let value = self.build_expression(return_value);
                 self.builder
                     .build_return(Some(&value))
                     .expect("Build failed");
             }
             Statement::Function(function) => {
-                self.build_function(*function);
+                self.build_function(function);
             }
             Statement::Expression(expr) => {
                 self.build_expression(expr);
             }
-            Statement::If(if_statement) => self.build_if(*if_statement),
+            Statement::If(if_statement) => self.build_if(if_statement),
             Statement::For(for_statement) => self.build_for(*for_statement),
         }
     }
@@ -138,21 +138,16 @@ impl<'ctx> Compiler<'ctx> {
             .get_parent()
             .unwrap();
 
-        if let Statement::Declaration(decl) = for_statement.initialiser {
+        if let Statement::Declaration(Declaration { mutable, lhs, rhs }) = for_statement.initialiser
+        {
             self.symbol_table.push_scope();
-            let Declaration {
-                mutable: _,
-                lhs,
-                rhs,
-            } = *decl;
 
             let variable = self
                 .builder
                 .build_alloca(self.context.i32_type(), &lhs)
                 .expect("Build failed");
 
-            self.symbol_table
-                .store_variable_ptr(lhs, variable, decl.mutable);
+            self.symbol_table.store_variable_ptr(lhs, variable, mutable);
 
             let initial_expression = self.build_expression(rhs);
             self.builder

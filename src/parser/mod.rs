@@ -2,8 +2,8 @@ use core::panic;
 
 use crate::{
     ast::{
-        Assignment, Call, Declaration, Expression, ForStatement, Function, IfStatement, Operation,
-        Prototype, Statement,
+        Declaration, Expression, ForStatement, Function, IfStatement, Operation, Prototype,
+        Statement,
     },
     compile_error::CompileError,
     lexer::{Token, TokenKind},
@@ -97,10 +97,10 @@ impl Parser {
                     if let Some(TokenKind::Symbol(lhs)) = self.next() {
                         self.expect(TokenKind::Eq)?;
                         let rhs = self.parse_expression()?;
-                        Ok(Expression::Assignment(Assignment {
+                        Ok(Expression::Assignment {
                             lhs,
                             rhs: Box::new(rhs),
-                        }))
+                        })
                     } else {
                         panic!("Invalid state")
                     }
@@ -229,10 +229,10 @@ impl Parser {
         while let Some(token) = self.peek() {
             if *token == TokenKind::ClosePar {
                 self.next();
-                return Ok(Expression::Call(Call {
+                return Ok(Expression::Call {
                     callee,
                     arguments: args,
-                }));
+                });
             }
 
             args.push(self.parse_expression()?);
@@ -274,11 +274,11 @@ impl Parser {
             (vec![Statement::Expression(self.parse_expression()?)], None)
         };
 
-        Ok(Statement::If(Box::new(IfStatement {
+        Ok(Statement::If(IfStatement {
             boolean_op: bool_exp?,
             then_statements: body,
             else_statements: else_body,
-        })))
+        }))
     }
 
     pub fn parse_for(&mut self) -> Result<Statement, CompileError> {
@@ -318,7 +318,7 @@ impl Parser {
             // valid?
             vec![Statement::Expression(self.parse_expression()?)]
         };
-        Ok(Statement::Function(Box::new(Function { prototype, body })))
+        Ok(Statement::Function(Function { prototype, body }))
     }
 
     pub fn parse_prototype(&mut self) -> Result<Prototype, CompileError> {
@@ -433,11 +433,11 @@ impl Parser {
             if let Some(TokenKind::Eq) = self.next() {
                 let rhs = self.parse_expression();
                 self.consume_bang();
-                Ok(Statement::Declaration(Box::new(Declaration {
+                Ok(Statement::Declaration(Declaration {
                     mutable: flags,
                     lhs,
                     rhs: rhs?,
-                })))
+                }))
             } else {
                 Err(CompileError::SyntaxError(
                     self.current_pos(),
@@ -457,9 +457,7 @@ impl Parser {
         let return_value = self.parse_expression()?;
         // Should probably be in statement
         self.optional(TokenKind::Bang);
-        Ok(Statement::Return {
-            return_value: Box::new(return_value),
-        })
+        Ok(Statement::Return { return_value })
     }
 
     fn parse_array(&mut self) -> Result<Expression, CompileError> {

@@ -9,8 +9,14 @@ pub enum Expression {
         operation: Operation,
         rhs: Box<Expression>,
     },
-    Call(Call),
-    Assignment(Assignment),
+    Call {
+        callee: String,
+        arguments: Vec<Expression>,
+    },
+    Assignment {
+        lhs: String,
+        rhs: Box<Expression>,
+    },
     LiteralValue(String),
     Identifier(String),
     Array(Vec<Expression>),
@@ -31,26 +37,12 @@ pub enum Operation {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[allow(dead_code)]
-pub struct Call {
-    pub callee: String,
-    pub arguments: Vec<Expression>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-#[allow(dead_code)]
-pub struct Assignment {
-    pub lhs: String,
-    pub rhs: Box<Expression>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Statement {
-    Declaration(Box<Declaration>),
-    If(Box<IfStatement>),
+    Declaration(Declaration),
+    If(IfStatement),
     For(Box<ForStatement>),
-    Function(Box<Function>),
-    Return { return_value: Box<Expression> },
+    Function(Function),
+    Return { return_value: Expression },
     Expression(Expression),
 }
 

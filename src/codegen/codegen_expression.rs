@@ -4,11 +4,7 @@ use inkwell::{
 };
 use itertools::Itertools;
 
-use crate::{
-    ast::{Call, Expression},
-    compile_error::CompileError,
-    utils::Mutable,
-};
+use crate::{ast::Expression, compile_error::CompileError, utils::Mutable};
 
 use super::Compiler;
 
@@ -19,94 +15,10 @@ impl<'ctx> Compiler<'ctx> {
                 lhs,
                 operation,
                 rhs,
-            } => {
-                let lhs = self.build_expression(*lhs);
-                let rhs = self.build_expression(*rhs);
-                if lhs.is_int_value() && rhs.is_int_value() {
-                    // Need to abstract this!
-                    let lhs = lhs.into_int_value();
-                    let rhs = rhs.into_int_value();
-                    match operation {
-                        crate::ast::Operation::Add => self
-                            .builder
-                            .build_int_add(lhs, rhs, "add")
-                            .expect("Build failed"),
-                        crate::ast::Operation::Subtract => self
-                            .builder
-                            .build_int_sub(lhs, rhs, "sub")
-                            .expect("Build failed"),
-                        crate::ast::Operation::Multiply => self
-                            .builder
-                            .build_int_mul(lhs, rhs, "mul")
-                            .expect("Build failed"),
-                        crate::ast::Operation::Divide => self
-                            .builder
-                            .build_int_signed_div(lhs, rhs, "div")
-                            .expect("Build failed"),
-                        crate::ast::Operation::Less => self
-                            .builder
-                            .build_int_compare(IntPredicate::SLT, lhs, rhs, "cond")
-                            .expect("Build failed"),
-                        crate::ast::Operation::Greater => self
-                            .builder
-                            .build_int_compare(IntPredicate::SGT, lhs, rhs, "cond")
-                            .expect("Build failed"),
-                        crate::ast::Operation::Equal => self
-                            .builder
-                            .build_int_compare(IntPredicate::EQ, lhs, rhs, "cond")
-                            .expect("Build failed"),
-                        _ => panic!("aefj"),
-                    }
-                    .into()
-                } else if lhs.is_float_value() && rhs.is_float_value() {
-                    // Need to abstract this!
-                    let lhs = lhs.into_float_value();
-                    let rhs = rhs.into_float_value();
-                    match operation {
-                        crate::ast::Operation::Add => self
-                            .builder
-                            .build_float_add(lhs, rhs, "add")
-                            .expect("Build failed")
-                            .into(),
-                        crate::ast::Operation::Subtract => self
-                            .builder
-                            .build_float_sub(lhs, rhs, "sub")
-                            .expect("Build failed")
-                            .into(),
-                        crate::ast::Operation::Multiply => self
-                            .builder
-                            .build_float_mul(lhs, rhs, "mul")
-                            .expect("Build failed")
-                            .into(),
-                        crate::ast::Operation::Divide => self
-                            .builder
-                            .build_float_div(lhs, rhs, "div")
-                            .expect("Build failed")
-                            .into(),
-                        crate::ast::Operation::Less => self
-                            .builder
-                            .build_float_compare(FloatPredicate::OLT, lhs, rhs, "cond")
-                            .expect("Build failed")
-                            .into(),
-                        crate::ast::Operation::Greater => self
-                            .builder
-                            .build_float_compare(FloatPredicate::OGT, lhs, rhs, "cond")
-                            .expect("Build failed")
-                            .into(),
-                        crate::ast::Operation::Equal => self
-                            .builder
-                            .build_float_compare(FloatPredicate::OEQ, lhs, rhs, "cond")
-                            .expect("Build failed")
-                            .into(),
-                        _ => panic!("aefj"),
-                    }
-                } else {
-                    panic!("Invalid add value")
-                }
-            }
-            Expression::Call(call) => self.build_call(call),
-            Expression::Assignment(assignment) => {
-                let var = self.symbol_table.fetch_variable(&assignment.lhs).unwrap();
+            } => self.parse_binary(lhs, operation, rhs),
+            Expression::Call { callee, arguments } => self.build_call(callee, arguments),
+            Expression::Assignment { lhs, rhs } => {
+                let var = self.symbol_table.fetch_variable(&lhs).unwrap();
                 if !var.mutability.contains(Mutable::Reassignable) {
                     // FIXME: proper error handling for compiling
                     panic!(
@@ -117,7 +29,7 @@ impl<'ctx> Compiler<'ctx> {
                     )
                 }
                 let ptr = var.pointer_value();
-                let expression = self.build_expression(*assignment.rhs);
+                let expression = self.build_expression(*rhs);
                 self.builder
                     .build_store(ptr, expression)
                     .expect("Build failed");
@@ -163,14 +75,19 @@ impl<'ctx> Compiler<'ctx> {
         }
     }
 
-    pub fn build_call(&mut self, call: Call) -> BasicValueEnum<'ctx> {
-        if let Some(function) = self.module.get_function(&call.callee) {
-            if function.count_params() != call.arguments.len() as u32 {
+    pub fn build_call(
+        &mut self,
+        callee: String,
+        arguments: Vec<Expression>,
+    ) -> BasicValueEnum<'ctx> {
+        if let Some(function) = self.module.get_function(&callee) {
+            // FIXME:, verify arguments with function arguments, and this should be an option
+            // The None signifying null.
+            if function.count_params() != arguments.len() as u32 {
                 panic!("Not enough arguments")
             }
 
-            let args = call
-                .arguments
+            let args = arguments
                 .iter()
                 .map(|f| self.build_expression(f.clone()).into())
                 .collect_vec();
@@ -183,6 +100,97 @@ impl<'ctx> Compiler<'ctx> {
                 .left_or(self.context.i32_type().const_int(0, false).into())
         } else {
             panic!("Function not defined")
+        }
+    }
+
+    fn parse_binary(
+        &mut self,
+        lhs: Box<crate::ast::Expression>,
+        operation: crate::ast::Operation,
+        rhs: Box<crate::ast::Expression>,
+    ) -> BasicValueEnum<'ctx> {
+        let lhs = self.build_expression(*lhs);
+        let rhs = self.build_expression(*rhs);
+        if lhs.is_int_value() && rhs.is_int_value() {
+            // Need to abstract this!
+            let lhs = lhs.into_int_value();
+            let rhs = rhs.into_int_value();
+            match operation {
+                crate::ast::Operation::Add => self
+                    .builder
+                    .build_int_add(lhs, rhs, "add")
+                    .expect("Build failed"),
+                crate::ast::Operation::Subtract => self
+                    .builder
+                    .build_int_sub(lhs, rhs, "sub")
+                    .expect("Build failed"),
+                crate::ast::Operation::Multiply => self
+                    .builder
+                    .build_int_mul(lhs, rhs, "mul")
+                    .expect("Build failed"),
+                crate::ast::Operation::Divide => self
+                    .builder
+                    .build_int_signed_div(lhs, rhs, "div")
+                    .expect("Build failed"),
+                crate::ast::Operation::Less => self
+                    .builder
+                    .build_int_compare(IntPredicate::SLT, lhs, rhs, "cond")
+                    .expect("Build failed"),
+                crate::ast::Operation::Greater => self
+                    .builder
+                    .build_int_compare(IntPredicate::SGT, lhs, rhs, "cond")
+                    .expect("Build failed"),
+                crate::ast::Operation::Equal => self
+                    .builder
+                    .build_int_compare(IntPredicate::EQ, lhs, rhs, "cond")
+                    .expect("Build failed"),
+                _ => panic!("aefj"),
+            }
+            .into()
+        } else if lhs.is_float_value() && rhs.is_float_value() {
+            // Need to abstract this!
+            let lhs = lhs.into_float_value();
+            let rhs = rhs.into_float_value();
+            match operation {
+                crate::ast::Operation::Add => self
+                    .builder
+                    .build_float_add(lhs, rhs, "add")
+                    .expect("Build failed")
+                    .into(),
+                crate::ast::Operation::Subtract => self
+                    .builder
+                    .build_float_sub(lhs, rhs, "sub")
+                    .expect("Build failed")
+                    .into(),
+                crate::ast::Operation::Multiply => self
+                    .builder
+                    .build_float_mul(lhs, rhs, "mul")
+                    .expect("Build failed")
+                    .into(),
+                crate::ast::Operation::Divide => self
+                    .builder
+                    .build_float_div(lhs, rhs, "div")
+                    .expect("Build failed")
+                    .into(),
+                crate::ast::Operation::Less => self
+                    .builder
+                    .build_float_compare(FloatPredicate::OLT, lhs, rhs, "cond")
+                    .expect("Build failed")
+                    .into(),
+                crate::ast::Operation::Greater => self
+                    .builder
+                    .build_float_compare(FloatPredicate::OGT, lhs, rhs, "cond")
+                    .expect("Build failed")
+                    .into(),
+                crate::ast::Operation::Equal => self
+                    .builder
+                    .build_float_compare(FloatPredicate::OEQ, lhs, rhs, "cond")
+                    .expect("Build failed")
+                    .into(),
+                _ => panic!("aefj"),
+            }
+        } else {
+            panic!("Invalid add value")
         }
     }
 }
