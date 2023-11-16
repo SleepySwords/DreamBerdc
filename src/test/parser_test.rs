@@ -1,10 +1,11 @@
 use itertools::Itertools;
 
 use crate::{
-    ast::{Expression, Function, Operation, Prototype, Statement},
+    ast::{Declaration, Expression, ForStatement, Function, Operation, Prototype, Statement},
     lexer::Lexer,
     parser::Parser,
     types::Type,
+    utils::Mutable,
     TokenKind,
 };
 use std::{error::Error, fs};
@@ -93,91 +94,97 @@ fn test_parse_for() -> Result<(), Box<dyn Error>> {
     assert_eq!(
         statements,
         vec![
-            // Statement::Function(Function {
-            //     prototype: Prototype {
-            //         name: "max".to_string(),
-            //         arguments: vec![
-            //             ("a".to_string(), Type::Int,),
-            //             ("b".to_string(), Type::Int,),
-            //             ("c".to_string(), Type::Int,),
-            //         ],
-            //         return_type: Type::Int,
-            //     },
-            //     body: vec![
-            //         Statement::Declaration(Declaration {
-            //             mutable: Mutable::ALL,
-            //             lhs: "d".to_string(),
-            //             rhs: Expression::Identifier("0".to_string(),),
-            //         },),
-            //         Statement::For(Statement::ForStatement {
-            //             initialiser: Declaration(Declaration {
-            //                 mutable: Mutable(Reassignable | Modifiable,),
-            //                 lhs: "i".to_string(),
-            //                 rhs: Identifier("0".to_string(),),
-            //             },),
-            //             condition: Binary {
-            //                 lhs: Identifier("i".to_string(),),
-            //                 operation: Less,
-            //                 rhs: Identifier("10".to_string(),),
-            //             },
-            //             accumalator: Identifier("0".to_string(),),
-            //             body: Some([Expression(Assignment(Assignment {
-            //                 lhs: "d".to_string(),
-            //                 rhs: Binary {
-            //                     lhs: Identifier("d".to_string(),),
-            //                     operation: Add,
-            //                     rhs: Identifier("i".to_string(),),
-            //                 },
-            //             },),),],),
-            //         },),
-            //         Expression(Call {
-            //             callee: "putchar".to_string(),
-            //             arguments: [Binary {
-            //                 lhs: Identifier("d".to_string(),),
-            //                 operation: Add,
-            //                 rhs: Identifier("65".to_string(),),
-            //             },],
-            //         },),
-            //         Return {
-            //             return_value: Identifier("d".to_string(),),
-            //         },
-            //     ],
-            // },),
-            // Function(Function {
-            //     prototype: Prototype {
-            //         name: "add".to_string(),
-            //         arguments: [("a".to_string(), Int,), ("b".to_string(), Int,),],
-            //         return_type: Void,
-            //     },
-            //     body: [Return {
-            //         return_value: Binary {
-            //             lhs: Binary {
-            //                 lhs: Identifier("a".to_string(),),
-            //                 operation: Multiply,
-            //                 rhs: Identifier("b".to_string(),),
-            //             },
-            //             operation: Add,
-            //             rhs: Identifier("a".to_string(),),
-            //         },
-            //     },],
-            // },),
-            // Function(Function {
-            //     prototype: Prototype {
-            //         name: "main".to_string(),
-            //         arguments: [("a".to_string(), Int,), ("b".to_string(), Int,),],
-            //         return_type: Int,
-            //     },
-            //     body: [Return {
-            //         return_value: Call {
-            //             callee: "max".to_string(),
-            //             arguments: [
-            //                 Identifier("1".to_string(),),
-            //                 Identifier("2".to_string(),),
-            //                 Identifier("3".to_string(),),
-            //             ],
-            //         },
-            //     },],
-            // },),
+            Statement::Function(Function {
+                prototype: Prototype {
+                    name: String::from("max"),
+                    arguments: vec![
+                        (String::from("a"), Type::Int,),
+                        (String::from("b"), Type::Int,),
+                        (String::from("c"), Type::Int,),
+                    ],
+                    return_type: Type::Int,
+                },
+                body: vec![
+                    Statement::Declaration(Declaration {
+                        mutable: Mutable::ALL,
+                        lhs: String::from("d"),
+                        rhs: Expression::Identifier(String::from("0"),),
+                    },),
+                    Statement::For(Box::new(ForStatement {
+                        initialiser: Statement::Declaration(Declaration {
+                            mutable: Mutable::ALL,
+                            lhs: String::from("i"),
+                            rhs: Expression::Identifier(String::from("0"),),
+                        }),
+                        condition: Expression::Binary {
+                            lhs: Box::new(Expression::Identifier(String::from("i"))),
+                            operation: Operation::Less,
+                            rhs: Box::new(Expression::Identifier(String::from("10"))),
+                        },
+                        accumalator: Expression::Identifier(String::from("0"),),
+                        body: Some(vec![Statement::Expression(Expression::Assignment {
+                            lhs: String::from("d"),
+                            rhs: Box::new(Expression::Binary {
+                                lhs: Box::new(Expression::Identifier(String::from("d"))),
+                                operation: Operation::Add,
+                                rhs: Box::new(Expression::Identifier(String::from("i"))),
+                            }),
+                        })]),
+                    })),
+                    Statement::Expression(Expression::Call {
+                        callee: String::from("putchar"),
+                        arguments: vec![Expression::Binary {
+                            lhs: Box::new(Expression::Identifier(String::from("d"))),
+                            operation: Operation::Add,
+                            rhs: Box::new(Expression::Identifier(String::from("65"))),
+                        },],
+                    },),
+                    Statement::Return {
+                        return_value: Expression::Identifier(String::from("d"),),
+                    },
+                ],
+            },),
+            Statement::Function(Function {
+                prototype: Prototype {
+                    name: String::from("add"),
+                    arguments: vec![
+                        (String::from("a"), Type::Int),
+                        (String::from("b"), Type::Int)
+                    ],
+                    return_type: Type::Void,
+                },
+                body: vec![Statement::Return {
+                    return_value: Expression::Binary {
+                        lhs: Box::new(Expression::Binary {
+                            lhs: Box::new(Expression::Identifier(String::from("a"))),
+                            operation: Operation::Multiply,
+                            rhs: Box::new(Expression::Identifier(String::from("b"))),
+                        }),
+                        operation: Operation::Add,
+                        rhs: Box::new(Expression::Identifier(String::from("a"))),
+                    },
+                },],
+            },),
+            Statement::Function(Function {
+                prototype: Prototype {
+                    name: String::from("main"),
+                    arguments: vec![
+                        (String::from("a"), Type::Int,),
+                        (String::from("b"), Type::Int,),
+                    ],
+                    return_type: Type::Int,
+                },
+                body: vec![Statement::Return {
+                    return_value: Expression::Call {
+                        callee: String::from("max"),
+                        arguments: vec![
+                            Expression::Identifier(String::from("1"),),
+                            Expression::Identifier(String::from("2"),),
+                            Expression::Identifier(String::from("3"),),
+                        ],
+                    },
+                },],
+            },),
         ]
     );
     // '<,'>s/\[/vec![/g
