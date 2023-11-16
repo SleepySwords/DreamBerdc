@@ -1,5 +1,0 @@
-function main() => {
-    putchar(getchar())
-    putchar(10)
-    return 0!
-}

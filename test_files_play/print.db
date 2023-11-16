@@ -1,7 +1,0 @@
-function main(a: int, b: int) => {
-    for (var var i = 0; i < 5; 0) {
-        putchar(i + 48)
-        putchar(10)
-    } 
-    return 0
-}
