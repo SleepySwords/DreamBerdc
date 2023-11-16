@@ -2,9 +2,9 @@ use inkwell::{types::BasicMetadataTypeEnum, IntPredicate};
 
 use crate::ast::{Declaration, ForStatement, Function, IfStatement, Statement};
 
-use super::Compiler;
+use super::CodeGen;
 
-impl<'ctx> Compiler<'ctx> {
+impl<'ctx> CodeGen<'ctx> {
     pub fn build_statement(&mut self, statement: Statement) {
         match statement {
             Statement::Declaration(declaration) => {

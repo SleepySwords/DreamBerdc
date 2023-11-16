@@ -5,7 +5,7 @@ use crate::{
         Declaration, Expression, ForStatement, Function, IfStatement, Operation, Prototype,
         Statement,
     },
-    compile_error::CompileError,
+    compile_error::CompilerError,
     lexer::{Token, TokenKind},
     types::Type,
     utils::Mutable,
@@ -40,18 +40,19 @@ impl Parser {
         (token.col, token.lnum)
     }
 
-    pub fn expect(&mut self, token: TokenKind) -> Result<(), CompileError> {
+    // Should probably support pattern matching.
+    pub fn expect(&mut self, token: TokenKind) -> Result<(), CompilerError> {
         if let Some(t) = self.next() {
             if t == token {
                 return Ok(());
             } else {
-                return Err(CompileError::SyntaxError(
+                return Err(CompilerError::SyntaxError(
                     self.previous_pos(),
                     format!("Expected \"{:?}\", found \"{:?}\"", token, t),
                 ));
             }
         }
-        Err(CompileError::SyntaxError(
+        Err(CompilerError::SyntaxError(
             self.current_pos(),
             format!("Expected \"{:?}\", found EOF", token),
         ))
@@ -89,7 +90,7 @@ impl Parser {
         }
     }
 
-    pub fn parse_expression(&mut self) -> Result<Expression, CompileError> {
+    pub fn parse_expression(&mut self) -> Result<Expression, CompilerError> {
         let pos = self.current_pos();
         return match self.peek() {
             Some(&TokenKind::Symbol(_)) => {
@@ -118,7 +119,7 @@ impl Parser {
             Some(&TokenKind::OpenSqB) => {
                 return self.parse_array();
             }
-            tkn => Err(CompileError::SyntaxError(
+            tkn => Err(CompilerError::SyntaxError(
                 pos,
                 format!(
                     "Expected expression, found {}",
@@ -128,7 +129,7 @@ impl Parser {
         };
     }
 
-    pub fn parse_value(&mut self) -> Result<Expression, CompileError> {
+    pub fn parse_value(&mut self) -> Result<Expression, CompilerError> {
         if let Some(token) = self.next() {
             return match token {
                 TokenKind::Symbol(sym) => {
@@ -140,19 +141,19 @@ impl Parser {
                     }
                 }
                 TokenKind::String(str) => Ok(Expression::LiteralValue(str)),
-                tkn => Err(CompileError::SyntaxError(
+                tkn => Err(CompilerError::SyntaxError(
                     self.previous_pos(),
                     format!("Expected value, found {:?}", tkn),
                 )),
             };
         }
-        Err(CompileError::SyntaxError(
+        Err(CompilerError::SyntaxError(
             self.current_pos(),
             "Expected value, found none".to_string(),
         ))
     }
 
-    pub fn parse_equality(&mut self) -> Result<Expression, CompileError> {
+    pub fn parse_equality(&mut self) -> Result<Expression, CompilerError> {
         let mut expr = self.parse_term()?;
 
         while let Some(
@@ -182,7 +183,7 @@ impl Parser {
         Ok(expr)
     }
 
-    pub fn parse_term(&mut self) -> Result<Expression, CompileError> {
+    pub fn parse_term(&mut self) -> Result<Expression, CompilerError> {
         let mut expr = self.parse_factor()?;
 
         while let Some(TokenKind::Plus | TokenKind::Dash) = self.peek() {
@@ -203,7 +204,7 @@ impl Parser {
         Ok(expr)
     }
 
-    pub fn parse_factor(&mut self) -> Result<Expression, CompileError> {
+    pub fn parse_factor(&mut self) -> Result<Expression, CompilerError> {
         let mut expr = self.parse_value()?;
 
         while let Some(TokenKind::Star | TokenKind::Slash) = self.peek() {
@@ -224,7 +225,7 @@ impl Parser {
         Ok(expr)
     }
 
-    fn parse_call(&mut self, callee: String) -> Result<Expression, CompileError> {
+    fn parse_call(&mut self, callee: String) -> Result<Expression, CompilerError> {
         let mut args = Vec::new();
         while let Some(token) = self.peek() {
             if *token == TokenKind::ClosePar {
@@ -241,7 +242,7 @@ impl Parser {
                 if let Some(TokenKind::Comma) = self.peek() {
                     self.next();
                 } else {
-                    return Err(CompileError::SyntaxError(
+                    return Err(CompilerError::SyntaxError(
                         self.current_pos(),
                         format!(
                             "Expected comma or closing bracked, found {:?}",
@@ -256,7 +257,7 @@ impl Parser {
         Ok(Expression::Unkown)
     }
 
-    pub fn parse_if(&mut self) -> Result<Statement, CompileError> {
+    pub fn parse_if(&mut self) -> Result<Statement, CompilerError> {
         self.expect(TokenKind::If)?;
         self.expect(TokenKind::OpenPar)?;
         let bool_exp = self.parse_expression();
@@ -281,7 +282,7 @@ impl Parser {
         }))
     }
 
-    pub fn parse_for(&mut self) -> Result<Statement, CompileError> {
+    pub fn parse_for(&mut self) -> Result<Statement, CompilerError> {
         self.expect(TokenKind::For)?;
         self.expect(TokenKind::OpenPar)?;
         let initialiser = self.parse_declaration();
@@ -307,7 +308,7 @@ impl Parser {
         })))
     }
 
-    pub fn parse_function(&mut self) -> Result<Statement, CompileError> {
+    pub fn parse_function(&mut self) -> Result<Statement, CompilerError> {
         let prototype = self.parse_prototype()?;
         self.expect(TokenKind::Arrow)?;
         let body = if let Some(TokenKind::OpenCurB) = self.peek() {
@@ -321,7 +322,7 @@ impl Parser {
         Ok(Statement::Function(Function { prototype, body }))
     }
 
-    pub fn parse_prototype(&mut self) -> Result<Prototype, CompileError> {
+    pub fn parse_prototype(&mut self) -> Result<Prototype, CompilerError> {
         self.expect(TokenKind::Function)?;
 
         if let Some(TokenKind::Symbol(name)) = self.next() {
@@ -337,7 +338,7 @@ impl Parser {
                                 arguments,
                                 return_type: Type::parse(t),
                             }),
-                            tkn => Err(CompileError::SyntaxError(
+                            tkn => Err(CompilerError::SyntaxError(
                                 self.previous_pos(),
                                 format!(
                                     "Expected type, found {:?}",
@@ -366,7 +367,7 @@ impl Parser {
                             }
                         }
                         tkn => {
-                            return Err(CompileError::SyntaxError(
+                            return Err(CompilerError::SyntaxError(
                                 self.previous_pos(),
                                 format!(
                                     "Expected type, found {:?}",
@@ -376,7 +377,7 @@ impl Parser {
                         }
                     }
                 } else {
-                    return Err(CompileError::SyntaxError(
+                    return Err(CompilerError::SyntaxError(
                         self.previous_pos(),
                         format!("Expected symbol, found {:?}", t),
                     ));
@@ -387,7 +388,7 @@ impl Parser {
         panic!("Awef")
     }
 
-    pub fn parse_body(&mut self) -> Result<Vec<Statement>, CompileError> {
+    pub fn parse_body(&mut self) -> Result<Vec<Statement>, CompilerError> {
         let mut statements = Vec::new();
         self.expect(TokenKind::OpenCurB)?;
         while !self.check(TokenKind::CloseCurB) {
@@ -409,14 +410,15 @@ impl Parser {
         Ok(statements)
     }
 
-    pub fn parse_declaration(&mut self) -> Result<Statement, CompileError> {
+    pub fn parse_declaration(&mut self) -> Result<Statement, CompilerError> {
         let mut flags = Mutable::NONE;
+        let pos = self.current_pos();
         if let Some(first_op) = self.next() {
             if let Some(second_op) = self.next() {
                 const ALLOWED_TOKENS: [TokenKind; 2] = [TokenKind::Var, TokenKind::Const];
                 if !ALLOWED_TOKENS.contains(&first_op) || !ALLOWED_TOKENS.contains(&second_op) {
-                    return Err(CompileError::SyntaxError(
-                        self.current_pos(),
+                    return Err(CompilerError::SyntaxError(
+                        pos,
                         String::from("Declaration is missing var/const"),
                     ));
                 }
@@ -439,20 +441,20 @@ impl Parser {
                     rhs: rhs?,
                 }))
             } else {
-                Err(CompileError::SyntaxError(
+                Err(CompilerError::SyntaxError(
                     self.current_pos(),
                     String::from("Expected '=' in the declaration."),
                 ))
             }
         } else {
-            Err(CompileError::SyntaxError(
+            Err(CompilerError::SyntaxError(
                 self.current_pos(),
                 String::from("Missing identifier in declaration"),
             ))
         }
     }
 
-    fn parse_return(&mut self) -> Result<Statement, CompileError> {
+    fn parse_return(&mut self) -> Result<Statement, CompilerError> {
         self.expect(TokenKind::Return)?;
         let return_value = self.parse_expression()?;
         // Should probably be in statement
@@ -460,7 +462,7 @@ impl Parser {
         Ok(Statement::Return { return_value })
     }
 
-    fn parse_array(&mut self) -> Result<Expression, CompileError> {
+    fn parse_array(&mut self) -> Result<Expression, CompilerError> {
         self.expect(TokenKind::OpenSqB)?;
         let mut values = vec![];
         while !self.check(TokenKind::CloseSqB) {
@@ -470,7 +472,7 @@ impl Parser {
                 Some(TokenKind::Comma) => self.expect(TokenKind::Comma)?,
                 Some(TokenKind::CloseSqB) => {}
                 tkn => {
-                    return Err(CompileError::SyntaxError(
+                    return Err(CompilerError::SyntaxError(
                         self.current_pos(),
                         format!(
                             "Expected comma or bracket, found {}",

@@ -12,7 +12,7 @@ use itertools::Itertools;
 use crate::args::Args;
 use crate::lexer::Lexer;
 use crate::symboltable::SymbolTable;
-use crate::{codegen::Compiler, lexer::TokenKind, parser::Parser as CodeParser};
+use crate::{codegen::CodeGen, lexer::TokenKind, parser::Parser as CodeParser};
 
 pub mod args;
 mod ast;
@@ -108,7 +108,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     // FIXME: functions must be defined first before can be used.
     // Should be able to be done by just adding the function first, and then build it later.
-    let mut compiler = Compiler {
+    let mut compiler = CodeGen {
         context: &context,
         module,
         builder,

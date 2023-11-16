@@ -4,11 +4,11 @@ use inkwell::{
 };
 use itertools::Itertools;
 
-use crate::{ast::Expression, compile_error::CompileError, utils::Mutable};
+use crate::{ast::Expression, compile_error::CompilerError, utils::Mutable};
 
-use super::Compiler;
+use super::CodeGen;
 
-impl<'ctx> Compiler<'ctx> {
+impl<'ctx> CodeGen<'ctx> {
     pub fn build_expression(&mut self, expression: Expression) -> BasicValueEnum<'ctx> {
         match expression {
             Expression::Binary {
@@ -23,7 +23,7 @@ impl<'ctx> Compiler<'ctx> {
                     // FIXME: proper error handling for compiling
                     panic!(
                         "Compile Error: {}",
-                        CompileError::CompileError(
+                        CompilerError::CodeGenError(
                             "Cannot reassign a constant variable".to_string()
                         )
                     )

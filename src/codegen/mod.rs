@@ -14,14 +14,14 @@ use inkwell::{
 
 use crate::symboltable::SymbolTable;
 
-pub struct Compiler<'ctx> {
+pub struct CodeGen<'ctx> {
     pub context: &'ctx Context,
     pub module: Module<'ctx>,
     pub builder: Builder<'ctx>,
     pub symbol_table: SymbolTable<'ctx>,
 }
 
-impl<'ctx> Compiler<'ctx> {
+impl<'ctx> CodeGen<'ctx> {
     pub fn run_jit(&self, optimisation: OptimizationLevel) {
         let execution_engine = self
             .module

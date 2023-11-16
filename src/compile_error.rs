@@ -4,15 +4,15 @@ use colored::Colorize;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
-pub enum CompileError {
+pub enum CompilerError {
     SyntaxError((usize, usize), String),
-    CompileError(String),
+    CodeGenError(String),
 }
 
-impl Display for CompileError {
+impl Display for CompilerError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            CompileError::SyntaxError((col, lnum), msg) => {
+            CompilerError::SyntaxError((col, lnum), msg) => {
                 write!(
                     f,
                     "{} {}",
@@ -26,7 +26,7 @@ impl Display for CompileError {
                     format!("Syntax Error: {}", msg).bold(),
                 )
             }
-            CompileError::CompileError(msg) => {
+            CompilerError::CodeGenError(msg) => {
                 write!(
                     f,
                     "{} {}",

@@ -1,11 +1,10 @@
 use itertools::Itertools;
 
 use crate::{
-    ast::{Declaration, Expression, Function, Operation, Prototype, Statement},
+    ast::{Expression, Function, Operation, Prototype, Statement},
     lexer::Lexer,
     parser::Parser,
     types::Type,
-    utils::Mutable,
     TokenKind,
 };
 use std::{error::Error, fs};
