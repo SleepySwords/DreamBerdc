@@ -80,27 +80,26 @@ impl<'ctx> CodeGen<'ctx> {
         callee: String,
         arguments: Vec<Expression>,
     ) -> BasicValueEnum<'ctx> {
-        if let Some(function) = self.module.get_function(&callee) {
-            // FIXME:, verify arguments with function arguments, and this should be an option
-            // The None signifying null.
-            if function.count_params() != arguments.len() as u32 {
-                panic!("Not enough arguments")
-            }
-
-            let args = arguments
-                .iter()
-                .map(|f| self.build_expression(f.clone()).into())
-                .collect_vec();
-            let value = self
-                .builder
-                .build_call(function, args.as_slice(), "calltmp");
-            value
-                .expect("Build failed")
-                .try_as_basic_value()
-                .left_or(self.context.i32_type().const_int(0, false).into())
-        } else {
+        let Some(function) = self.module.get_function(&callee) else {
             panic!("Function not defined")
+        };
+        // FIXME:, verify arguments with function arguments, and this should be an option
+        // The None signifying null.
+        if function.count_params() != arguments.len() as u32 {
+            panic!("Not enough arguments")
         }
+
+        let args = arguments
+            .iter()
+            .map(|f| self.build_expression(f.clone()).into())
+            .collect_vec();
+        let value = self
+            .builder
+            .build_call(function, args.as_slice(), "calltmp");
+        value
+            .expect("Build failed")
+            .try_as_basic_value()
+            .left_or(self.context.i32_type().const_int(0, false).into())
     }
 
     fn parse_binary(

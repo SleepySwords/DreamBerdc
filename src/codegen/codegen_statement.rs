@@ -1,4 +1,4 @@
-use inkwell::{types::BasicMetadataTypeEnum, IntPredicate};
+use inkwell::{types::BasicMetadataTypeEnum, values::FunctionValue, IntPredicate};
 
 use crate::ast::{Declaration, ForStatement, Function, IfStatement, Statement};
 
@@ -36,8 +36,7 @@ impl<'ctx> CodeGen<'ctx> {
         }
     }
 
-    /// Builds a function
-    pub fn build_function(&mut self, function: Function) {
+    pub fn build_function_declaration(&mut self, function: &Function) -> FunctionValue<'ctx> {
         let types = function
             .prototype
             .arguments
@@ -52,6 +51,16 @@ impl<'ctx> CodeGen<'ctx> {
         let fn_val = self
             .module
             .add_function(&function.prototype.name, fn_type, None);
+        return fn_val;
+    }
+
+    /// Builds a function
+    pub fn build_function(&mut self, function: Function) {
+        let fn_val = if let Some(fn_val) = self.module.get_function(&function.prototype.name) {
+            fn_val
+        } else {
+            self.build_function_declaration(&function)
+        };
 
         let entry_basic_box = self.context.append_basic_block(fn_val, "entry");
         self.builder.position_at_end(entry_basic_box);
@@ -74,7 +83,6 @@ impl<'ctx> CodeGen<'ctx> {
         self.symbol_table.pop_scope()
     }
 
-    // FIX: ensure that basic blocks have stuff in them.
     pub fn build_if(&mut self, if_statement: IfStatement) {
         self.symbol_table.push_scope();
 
@@ -138,77 +146,76 @@ impl<'ctx> CodeGen<'ctx> {
             .get_parent()
             .unwrap();
 
-        if let Statement::Declaration(Declaration { mutable, lhs, rhs }) = for_statement.initialiser
-        {
-            self.symbol_table.push_scope();
-
-            let variable = self
-                .builder
-                .build_alloca(self.context.i32_type(), &lhs)
-                .expect("Build failed");
-
-            self.symbol_table.store_variable_ptr(lhs, variable, mutable);
-
-            let initial_expression = self.build_expression(rhs);
-            self.builder
-                .build_store(variable, initial_expression)
-                .expect("Build failed");
-
-            let loop_bb = self.context.append_basic_block(current_function, "loop");
-            self.builder
-                .build_unconditional_branch(loop_bb)
-                .expect("Build failed");
-            self.builder.position_at_end(loop_bb);
-
-            // May shadow, but too lazy
-
-            for statement in for_statement.body.unwrap() {
-                self.build_statement(statement)
-            }
-
-            let step_value = self.context.i32_type().const_int(1, false);
-            let next_var = self
-                .builder
-                .build_int_add(
-                    self.builder
-                        .build_load(self.context.i32_type(), variable, "var")
-                        .expect("Failed")
-                        .into_int_value(),
-                    step_value,
-                    "nextvar",
-                )
-                .expect("Build failed");
-
-            self.builder
-                .build_store(variable, next_var)
-                .expect("Build failed");
-
-            let value = self
-                .build_expression(for_statement.condition)
-                .into_int_value();
-
-            // FIXME: need to not rely on int stuff
-            let end_cond = self
-                .builder
-                .build_int_compare(
-                    IntPredicate::NE,
-                    self.context.i32_type().const_zero(),
-                    value,
-                    "loopcond",
-                )
-                .expect("Build failed");
-
-            let after_bb = self
-                .context
-                .append_basic_block(current_function, "afterloop");
-
-            self.builder
-                .build_conditional_branch(end_cond, loop_bb, after_bb)
-                .expect("Build failed");
-            self.builder.position_at_end(after_bb);
-            self.symbol_table.pop_scope();
-        } else {
+        let Statement::Declaration(Declaration { mutable, lhs, rhs }) = for_statement.initialiser
+        else {
             panic!("Expected declaration found {:?}", for_statement.initialiser)
+        };
+        self.symbol_table.push_scope();
+
+        let variable = self
+            .builder
+            .build_alloca(self.context.i32_type(), &lhs)
+            .expect("Build failed");
+
+        self.symbol_table.store_variable_ptr(lhs, variable, mutable);
+
+        let initial_expression = self.build_expression(rhs);
+        self.builder
+            .build_store(variable, initial_expression)
+            .expect("Build failed");
+
+        let loop_bb = self.context.append_basic_block(current_function, "loop");
+        self.builder
+            .build_unconditional_branch(loop_bb)
+            .expect("Build failed");
+        self.builder.position_at_end(loop_bb);
+
+        // May shadow, but too lazy
+
+        for statement in for_statement.body.unwrap() {
+            self.build_statement(statement)
         }
+
+        let step_value = self.context.i32_type().const_int(1, false);
+        let next_var = self
+            .builder
+            .build_int_add(
+                self.builder
+                    .build_load(self.context.i32_type(), variable, "var")
+                    .expect("Failed")
+                    .into_int_value(),
+                step_value,
+                "nextvar",
+            )
+            .expect("Build failed");
+
+        self.builder
+            .build_store(variable, next_var)
+            .expect("Build failed");
+
+        let value = self
+            .build_expression(for_statement.condition)
+            .into_int_value();
+
+        // FIXME: need to not rely on int stuff
+        let end_cond = self
+            .builder
+            .build_int_compare(
+                IntPredicate::NE,
+                self.context.i32_type().const_zero(),
+                value,
+                "loopcond",
+            )
+            .expect("Build failed");
+
+        let after_bb = self
+            .context
+            .append_basic_block(current_function, "afterloop");
+
+        self.builder
+            .build_conditional_branch(end_cond, loop_bb, after_bb)
+            .expect("Build failed");
+        self.builder.position_at_end(after_bb);
+        self.symbol_table.pop_scope();
     }
 }

@@ -6,10 +6,12 @@ use std::process::exit;
 use clap::Parser;
 use colored::Colorize;
 use inkwell::context::Context;
+use inkwell::types::BasicType;
 use inkwell::OptimizationLevel;
 use itertools::Itertools;
 
 use crate::args::Args;
+use crate::ast::Statement;
 use crate::lexer::Lexer;
 use crate::symboltable::SymbolTable;
 use crate::{codegen::CodeGen, lexer::TokenKind, parser::Parser as CodeParser};
@@ -114,6 +116,13 @@ fn main() -> Result<(), Box<dyn Error>> {
         builder,
         symbol_table: SymbolTable::default(),
     };
+
+    // Add the function declarations first
+    for statement in &statements {
+        if let Statement::Function(fun) = statement {
+            compiler.build_function_declaration(fun);
+        }
+    }
 
     for statement in &statements {
         compiler.build_statement(statement.clone());

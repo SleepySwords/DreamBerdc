@@ -3,6 +3,7 @@ use std::fmt::Display;
 use colored::Colorize;
 use thiserror::Error;
 
+// FIXME: maybe use an &str
 #[derive(Debug, Error)]
 pub enum CompilerError {
     SyntaxError((usize, usize), String),

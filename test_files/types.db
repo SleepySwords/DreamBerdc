@@ -3,5 +3,6 @@ function add(a: float, b: float): float => {
 }
 
 function main() => {
+    1 == 2!
     return add(1.2, 5.1)!
 }

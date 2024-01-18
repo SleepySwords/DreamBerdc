@@ -17,16 +17,18 @@ pub struct Parser {
 }
 
 impl Parser {
+    /// Returns the current token and increments the position.
     pub fn next(&mut self) -> Option<TokenKind> {
         self.pos += 1;
         return self.tokens.get(self.pos - 1).map(|f| f.kind.clone());
     }
 
+    /// Returns the current token without incrementing the position.
     pub fn peek(&self) -> Option<&TokenKind> {
         return self.tokens.get(self.pos).map(|x| &x.kind);
     }
 
-    pub fn peek_forward(&mut self, index: usize) -> Option<&TokenKind> {
+    pub fn peek_forward(&self, index: usize) -> Option<&TokenKind> {
         return self.tokens.get(self.pos + index).map(|f| &f.kind);
     }
 
@@ -67,7 +69,7 @@ impl Parser {
         false
     }
 
-    pub fn check_forward(&mut self, token: TokenKind, index: usize) -> bool {
+    pub fn check_forward(&self, token: TokenKind, index: usize) -> bool {
         if let Some(t) = self.peek_forward(index) {
             if *t == token {
                 return true;
@@ -92,28 +94,27 @@ impl Parser {
 
     pub fn parse_expression(&mut self) -> Result<Expression, CompilerError> {
         let pos = self.current_pos();
+        // FIXME: Perhaps make this next and then implement backtracking?
+        // This is really ugly right now
         return match self.peek() {
-            Some(&TokenKind::Symbol(_)) => {
-                if self.check_forward(TokenKind::Eq, 1) {
-                    if let Some(TokenKind::Symbol(lhs)) = self.next() {
-                        self.expect(TokenKind::Eq)?;
-                        let rhs = self.parse_expression()?;
-                        Ok(Expression::Assignment {
-                            lhs,
-                            rhs: Box::new(rhs),
-                        })
-                    } else {
-                        panic!("Invalid state")
-                    }
+            Some(&TokenKind::Symbol(_)) if self.check_forward(TokenKind::Eq, 1) => {
+                if let Some(TokenKind::Symbol(lhs)) = self.next() {
+                    self.expect(TokenKind::Eq)?;
+                    let rhs = self.parse_expression()?;
+                    Ok(Expression::Assignment {
+                        lhs,
+                        rhs: Box::new(rhs),
+                    })
                 } else {
-                    Ok(self.parse_equality()?)
+                    panic!("Invalid state")
                 }
             }
+            Some(&TokenKind::Symbol(_)) => Ok(self.parse_equality()?),
             Some(&TokenKind::String(_)) => {
                 if let Some(TokenKind::String(str)) = self.next() {
                     Ok(Expression::LiteralValue(str))
                 } else {
-                    panic!("Should not be here.")
+                    panic!("Invalid state")
                 }
             }
             Some(&TokenKind::OpenSqB) => {
@@ -156,6 +157,7 @@ impl Parser {
     pub fn parse_equality(&mut self) -> Result<Expression, CompilerError> {
         let mut expr = self.parse_term()?;
 
+        // FIXME: this pattern is pretty ugly
         while let Some(
             TokenKind::EqEq
             | TokenKind::EqEqEq
@@ -325,42 +327,50 @@ impl Parser {
     pub fn parse_prototype(&mut self) -> Result<Prototype, CompilerError> {
         self.expect(TokenKind::Function)?;
 
-        if let Some(TokenKind::Symbol(name)) = self.next() {
-            self.expect(TokenKind::OpenPar)?;
-            let mut arguments = Vec::new();
-            while let Some(t) = self.next() {
-                if let TokenKind::ClosePar = t {
-                    return if self.peek() == Some(&TokenKind::Colon) {
-                        self.next();
-                        match self.next() {
-                            Some(TokenKind::Symbol(t)) => Ok(Prototype {
-                                name,
-                                arguments,
-                                return_type: Type::parse(t),
-                            }),
-                            tkn => Err(CompilerError::SyntaxError(
-                                self.previous_pos(),
-                                format!(
-                                    "Expected type, found {:?}",
-                                    tkn.map_or("none".to_string(), |f| format!("{:?}", f))
-                                ),
-                            )),
-                        }
-                    } else {
-                        Ok(Prototype {
-                            name,
+        let Some(TokenKind::Symbol(function_name)) = self.next() else {
+            return Err(CompilerError::SyntaxError(
+                self.previous_pos(),
+                format!("Invalid state: expected to parse prototype, but did not find name, report this error"),
+            ));
+        };
+
+        self.expect(TokenKind::OpenPar)?;
+
+        let mut arguments = Vec::new();
+        while let Some(t) = self.next() {
+            match t {
+                TokenKind::ClosePar if self.check(TokenKind::Colon) => {
+                    self.next();
+                    // FIXME: this should be a seperate expect function, that works
+                    // with pattern matching
+                    return match self.next() {
+                        Some(TokenKind::Symbol(t)) => Ok(Prototype {
+                            name: function_name,
                             arguments,
-                            return_type: Type::Void,
-                        })
+                            return_type: Type::parse(t),
+                        }),
+                        tkn => Err(CompilerError::SyntaxError(
+                            self.previous_pos(),
+                            format!(
+                                "Expected type, found {:?}",
+                                tkn.map_or("none".to_string(), |f| format!("{:?}", f))
+                            ),
+                        )),
                     };
                 }
-
-                if let TokenKind::Symbol(arg) = t {
+                TokenKind::ClosePar => {
+                    return Ok(Prototype {
+                        name: function_name,
+                        arguments,
+                        return_type: Type::Void,
+                    })
+                }
+                TokenKind::Symbol(arg) => {
                     self.expect(TokenKind::Colon)?;
                     match self.next() {
                         Some(TokenKind::Symbol(t)) => {
                             arguments.push((arg, Type::parse(t)));
-                            if let Some(TokenKind::ClosePar) = self.peek() {
+                            if self.check(TokenKind::ClosePar) {
                                 continue;
                             } else {
                                 self.expect(TokenKind::Comma)?;
@@ -376,7 +386,8 @@ impl Parser {
                             ))
                         }
                     }
-                } else {
+                }
+                t => {
                     return Err(CompilerError::SyntaxError(
                         self.previous_pos(),
                         format!("Expected symbol, found {:?}", t),
@@ -385,7 +396,10 @@ impl Parser {
             }
         }
 
-        panic!("Awef")
+        Err(CompilerError::SyntaxError(
+            self.previous_pos(),
+            format!("Unexpected end of file"),
+        ))
     }
 
     pub fn parse_body(&mut self) -> Result<Vec<Statement>, CompilerError> {
@@ -413,22 +427,27 @@ impl Parser {
     pub fn parse_declaration(&mut self) -> Result<Statement, CompilerError> {
         let mut flags = Mutable::NONE;
         let pos = self.current_pos();
-        if let Some(first_op) = self.next() {
-            if let Some(second_op) = self.next() {
-                const ALLOWED_TOKENS: [TokenKind; 2] = [TokenKind::Var, TokenKind::Const];
-                if !ALLOWED_TOKENS.contains(&first_op) || !ALLOWED_TOKENS.contains(&second_op) {
-                    return Err(CompilerError::SyntaxError(
-                        pos,
-                        String::from("Declaration is missing var/const"),
-                    ));
-                }
-                if first_op == TokenKind::Var {
-                    flags |= Mutable::Reassignable;
-                }
-                if second_op == TokenKind::Var {
-                    flags |= Mutable::Modifiable;
-                }
-            }
+        let first_op = self.next().ok_or_else(|| {
+            CompilerError::SyntaxError(
+                self.current_pos(),
+                String::from("Unexpected state: declaration found"),
+            )
+        })?;
+        let second_op = self.next().ok_or_else(|| {
+            CompilerError::SyntaxError(self.current_pos(), String::from("Unexpected end of file"))
+        })?;
+        const ALLOWED_TOKENS: [TokenKind; 2] = [TokenKind::Var, TokenKind::Const];
+        if !ALLOWED_TOKENS.contains(&first_op) || !ALLOWED_TOKENS.contains(&second_op) {
+            return Err(CompilerError::SyntaxError(
+                pos,
+                String::from("Declaration is missing var/const"),
+            ));
+        }
+        if first_op == TokenKind::Var {
+            flags |= Mutable::Reassignable;
+        }
+        if second_op == TokenKind::Var {
+            flags |= Mutable::Modifiable;
         }
 
         if let Some(TokenKind::Symbol(lhs)) = self.next() {
