@@ -51,7 +51,7 @@ impl<'ctx> CodeGen<'ctx> {
         let fn_val = self
             .module
             .add_function(&function.prototype.name, fn_type, None);
-        return fn_val;
+        fn_val
     }
 
     /// Builds a function

@@ -6,7 +6,6 @@ use std::process::exit;
 use clap::Parser;
 use colored::Colorize;
 use inkwell::context::Context;
-use inkwell::types::BasicType;
 use inkwell::OptimizationLevel;
 use itertools::Itertools;
 

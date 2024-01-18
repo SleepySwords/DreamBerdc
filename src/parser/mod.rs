@@ -330,7 +330,7 @@ impl Parser {
         let Some(TokenKind::Symbol(function_name)) = self.next() else {
             return Err(CompilerError::SyntaxError(
                 self.previous_pos(),
-                format!("Invalid state: expected to parse prototype, but did not find name, report this error"),
+                "Invalid state: expected to parse prototype, but did not find name, report this error".to_string(),
             ));
         };
 
@@ -398,7 +398,7 @@ impl Parser {
 
         Err(CompilerError::SyntaxError(
             self.previous_pos(),
-            format!("Unexpected end of file"),
+            "Unexpected end of file".to_string(),
         ))
     }
 

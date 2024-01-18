@@ -4,7 +4,11 @@ use inkwell::{
 };
 use itertools::Itertools;
 
-use crate::{ast::Expression, compile_error::CompilerError, utils::Mutable};
+use crate::{
+    ast::{Expression, Operation},
+    compile_error::CompilerError,
+    utils::Mutable,
+};
 
 use super::CodeGen;
 
@@ -15,7 +19,7 @@ impl<'ctx> CodeGen<'ctx> {
                 lhs,
                 operation,
                 rhs,
-            } => self.parse_binary(lhs, operation, rhs),
+            } => self.parse_binary(*lhs, operation, *rhs),
             Expression::Call { callee, arguments } => self.build_call(callee, arguments),
             Expression::Assignment { lhs, rhs } => {
                 let var = self.symbol_table.fetch_variable(&lhs).unwrap();
@@ -104,42 +108,42 @@ impl<'ctx> CodeGen<'ctx> {
 
     fn parse_binary(
         &mut self,
-        lhs: Box<crate::ast::Expression>,
-        operation: crate::ast::Operation,
-        rhs: Box<crate::ast::Expression>,
+        lhs: Expression,
+        operation: Operation,
+        rhs: Expression,
     ) -> BasicValueEnum<'ctx> {
-        let lhs = self.build_expression(*lhs);
-        let rhs = self.build_expression(*rhs);
+        let lhs = self.build_expression(lhs);
+        let rhs = self.build_expression(rhs);
         if lhs.is_int_value() && rhs.is_int_value() {
             // Need to abstract this!
             let lhs = lhs.into_int_value();
             let rhs = rhs.into_int_value();
             match operation {
-                crate::ast::Operation::Add => self
+                Operation::Add => self
                     .builder
                     .build_int_add(lhs, rhs, "add")
                     .expect("Build failed"),
-                crate::ast::Operation::Subtract => self
+                Operation::Subtract => self
                     .builder
                     .build_int_sub(lhs, rhs, "sub")
                     .expect("Build failed"),
-                crate::ast::Operation::Multiply => self
+                Operation::Multiply => self
                     .builder
                     .build_int_mul(lhs, rhs, "mul")
                     .expect("Build failed"),
-                crate::ast::Operation::Divide => self
+                Operation::Divide => self
                     .builder
                     .build_int_signed_div(lhs, rhs, "div")
                     .expect("Build failed"),
-                crate::ast::Operation::Less => self
+                Operation::Less => self
                     .builder
                     .build_int_compare(IntPredicate::SLT, lhs, rhs, "cond")
                     .expect("Build failed"),
-                crate::ast::Operation::Greater => self
+                Operation::Greater => self
                     .builder
                     .build_int_compare(IntPredicate::SGT, lhs, rhs, "cond")
                     .expect("Build failed"),
-                crate::ast::Operation::Equal => self
+                Operation::Equal => self
                     .builder
                     .build_int_compare(IntPredicate::EQ, lhs, rhs, "cond")
                     .expect("Build failed"),
@@ -151,37 +155,37 @@ impl<'ctx> CodeGen<'ctx> {
             let lhs = lhs.into_float_value();
             let rhs = rhs.into_float_value();
             match operation {
-                crate::ast::Operation::Add => self
+                Operation::Add => self
                     .builder
                     .build_float_add(lhs, rhs, "add")
                     .expect("Build failed")
                     .into(),
-                crate::ast::Operation::Subtract => self
+                Operation::Subtract => self
                     .builder
                     .build_float_sub(lhs, rhs, "sub")
                     .expect("Build failed")
                     .into(),
-                crate::ast::Operation::Multiply => self
+                Operation::Multiply => self
                     .builder
                     .build_float_mul(lhs, rhs, "mul")
                     .expect("Build failed")
                     .into(),
-                crate::ast::Operation::Divide => self
+                Operation::Divide => self
                     .builder
                     .build_float_div(lhs, rhs, "div")
                     .expect("Build failed")
                     .into(),
-                crate::ast::Operation::Less => self
+                Operation::Less => self
                     .builder
                     .build_float_compare(FloatPredicate::OLT, lhs, rhs, "cond")
                     .expect("Build failed")
                     .into(),
-                crate::ast::Operation::Greater => self
+                Operation::Greater => self
                     .builder
                     .build_float_compare(FloatPredicate::OGT, lhs, rhs, "cond")
                     .expect("Build failed")
                     .into(),
-                crate::ast::Operation::Equal => self
+                Operation::Equal => self
                     .builder
                     .build_float_compare(FloatPredicate::OEQ, lhs, rhs, "cond")
                     .expect("Build failed")
@@ -189,7 +193,12 @@ impl<'ctx> CodeGen<'ctx> {
                 _ => panic!("aefj"),
             }
         } else {
-            panic!("Invalid add value")
+            panic!(
+                "Cannot use the operation {:?} on incompatible types of: {} and {}",
+                operation,
+                lhs.get_type(),
+                rhs.get_type()
+            )
         }
     }
 }
