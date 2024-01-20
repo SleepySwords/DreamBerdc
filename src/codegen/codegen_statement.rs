@@ -1,39 +1,40 @@
 use inkwell::{types::BasicMetadataTypeEnum, values::FunctionValue, IntPredicate};
 
-use crate::ast::{Declaration, ForStatement, Function, IfStatement, Statement};
+use crate::{
+    ast::{Declaration, ForStatement, Function, IfStatement, Statement},
+    compile_error::CompilerError,
+};
 
 use super::CodeGen;
 
 impl<'ctx> CodeGen<'ctx> {
-    pub fn build_statement(&mut self, statement: Statement) {
+    pub fn build_statement(&mut self, statement: Statement) -> Result<(), CompilerError> {
         match statement {
             Statement::Declaration(declaration) => {
                 let variable = self
                     .builder
-                    .build_alloca(self.context.i32_type(), &declaration.lhs)
-                    .expect("Build failed");
-                let rhs = self.build_expression(declaration.rhs);
+                    .build_alloca(self.context.i32_type(), &declaration.lhs)?;
+                let rhs = self.build_expression(declaration.rhs)?;
                 self.builder
-                    .build_store(variable, rhs)
-                    .expect("Build failed");
+                    .build_store(variable, rhs)?;
                 self.symbol_table
                     .store_variable_ptr(declaration.lhs, variable, declaration.mutable)
             }
             Statement::Return { return_value } => {
-                let value = self.build_expression(return_value);
+                let value = self.build_expression(return_value)?;
                 self.builder
-                    .build_return(Some(&value))
-                    .expect("Build failed");
+                    .build_return(Some(&value))?;
             }
             Statement::Function(function) => {
-                self.build_function(function);
+                self.build_function(function)?;
             }
             Statement::Expression(expr) => {
-                self.build_expression(expr);
+                self.build_expression(expr)?;
             }
-            Statement::If(if_statement) => self.build_if(if_statement),
-            Statement::For(for_statement) => self.build_for(*for_statement),
+            Statement::If(if_statement) => self.build_if(if_statement)?,
+            Statement::For(for_statement) => self.build_for(*for_statement)?,
         }
+        return Ok(());
     }
 
     pub fn build_function_declaration(&mut self, function: &Function) -> FunctionValue<'ctx> {
@@ -48,14 +49,13 @@ impl<'ctx> CodeGen<'ctx> {
                 .prototype
                 .return_type
                 .function(self.context, types.as_slice(), false);
-        let fn_val = self
+        return self
             .module
             .add_function(&function.prototype.name, fn_type, None);
-        fn_val
     }
 
     /// Builds a function
-    pub fn build_function(&mut self, function: Function) {
+    pub fn build_function(&mut self, function: Function) -> Result<(), CompilerError> {
         let fn_val = if let Some(fn_val) = self.module.get_function(&function.prototype.name) {
             fn_val
         } else {
@@ -73,21 +73,23 @@ impl<'ctx> CodeGen<'ctx> {
         }
 
         for statement in function.body {
-            self.build_statement(statement);
+            self.build_statement(statement)?;
         }
 
         // FIX: catch all return...
         // Should actually check if it returns something in all branches.
-        self.builder.build_return(None).expect("Build failed");
+        self.builder.build_return(None)?;
 
-        self.symbol_table.pop_scope()
+        self.symbol_table.pop_scope();
+
+        return Ok(());
     }
 
-    pub fn build_if(&mut self, if_statement: IfStatement) {
+    pub fn build_if(&mut self, if_statement: IfStatement) -> Result<(), CompilerError> {
         self.symbol_table.push_scope();
 
         let value = self
-            .build_expression(if_statement.boolean_op)
+            .build_expression(if_statement.boolean_op)?
             .into_int_value();
 
         // FIXME: need to not rely on int stuff
@@ -104,41 +106,38 @@ impl<'ctx> CodeGen<'ctx> {
         let current_function = self
             .builder
             .get_insert_block()
-            .unwrap()
+            .ok_or_else(|| CompilerError::CodeGenError("Cannot find insert block".to_string()))?
             .get_parent()
-            .unwrap();
+            .ok_or_else(|| CompilerError::CodeGenError("Cannot get parent".to_string()))?;
 
         let then_bb = self.context.append_basic_block(current_function, "then");
         let else_bb = self.context.append_basic_block(current_function, "else");
         let merge_bb = self.context.append_basic_block(current_function, "ifcont");
 
         self.builder
-            .build_conditional_branch(condition, then_bb, else_bb)
-            .expect("Build failed");
+            .build_conditional_branch(condition, then_bb, else_bb)?;
 
         self.builder.position_at_end(then_bb);
         for statement in if_statement.then_statements {
-            self.build_statement(statement);
+            self.build_statement(statement)?;
         }
-        self.builder
-            .build_unconditional_branch(merge_bb)
-            .expect("Build failed");
+        self.builder.build_unconditional_branch(merge_bb)?;
 
         self.builder.position_at_end(else_bb);
         if let Some(else_st) = if_statement.else_statements {
             for statement in else_st {
-                self.build_statement(statement);
+                self.build_statement(statement)?;
             }
         }
-        self.builder
-            .build_unconditional_branch(merge_bb)
-            .expect("Build failed");
+        self.builder.build_unconditional_branch(merge_bb)?;
 
         self.builder.position_at_end(merge_bb);
         self.symbol_table.pop_scope();
+
+        return Ok(());
     }
 
-    pub fn build_for(&mut self, for_statement: ForStatement) {
+    pub fn build_for(&mut self, for_statement: ForStatement) -> Result<(), CompilerError> {
         let current_function = self
             .builder
             .get_insert_block()
@@ -146,56 +145,48 @@ impl<'ctx> CodeGen<'ctx> {
             .get_parent()
             .unwrap();
 
-        let Statement::Declaration(Declaration { mutable, lhs, rhs }) = for_statement.initialiser
+        let Statement::Declaration(Declaration {
+            mutable, lhs, rhs, ..
+        }) = for_statement.initialiser
         else {
-            panic!("Expected declaration found {:?}", for_statement.initialiser)
+            return Err(CompilerError::CodeGenError(format!(
+                "Expected declaration found {:?}",
+                for_statement.initialiser
+            )));
         };
         self.symbol_table.push_scope();
 
-        let variable = self
-            .builder
-            .build_alloca(self.context.i32_type(), &lhs)
-            .expect("Build failed");
+        let variable = self.builder.build_alloca(self.context.i32_type(), &lhs)?;
 
         self.symbol_table.store_variable_ptr(lhs, variable, mutable);
 
-        let initial_expression = self.build_expression(rhs);
+        let initial_expression = self.build_expression(rhs)?;
         self.builder
-            .build_store(variable, initial_expression)
-            .expect("Build failed");
+            .build_store(variable, initial_expression)?;
 
         let loop_bb = self.context.append_basic_block(current_function, "loop");
-        self.builder
-            .build_unconditional_branch(loop_bb)
-            .expect("Build failed");
+        self.builder.build_unconditional_branch(loop_bb)?;
         self.builder.position_at_end(loop_bb);
 
         // May shadow, but too lazy
 
         for statement in for_statement.body.unwrap() {
-            self.build_statement(statement)
+            self.build_statement(statement)?;
         }
 
         let step_value = self.context.i32_type().const_int(1, false);
-        let next_var = self
-            .builder
-            .build_int_add(
-                self.builder
-                    .build_load(self.context.i32_type(), variable, "var")
-                    .expect("Failed")
-                    .into_int_value(),
-                step_value,
-                "nextvar",
-            )
-            .expect("Build failed");
+        let next_var = self.builder.build_int_add(
+            self.builder
+                .build_load(self.context.i32_type(), variable, "var")
+                .expect("Failed")
+                .into_int_value(),
+            step_value,
+            "nextvar",
+        )?;
 
-        self.builder
-            .build_store(variable, next_var)
-            .expect("Build failed");
+        self.builder.build_store(variable, next_var)?;
 
-        let value = self
-            .build_expression(for_statement.condition)
-            .into_int_value();
+        let value = self.build_expression(for_statement.condition)?.into_int_value();
 
         // FIXME: need to not rely on int stuff
         let end_cond = self
@@ -217,5 +208,7 @@ impl<'ctx> CodeGen<'ctx> {
             .expect("Build failed");
         self.builder.position_at_end(after_bb);
         self.symbol_table.pop_scope();
+
+        return Ok(());
     }
 }

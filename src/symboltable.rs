@@ -2,12 +2,12 @@ use std::collections::{HashMap, VecDeque};
 
 use inkwell::values::{AnyValueEnum, BasicValueEnum, FloatValue, IntValue, PointerValue};
 
-use crate::{types::Type, utils::Mutable};
+use crate::{types::{Type, Value}, utils::Mutable};
 
 #[derive(Default)]
 pub struct SymbolTable<'ctx> {
     symbol_table: VecDeque<HashMap<String, BasicValueEnum<'ctx>>>,
-    ptr_symbol_table: VecDeque<HashMap<String, Variable<'ctx>>>,
+    ptr_symbol_table: VecDeque<HashMap<String, Value<'ctx>>>,
 }
 
 impl<'a> SymbolTable<'a> {
@@ -38,7 +38,7 @@ impl<'a> SymbolTable<'a> {
         self.symbol_table[0].insert(name, ptr);
     }
 
-    pub fn fetch_variable(&mut self, name: &String) -> Option<&Variable<'a>> {
+    pub fn fetch_variable(&mut self, name: &String) -> Option<&Value<'a>> {
         for i in 0..self.ptr_symbol_table.len() {
             if self.ptr_symbol_table[i].contains_key(name) {
                 return Some(&self.ptr_symbol_table[i][name]);
@@ -58,35 +58,11 @@ impl<'a> SymbolTable<'a> {
 
     // FIX: Should return a result
     pub fn store_variable_ptr(&mut self, name: String, ptr: PointerValue<'a>, mutability: Mutable) {
-        let variable = Variable {
+        let variable = Value {
             value_type: Type::Void,
             value: ptr.into(),
             mutability,
         };
         self.ptr_symbol_table[0].insert(name, variable);
-    }
-}
-
-pub struct Variable<'ctx> {
-    // value could also act as value_type
-    value_type: Type,
-    value: AnyValueEnum<'ctx>,
-    pub mutability: Mutable,
-}
-
-impl<'ctx> Variable<'ctx> {
-    pub fn int_value(&self) -> IntValue<'ctx> {
-        // Should panic if not correct type.
-        return self.value.into_int_value();
-    }
-
-    pub fn float_value(&self) -> FloatValue<'ctx> {
-        // Should panic if not correct cast.
-        return self.value.into_float_value();
-    }
-
-    pub fn pointer_value(&self) -> PointerValue<'ctx> {
-        // Should panic if not correct cast.
-        return self.value.into_pointer_value();
     }
 }

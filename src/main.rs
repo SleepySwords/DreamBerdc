@@ -27,6 +27,7 @@ mod utils;
 
 #[cfg(test)]
 mod test;
+mod traits;
 
 fn main() -> Result<(), Box<dyn Error>> {
     let args = Args::parse();
@@ -124,7 +125,13 @@ fn main() -> Result<(), Box<dyn Error>> {
     }
 
     for statement in &statements {
-        compiler.build_statement(statement.clone());
+        match compiler.build_statement(statement.clone()) {
+            Ok(()) => {}
+            Err(e) => {
+                println!("{}", e);
+                exit(1);
+            }
+        }
     }
 
     println!("{}", "Compiled succesfully".green().bold());

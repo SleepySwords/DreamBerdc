@@ -4,6 +4,9 @@ function max(a: int, b: int, c: int): int => {
         d = d + i!
     }
     putchar(d+65)!
+    for (var var i = 0; i < 10; 0) {
+        putchar(i + 97)!
+    }
     return d!
 }
 

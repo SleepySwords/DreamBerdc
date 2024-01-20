@@ -50,6 +50,7 @@ pub enum Statement {
 #[allow(dead_code)]
 pub struct Declaration {
     pub mutable: Mutable,
+    pub var_type: Option<Type>,
     pub lhs: String,
     pub rhs: Expression,
 }

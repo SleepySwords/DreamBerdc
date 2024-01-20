@@ -1,5 +1,5 @@
 use inkwell::{
-    values::{ArrayValue, BasicValueEnum},
+    values::{ArrayValue, BasicMetadataValueEnum, BasicValueEnum},
     FloatPredicate, IntPredicate,
 };
 use itertools::Itertools;
@@ -13,7 +13,10 @@ use crate::{
 use super::CodeGen;
 
 impl<'ctx> CodeGen<'ctx> {
-    pub fn build_expression(&mut self, expression: Expression) -> BasicValueEnum<'ctx> {
+    pub fn build_expression(
+        &mut self,
+        expression: Expression,
+    ) -> Result<BasicValueEnum<'ctx>, CompilerError> {
         match expression {
             Expression::Binary {
                 lhs,
@@ -33,11 +36,9 @@ impl<'ctx> CodeGen<'ctx> {
                     )
                 }
                 let ptr = var.pointer_value();
-                let expression = self.build_expression(*rhs);
-                self.builder
-                    .build_store(ptr, expression)
-                    .expect("Build failed");
-                self.context.i32_type().const_zero().into()
+                let expression = self.build_expression(*rhs)?;
+                self.builder.build_store(ptr, expression)?;
+                Ok(self.context.i32_type().const_zero().into())
             }
             Expression::LiteralValue(strs) => {
                 let mut string = strs
@@ -55,23 +56,23 @@ impl<'ctx> CodeGen<'ctx> {
                     )
                     .unwrap();
                 self.builder.build_store(ptr, value).expect("Build failed");
-                ptr.into()
+                Ok(ptr.into())
             }
             Expression::Identifier(id) => {
                 if let Some(ptr) = self.symbol_table.fetch_variable_ptr(&id) {
                     let value = self.builder.build_load(self.context.i32_type(), ptr, &id);
-                    value.unwrap()
+                    Ok(value.unwrap())
                 } else if let Some(value) = self.symbol_table.fetch_value(&id) {
-                    value
+                    Ok(value)
                 } else {
                     let var_i32 = id.parse::<i32>();
                     if let Ok(var) = var_i32 {
                         let i32_type = self.context.i32_type();
-                        i32_type.const_int(var as u64, false).into()
+                        Ok(i32_type.const_int(var as u64, false).into())
                     } else {
                         let var_f32 = id.parse::<f32>().expect("Invalid constant type");
                         let f32_type = self.context.f32_type();
-                        f32_type.const_float(var_f32 as f64).into()
+                        Ok(f32_type.const_float(var_f32 as f64).into())
                     }
                 }
             }
@@ -83,7 +84,7 @@ impl<'ctx> CodeGen<'ctx> {
         &mut self,
         callee: String,
         arguments: Vec<Expression>,
-    ) -> BasicValueEnum<'ctx> {
+    ) -> Result<BasicValueEnum<'ctx>, CompilerError> {
         let Some(function) = self.module.get_function(&callee) else {
             panic!("Function not defined")
         };
@@ -95,15 +96,14 @@ impl<'ctx> CodeGen<'ctx> {
 
         let args = arguments
             .iter()
-            .map(|f| self.build_expression(f.clone()).into())
-            .collect_vec();
+            .map(|f| self.build_expression(f.clone()).map(|f| f.into()))
+            .collect::<Result<Vec<BasicMetadataValueEnum<'ctx>>, CompilerError>>()?;
         let value = self
             .builder
-            .build_call(function, args.as_slice(), "calltmp");
-        value
-            .expect("Build failed")
+            .build_call(function, args.as_slice(), "calltmp")?;
+        Ok(value
             .try_as_basic_value()
-            .left_or(self.context.i32_type().const_int(0, false).into())
+            .left_or(self.context.i32_type().const_int(0, false).into()))
     }
 
     fn parse_binary(
@@ -111,10 +111,10 @@ impl<'ctx> CodeGen<'ctx> {
         lhs: Expression,
         operation: Operation,
         rhs: Expression,
-    ) -> BasicValueEnum<'ctx> {
-        let lhs = self.build_expression(lhs);
-        let rhs = self.build_expression(rhs);
-        if lhs.is_int_value() && rhs.is_int_value() {
+    ) -> Result<BasicValueEnum<'ctx>, CompilerError> {
+        let lhs = self.build_expression(lhs)?;
+        let rhs = self.build_expression(rhs)?;
+        Ok(if lhs.is_int_value() && rhs.is_int_value() {
             // Need to abstract this!
             let lhs = lhs.into_int_value();
             let rhs = rhs.into_int_value();
@@ -155,11 +155,7 @@ impl<'ctx> CodeGen<'ctx> {
             let lhs = lhs.into_float_value();
             let rhs = rhs.into_float_value();
             match operation {
-                Operation::Add => self
-                    .builder
-                    .build_float_add(lhs, rhs, "add")
-                    .expect("Build failed")
-                    .into(),
+                Operation::Add => self.builder.build_float_add(lhs, rhs, "add")?.into(),
                 Operation::Subtract => self
                     .builder
                     .build_float_sub(lhs, rhs, "sub")
@@ -193,12 +189,12 @@ impl<'ctx> CodeGen<'ctx> {
                 _ => panic!("aefj"),
             }
         } else {
-            panic!(
+            return Err(CompilerError::CodeGenError(format!(
                 "Cannot use the operation {:?} on incompatible types of: {} and {}",
                 operation,
                 lhs.get_type(),
                 rhs.get_type()
-            )
-        }
+            )));
+        })
     }
 }

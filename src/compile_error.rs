@@ -1,6 +1,7 @@
 use std::fmt::Display;
 
 use colored::Colorize;
+use inkwell::builder::BuilderError;
 use thiserror::Error;
 
 // FIXME: maybe use an &str
@@ -18,7 +19,7 @@ impl Display for CompilerError {
                     f,
                     "{} {}",
                     format!(
-                        "ERROR({}, {}):",
+                        "error({}, {}):",
                         (lnum + 1).to_string().white(),
                         (col + 1).to_string().white()
                     )
@@ -31,10 +32,16 @@ impl Display for CompilerError {
                 write!(
                     f,
                     "{} {}",
-                    "ERROR:".to_string().bold().red(),
+                    "error:".to_string().bold().red(),
                     format!("Compile Error: {}", msg).bold(),
                 )
             }
         }
+    }
+}
+
+impl From<BuilderError> for CompilerError {
+    fn from(value: BuilderError) -> Self {
+        return CompilerError::CodeGenError(format!("Build error: {}", value))
     }
 }

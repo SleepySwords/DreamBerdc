@@ -458,6 +458,7 @@ impl Parser {
                     mutable: flags,
                     lhs,
                     rhs: rhs?,
+                    var_type: None,
                 }))
             } else {
                 Err(CompilerError::SyntaxError(
