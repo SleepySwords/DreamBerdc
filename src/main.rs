@@ -10,7 +10,7 @@ use inkwell::OptimizationLevel;
 use itertools::Itertools;
 
 use crate::args::Args;
-use crate::ast::Statement;
+use crate::ast::StatementKind;
 use crate::lexer::Lexer;
 use crate::symboltable::SymbolTable;
 use crate::{codegen::CodeGen, lexer::TokenKind, parser::Parser as CodeParser};
@@ -119,7 +119,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     // Add the function declarations first
     for statement in &statements {
-        if let Statement::Function(fun) = statement {
+        if let StatementKind::Function(fun) = statement {
             compiler.build_function_declaration(fun);
         }
     }

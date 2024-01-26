@@ -1,16 +1,16 @@
 use inkwell::{types::BasicMetadataTypeEnum, values::FunctionValue, IntPredicate};
 
 use crate::{
-    ast::{Declaration, ForStatement, Function, IfStatement, Statement},
+    ast::{Declaration, ForStatement, Function, IfStatement, StatementKind},
     compile_error::CompilerError,
 };
 
 use super::CodeGen;
 
 impl<'ctx> CodeGen<'ctx> {
-    pub fn build_statement(&mut self, statement: Statement) -> Result<(), CompilerError> {
+    pub fn build_statement(&mut self, statement: StatementKind) -> Result<(), CompilerError> {
         match statement {
-            Statement::Declaration(declaration) => {
+            StatementKind::Declaration(declaration) => {
                 let variable = self
                     .builder
                     .build_alloca(self.context.i32_type(), &declaration.lhs)?;
@@ -20,19 +20,19 @@ impl<'ctx> CodeGen<'ctx> {
                 self.symbol_table
                     .store_variable_ptr(declaration.lhs, variable, declaration.mutable)
             }
-            Statement::Return { return_value } => {
+            StatementKind::Return { return_value } => {
                 let value = self.build_expression(return_value)?;
                 self.builder
                     .build_return(Some(&value))?;
             }
-            Statement::Function(function) => {
+            StatementKind::Function(function) => {
                 self.build_function(function)?;
             }
-            Statement::Expression(expr) => {
+            StatementKind::Expression(expr) => {
                 self.build_expression(expr)?;
             }
-            Statement::If(if_statement) => self.build_if(if_statement)?,
-            Statement::For(for_statement) => self.build_for(*for_statement)?,
+            StatementKind::If(if_statement) => self.build_if(if_statement)?,
+            StatementKind::For(for_statement) => self.build_for(*for_statement)?,
         }
         return Ok(());
     }
@@ -145,7 +145,7 @@ impl<'ctx> CodeGen<'ctx> {
             .get_parent()
             .unwrap();
 
-        let Statement::Declaration(Declaration {
+        let StatementKind::Declaration(Declaration {
             mutable, lhs, rhs, ..
         }) = for_statement.initialiser
         else {

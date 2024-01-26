@@ -2,8 +2,8 @@ use core::panic;
 
 use crate::{
     ast::{
-        Declaration, Expression, ForStatement, Function, IfStatement, Operation, Prototype,
-        Statement,
+        Declaration, ExpressionKind, ForStatement, Function, IfStatement, Operation, Prototype,
+        StatementKind,
     },
     compile_error::CompilerError,
     lexer::{Token, TokenKind},
@@ -92,7 +92,7 @@ impl Parser {
         }
     }
 
-    pub fn parse_expression(&mut self) -> Result<Expression, CompilerError> {
+    pub fn parse_expression(&mut self) -> Result<ExpressionKind, CompilerError> {
         let pos = self.current_pos();
         // FIXME: Perhaps make this next and then implement backtracking?
         // This is really ugly right now
@@ -101,7 +101,7 @@ impl Parser {
                 if let Some(TokenKind::Symbol(lhs)) = self.next() {
                     self.expect(TokenKind::Eq)?;
                     let rhs = self.parse_expression()?;
-                    Ok(Expression::Assignment {
+                    Ok(ExpressionKind::Assignment {
                         lhs,
                         rhs: Box::new(rhs),
                     })
@@ -112,7 +112,7 @@ impl Parser {
             Some(&TokenKind::Symbol(_)) => Ok(self.parse_equality()?),
             Some(&TokenKind::String(_)) => {
                 if let Some(TokenKind::String(str)) = self.next() {
-                    Ok(Expression::LiteralValue(str))
+                    Ok(ExpressionKind::LiteralValue(str))
                 } else {
                     panic!("Invalid state")
                 }
@@ -130,7 +130,7 @@ impl Parser {
         };
     }
 
-    pub fn parse_value(&mut self) -> Result<Expression, CompilerError> {
+    pub fn parse_value(&mut self) -> Result<ExpressionKind, CompilerError> {
         if let Some(token) = self.next() {
             return match token {
                 TokenKind::Symbol(sym) => {
@@ -138,10 +138,10 @@ impl Parser {
                         self.next();
                         self.parse_call(sym)
                     } else {
-                        Ok(Expression::Identifier(sym))
+                        Ok(ExpressionKind::Identifier(sym))
                     }
                 }
-                TokenKind::String(str) => Ok(Expression::LiteralValue(str)),
+                TokenKind::String(str) => Ok(ExpressionKind::LiteralValue(str)),
                 tkn => Err(CompilerError::SyntaxError(
                     self.previous_pos(),
                     format!("Expected value, found {:?}", tkn),
@@ -154,7 +154,7 @@ impl Parser {
         ))
     }
 
-    pub fn parse_equality(&mut self) -> Result<Expression, CompilerError> {
+    pub fn parse_equality(&mut self) -> Result<ExpressionKind, CompilerError> {
         let mut expr = self.parse_term()?;
 
         // FIXME: this pattern is pretty ugly
@@ -175,7 +175,7 @@ impl Parser {
                 _ => panic!("Invalid operation (the compiler should not do this)"),
             };
             let rhs = self.parse_term();
-            expr = Expression::Binary {
+            expr = ExpressionKind::Binary {
                 lhs: Box::new(expr),
                 operation,
                 rhs: Box::new(rhs?),
@@ -185,7 +185,7 @@ impl Parser {
         Ok(expr)
     }
 
-    pub fn parse_term(&mut self) -> Result<Expression, CompilerError> {
+    pub fn parse_term(&mut self) -> Result<ExpressionKind, CompilerError> {
         let mut expr = self.parse_factor()?;
 
         while let Some(TokenKind::Plus | TokenKind::Dash) = self.peek() {
@@ -196,7 +196,7 @@ impl Parser {
             };
             let rhs = self.parse_factor();
 
-            expr = Expression::Binary {
+            expr = ExpressionKind::Binary {
                 lhs: Box::new(expr),
                 rhs: Box::new(rhs?),
                 operation,
@@ -206,7 +206,7 @@ impl Parser {
         Ok(expr)
     }
 
-    pub fn parse_factor(&mut self) -> Result<Expression, CompilerError> {
+    pub fn parse_factor(&mut self) -> Result<ExpressionKind, CompilerError> {
         let mut expr = self.parse_value()?;
 
         while let Some(TokenKind::Star | TokenKind::Slash) = self.peek() {
@@ -217,7 +217,7 @@ impl Parser {
             };
             let rhs = self.parse_value();
 
-            expr = Expression::Binary {
+            expr = ExpressionKind::Binary {
                 lhs: Box::new(expr),
                 rhs: Box::new(rhs?),
                 operation,
@@ -227,12 +227,12 @@ impl Parser {
         Ok(expr)
     }
 
-    fn parse_call(&mut self, callee: String) -> Result<Expression, CompilerError> {
+    fn parse_call(&mut self, callee: String) -> Result<ExpressionKind, CompilerError> {
         let mut args = Vec::new();
         while let Some(token) = self.peek() {
             if *token == TokenKind::ClosePar {
                 self.next();
-                return Ok(Expression::Call {
+                return Ok(ExpressionKind::Call {
                     callee,
                     arguments: args,
                 });
@@ -256,10 +256,10 @@ impl Parser {
                 }
             }
         }
-        Ok(Expression::Unkown)
+        Ok(ExpressionKind::Unkown)
     }
 
-    pub fn parse_if(&mut self) -> Result<Statement, CompilerError> {
+    pub fn parse_if(&mut self) -> Result<StatementKind, CompilerError> {
         self.expect(TokenKind::If)?;
         self.expect(TokenKind::OpenPar)?;
         let bool_exp = self.parse_expression();
@@ -274,17 +274,17 @@ impl Parser {
                 (body, None)
             }
         } else {
-            (vec![Statement::Expression(self.parse_expression()?)], None)
+            (vec![StatementKind::Expression(self.parse_expression()?)], None)
         };
 
-        Ok(Statement::If(IfStatement {
+        Ok(StatementKind::If(IfStatement {
             boolean_op: bool_exp?,
             then_statements: body,
             else_statements: else_body,
         }))
     }
 
-    pub fn parse_for(&mut self) -> Result<Statement, CompilerError> {
+    pub fn parse_for(&mut self) -> Result<StatementKind, CompilerError> {
         self.expect(TokenKind::For)?;
         self.expect(TokenKind::OpenPar)?;
         let initialiser = self.parse_declaration();
@@ -299,10 +299,10 @@ impl Parser {
         let body = if let Some(TokenKind::OpenCurB) = self.peek() {
             self.parse_body()?
         } else {
-            vec![Statement::Expression(self.parse_expression()?)]
+            vec![StatementKind::Expression(self.parse_expression()?)]
         };
 
-        Ok(Statement::For(Box::new(ForStatement {
+        Ok(StatementKind::For(Box::new(ForStatement {
             initialiser: initialiser?,
             condition: condition?,
             accumalator: accumalator?,
@@ -310,7 +310,7 @@ impl Parser {
         })))
     }
 
-    pub fn parse_function(&mut self) -> Result<Statement, CompilerError> {
+    pub fn parse_function(&mut self) -> Result<StatementKind, CompilerError> {
         let prototype = self.parse_prototype()?;
         self.expect(TokenKind::Arrow)?;
         let body = if let Some(TokenKind::OpenCurB) = self.peek() {
@@ -319,9 +319,9 @@ impl Parser {
             // TODO: Should this be a parse_statement?
             // Is `function main() => function hi() => {}`
             // valid?
-            vec![Statement::Expression(self.parse_expression()?)]
+            vec![StatementKind::Expression(self.parse_expression()?)]
         };
-        Ok(Statement::Function(Function { prototype, body }))
+        Ok(StatementKind::Function(Function { prototype, body }))
     }
 
     pub fn parse_prototype(&mut self) -> Result<Prototype, CompilerError> {
@@ -402,7 +402,7 @@ impl Parser {
         ))
     }
 
-    pub fn parse_body(&mut self) -> Result<Vec<Statement>, CompilerError> {
+    pub fn parse_body(&mut self) -> Result<Vec<StatementKind>, CompilerError> {
         let mut statements = Vec::new();
         self.expect(TokenKind::OpenCurB)?;
         while !self.check(TokenKind::CloseCurB) {
@@ -415,7 +415,7 @@ impl Parser {
                 Some(TokenKind::For) => statements.push(self.parse_for()?),
                 Some(TokenKind::Function) => statements.push(self.parse_function()?),
                 _ => {
-                    statements.push(Statement::Expression(self.parse_expression()?));
+                    statements.push(StatementKind::Expression(self.parse_expression()?));
                     self.consume_bang();
                 }
             }
@@ -424,7 +424,7 @@ impl Parser {
         Ok(statements)
     }
 
-    pub fn parse_declaration(&mut self) -> Result<Statement, CompilerError> {
+    pub fn parse_declaration(&mut self) -> Result<StatementKind, CompilerError> {
         let mut flags = Mutable::NONE;
         let pos = self.current_pos();
         let first_op = self.next().ok_or_else(|| {
@@ -454,7 +454,7 @@ impl Parser {
             if let Some(TokenKind::Eq) = self.next() {
                 let rhs = self.parse_expression();
                 self.consume_bang();
-                Ok(Statement::Declaration(Declaration {
+                Ok(StatementKind::Declaration(Declaration {
                     mutable: flags,
                     lhs,
                     rhs: rhs?,
@@ -474,15 +474,15 @@ impl Parser {
         }
     }
 
-    fn parse_return(&mut self) -> Result<Statement, CompilerError> {
+    fn parse_return(&mut self) -> Result<StatementKind, CompilerError> {
         self.expect(TokenKind::Return)?;
         let return_value = self.parse_expression()?;
         // Should probably be in statement
         self.optional(TokenKind::Bang);
-        Ok(Statement::Return { return_value })
+        Ok(StatementKind::Return { return_value })
     }
 
-    fn parse_array(&mut self) -> Result<Expression, CompilerError> {
+    fn parse_array(&mut self) -> Result<ExpressionKind, CompilerError> {
         self.expect(TokenKind::OpenSqB)?;
         let mut values = vec![];
         while !self.check(TokenKind::CloseSqB) {
@@ -503,6 +503,6 @@ impl Parser {
             }
         }
         self.expect(TokenKind::CloseSqB)?;
-        Ok(Expression::Array(values))
+        Ok(ExpressionKind::Array(values))
     }
 }

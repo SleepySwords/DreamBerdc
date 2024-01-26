@@ -1,7 +1,7 @@
 use itertools::Itertools;
 
 use crate::{
-    ast::{Declaration, Expression, ForStatement, Function, Operation, Prototype, Statement},
+    ast::{Declaration, ExpressionKind, ForStatement, Function, Operation, Prototype, StatementKind},
     lexer::Lexer,
     parser::Parser,
     types::Type,
@@ -35,32 +35,32 @@ fn test_parse_addtokenize() -> Result<(), Box<dyn Error>> {
     assert_eq!(
         statements,
         vec![
-            Statement::Function(Function {
+            StatementKind::Function(Function {
                 prototype: Prototype {
                     name: "add".to_string(),
                     arguments: vec![("a".to_string(), Type::Int), ("b".to_string(), Type::Int)],
                     return_type: Type::Int
                 },
-                body: vec![Statement::Return {
-                    return_value: Expression::Binary {
-                        lhs: Box::new(Expression::Identifier("a".to_string())),
+                body: vec![StatementKind::Return {
+                    return_value: ExpressionKind::Binary {
+                        lhs: Box::new(ExpressionKind::Identifier("a".to_string())),
                         operation: Operation::Add,
-                        rhs: Box::new(Expression::Identifier("b".to_string()))
+                        rhs: Box::new(ExpressionKind::Identifier("b".to_string()))
                     }
                 }]
             }),
-            Statement::Function(Function {
+            StatementKind::Function(Function {
                 prototype: Prototype {
                     name: "main".to_string(),
                     arguments: vec![],
                     return_type: Type::Void
                 },
-                body: vec![Statement::Return {
-                    return_value: Expression::Call {
+                body: vec![StatementKind::Return {
+                    return_value: ExpressionKind::Call {
                         callee: "add".to_string(),
                         arguments: vec![
-                            Expression::Identifier("1".to_string()),
-                            Expression::Identifier("5".to_string())
+                            ExpressionKind::Identifier("1".to_string()),
+                            ExpressionKind::Identifier("5".to_string())
                         ]
                     }
                 }]
@@ -94,7 +94,7 @@ fn test_parse_for() -> Result<(), Box<dyn Error>> {
     assert_eq!(
         statements,
         vec![
-            Statement::Function(Function {
+            StatementKind::Function(Function {
                 prototype: Prototype {
                     name: String::from("max"),
                     arguments: vec![
@@ -105,46 +105,46 @@ fn test_parse_for() -> Result<(), Box<dyn Error>> {
                     return_type: Type::Int,
                 },
                 body: vec![
-                    Statement::Declaration(Declaration {
+                    StatementKind::Declaration(Declaration {
                         mutable: Mutable::ALL,
                         lhs: String::from("d"),
-                        rhs: Expression::Identifier(String::from("0"),),
+                        rhs: ExpressionKind::Identifier(String::from("0"),),
                     },),
-                    Statement::For(Box::new(ForStatement {
-                        initialiser: Statement::Declaration(Declaration {
+                    StatementKind::For(Box::new(ForStatement {
+                        initialiser: StatementKind::Declaration(Declaration {
                             mutable: Mutable::ALL,
                             lhs: String::from("i"),
-                            rhs: Expression::Identifier(String::from("0"),),
+                            rhs: ExpressionKind::Identifier(String::from("0"),),
                         }),
-                        condition: Expression::Binary {
-                            lhs: Box::new(Expression::Identifier(String::from("i"))),
+                        condition: ExpressionKind::Binary {
+                            lhs: Box::new(ExpressionKind::Identifier(String::from("i"))),
                             operation: Operation::Less,
-                            rhs: Box::new(Expression::Identifier(String::from("10"))),
+                            rhs: Box::new(ExpressionKind::Identifier(String::from("10"))),
                         },
-                        accumalator: Expression::Identifier(String::from("0"),),
-                        body: Some(vec![Statement::Expression(Expression::Assignment {
+                        accumalator: ExpressionKind::Identifier(String::from("0"),),
+                        body: Some(vec![StatementKind::Expression(ExpressionKind::Assignment {
                             lhs: String::from("d"),
-                            rhs: Box::new(Expression::Binary {
-                                lhs: Box::new(Expression::Identifier(String::from("d"))),
+                            rhs: Box::new(ExpressionKind::Binary {
+                                lhs: Box::new(ExpressionKind::Identifier(String::from("d"))),
                                 operation: Operation::Add,
-                                rhs: Box::new(Expression::Identifier(String::from("i"))),
+                                rhs: Box::new(ExpressionKind::Identifier(String::from("i"))),
                             }),
                         })]),
                     })),
-                    Statement::Expression(Expression::Call {
+                    StatementKind::Expression(ExpressionKind::Call {
                         callee: String::from("putchar"),
-                        arguments: vec![Expression::Binary {
-                            lhs: Box::new(Expression::Identifier(String::from("d"))),
+                        arguments: vec![ExpressionKind::Binary {
+                            lhs: Box::new(ExpressionKind::Identifier(String::from("d"))),
                             operation: Operation::Add,
-                            rhs: Box::new(Expression::Identifier(String::from("65"))),
+                            rhs: Box::new(ExpressionKind::Identifier(String::from("65"))),
                         },],
                     },),
-                    Statement::Return {
-                        return_value: Expression::Identifier(String::from("d"),),
+                    StatementKind::Return {
+                        return_value: ExpressionKind::Identifier(String::from("d"),),
                     },
                 ],
             },),
-            Statement::Function(Function {
+            StatementKind::Function(Function {
                 prototype: Prototype {
                     name: String::from("add"),
                     arguments: vec![
@@ -153,19 +153,19 @@ fn test_parse_for() -> Result<(), Box<dyn Error>> {
                     ],
                     return_type: Type::Void,
                 },
-                body: vec![Statement::Return {
-                    return_value: Expression::Binary {
-                        lhs: Box::new(Expression::Binary {
-                            lhs: Box::new(Expression::Identifier(String::from("a"))),
+                body: vec![StatementKind::Return {
+                    return_value: ExpressionKind::Binary {
+                        lhs: Box::new(ExpressionKind::Binary {
+                            lhs: Box::new(ExpressionKind::Identifier(String::from("a"))),
                             operation: Operation::Multiply,
-                            rhs: Box::new(Expression::Identifier(String::from("b"))),
+                            rhs: Box::new(ExpressionKind::Identifier(String::from("b"))),
                         }),
                         operation: Operation::Add,
-                        rhs: Box::new(Expression::Identifier(String::from("a"))),
+                        rhs: Box::new(ExpressionKind::Identifier(String::from("a"))),
                     },
                 },],
             },),
-            Statement::Function(Function {
+            StatementKind::Function(Function {
                 prototype: Prototype {
                     name: String::from("main"),
                     arguments: vec![
@@ -174,13 +174,13 @@ fn test_parse_for() -> Result<(), Box<dyn Error>> {
                     ],
                     return_type: Type::Int,
                 },
-                body: vec![Statement::Return {
-                    return_value: Expression::Call {
+                body: vec![StatementKind::Return {
+                    return_value: ExpressionKind::Call {
                         callee: String::from("max"),
                         arguments: vec![
-                            Expression::Identifier(String::from("1"),),
-                            Expression::Identifier(String::from("2"),),
-                            Expression::Identifier(String::from("3"),),
+                            ExpressionKind::Identifier(String::from("1"),),
+                            ExpressionKind::Identifier(String::from("2"),),
+                            ExpressionKind::Identifier(String::from("3"),),
                         ],
                     },
                 },],

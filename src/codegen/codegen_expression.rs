@@ -5,7 +5,7 @@ use inkwell::{
 use itertools::Itertools;
 
 use crate::{
-    ast::{Expression, Operation},
+    ast::{ExpressionKind, Operation},
     compile_error::CompilerError,
     utils::Mutable,
 };
@@ -15,16 +15,16 @@ use super::CodeGen;
 impl<'ctx> CodeGen<'ctx> {
     pub fn build_expression(
         &mut self,
-        expression: Expression,
+        expression: ExpressionKind,
     ) -> Result<BasicValueEnum<'ctx>, CompilerError> {
         match expression {
-            Expression::Binary {
+            ExpressionKind::Binary {
                 lhs,
                 operation,
                 rhs,
             } => self.parse_binary(*lhs, operation, *rhs),
-            Expression::Call { callee, arguments } => self.build_call(callee, arguments),
-            Expression::Assignment { lhs, rhs } => {
+            ExpressionKind::Call { callee, arguments } => self.build_call(callee, arguments),
+            ExpressionKind::Assignment { lhs, rhs } => {
                 let var = self.symbol_table.fetch_variable(&lhs).unwrap();
                 if !var.mutability.contains(Mutable::Reassignable) {
                     // FIXME: proper error handling for compiling
@@ -40,7 +40,7 @@ impl<'ctx> CodeGen<'ctx> {
                 self.builder.build_store(ptr, expression)?;
                 Ok(self.context.i32_type().const_zero().into())
             }
-            Expression::LiteralValue(strs) => {
+            ExpressionKind::LiteralValue(strs) => {
                 let mut string = strs
                     .chars()
                     .map(|f| self.context.i8_type().const_int(f.into(), false))
@@ -58,7 +58,7 @@ impl<'ctx> CodeGen<'ctx> {
                 self.builder.build_store(ptr, value).expect("Build failed");
                 Ok(ptr.into())
             }
-            Expression::Identifier(id) => {
+            ExpressionKind::Identifier(id) => {
                 if let Some(ptr) = self.symbol_table.fetch_variable_ptr(&id) {
                     let value = self.builder.build_load(self.context.i32_type(), ptr, &id);
                     Ok(value.unwrap())
@@ -83,7 +83,7 @@ impl<'ctx> CodeGen<'ctx> {
     pub fn build_call(
         &mut self,
         callee: String,
-        arguments: Vec<Expression>,
+        arguments: Vec<ExpressionKind>,
     ) -> Result<BasicValueEnum<'ctx>, CompilerError> {
         let Some(function) = self.module.get_function(&callee) else {
             panic!("Function not defined")
@@ -108,9 +108,9 @@ impl<'ctx> CodeGen<'ctx> {
 
     fn parse_binary(
         &mut self,
-        lhs: Expression,
+        lhs: ExpressionKind,
         operation: Operation,
-        rhs: Expression,
+        rhs: ExpressionKind,
     ) -> Result<BasicValueEnum<'ctx>, CompilerError> {
         let lhs = self.build_expression(lhs)?;
         let rhs = self.build_expression(rhs)?;
