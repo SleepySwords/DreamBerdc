@@ -9,6 +9,7 @@ use thiserror::Error;
 pub enum CompilerError {
     SyntaxError((usize, usize), String),
     CodeGenError(String),
+    CodeGenErrorWithPos((usize, usize), String),
 }
 
 impl Display for CompilerError {
@@ -33,6 +34,20 @@ impl Display for CompilerError {
                     f,
                     "{} {}",
                     "error:".to_string().bold().red(),
+                    format!("Compile Error: {}", msg).bold(),
+                )
+            }
+            CompilerError::CodeGenErrorWithPos((col, lnum), msg) => {
+                write!(
+                    f,
+                    "{} {}",
+                    format!(
+                        "error({}, {}):",
+                        (lnum + 1).to_string().white(),
+                        (col + 1).to_string().white()
+                    )
+                    .bold()
+                    .red(),
                     format!("Compile Error: {}", msg).bold(),
                 )
             }

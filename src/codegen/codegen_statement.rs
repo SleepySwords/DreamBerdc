@@ -1,15 +1,15 @@
 use inkwell::{types::BasicMetadataTypeEnum, values::FunctionValue, IntPredicate};
 
 use crate::{
-    ast::{Declaration, ForStatement, Function, IfStatement, StatementKind},
+    ast::{Declaration, ForStatement, Function, IfStatement, StatementKind, Statement},
     compile_error::CompilerError,
 };
 
 use super::CodeGen;
 
 impl<'ctx> CodeGen<'ctx> {
-    pub fn build_statement(&mut self, statement: StatementKind) -> Result<(), CompilerError> {
-        match statement {
+    pub fn build_statement(&mut self, statement: Statement) -> Result<(), CompilerError> {
+        match statement.kind {
             StatementKind::Declaration(declaration) => {
                 let variable = self
                     .builder
@@ -147,7 +147,7 @@ impl<'ctx> CodeGen<'ctx> {
 
         let StatementKind::Declaration(Declaration {
             mutable, lhs, rhs, ..
-        }) = for_statement.initialiser
+        }) = for_statement.initialiser.kind
         else {
             return Err(CompilerError::CodeGenError(format!(
                 "Expected declaration found {:?}",

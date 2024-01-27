@@ -5,7 +5,7 @@ use inkwell::{
 use itertools::Itertools;
 
 use crate::{
-    ast::{ExpressionKind, Operation},
+    ast::{ExpressionKind, Operation, Expression},
     compile_error::CompilerError,
     utils::Mutable,
 };
@@ -15,9 +15,9 @@ use super::CodeGen;
 impl<'ctx> CodeGen<'ctx> {
     pub fn build_expression(
         &mut self,
-        expression: ExpressionKind,
+        expression: Expression,
     ) -> Result<BasicValueEnum<'ctx>, CompilerError> {
-        match expression {
+        match expression.kind {
             ExpressionKind::Binary {
                 lhs,
                 operation,
@@ -83,7 +83,7 @@ impl<'ctx> CodeGen<'ctx> {
     pub fn build_call(
         &mut self,
         callee: String,
-        arguments: Vec<ExpressionKind>,
+        arguments: Vec<Expression>,
     ) -> Result<BasicValueEnum<'ctx>, CompilerError> {
         let Some(function) = self.module.get_function(&callee) else {
             panic!("Function not defined")
@@ -108,12 +108,13 @@ impl<'ctx> CodeGen<'ctx> {
 
     fn parse_binary(
         &mut self,
-        lhs: ExpressionKind,
+        lhs_expression: Expression,
         operation: Operation,
-        rhs: ExpressionKind,
+        rhs_expression: Expression,
     ) -> Result<BasicValueEnum<'ctx>, CompilerError> {
-        let lhs = self.build_expression(lhs)?;
-        let rhs = self.build_expression(rhs)?;
+        let position = (lhs_expression.col,lhs_expression.lnum, );
+        let lhs = self.build_expression(lhs_expression)?;
+        let rhs = self.build_expression(rhs_expression)?;
         Ok(if lhs.is_int_value() && rhs.is_int_value() {
             // Need to abstract this!
             let lhs = lhs.into_int_value();
@@ -189,11 +190,11 @@ impl<'ctx> CodeGen<'ctx> {
                 _ => panic!("aefj"),
             }
         } else {
-            return Err(CompilerError::CodeGenError(format!(
+            return Err(CompilerError::CodeGenErrorWithPos(position, format!(
                 "Cannot use the operation {:?} on incompatible types of: {} and {}",
                 operation,
                 lhs.get_type(),
-                rhs.get_type()
+                rhs.get_type(),
             )));
         })
     }

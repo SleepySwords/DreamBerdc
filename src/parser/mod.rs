@@ -137,16 +137,17 @@ impl Parser {
     }
 
     pub fn parse_value(&mut self) -> Result<Expression, CompilerError> {
+        let value_pos = self.current_pos();
         if let Some(token) = self.next() {
             return match token {
                 TokenKind::Symbol(sym) => {
                     if let Some(TokenKind::OpenPar) = self.peek() {
                         self.next();
-                        self.parse_call(sym)
+                        self.parse_call(sym, value_pos)
                     } else {
                         Ok(Expression::from_pos(
                             ExpressionKind::Identifier(sym),
-                            self.current_pos(),
+                            value_pos,
                         ))
                     }
                 }
@@ -251,7 +252,7 @@ impl Parser {
         Ok(expr)
     }
 
-    fn parse_call(&mut self, callee: String) -> Result<Expression, CompilerError> {
+    fn parse_call(&mut self, callee: String, value_pos: (usize, usize)) -> Result<Expression, CompilerError> {
         let mut args = Vec::new();
         while let Some(token) = self.peek() {
             if *token == TokenKind::ClosePar {
@@ -261,7 +262,7 @@ impl Parser {
                         callee,
                         arguments: args,
                     },
-                    self.current_pos(),
+                    value_pos,
                 ));
             }
 
