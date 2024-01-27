@@ -147,10 +147,13 @@ impl<'ctx> CodeGen<'ctx> {
             mutable, lhs, rhs, ..
         }) = for_statement.initialiser.kind
         else {
-            return Err(CompilerError::CodeGenError(format!(
-                "Expected declaration found {:?}",
-                for_statement.initialiser
-            )));
+            return Err(CompilerError::CodeGenErrorWithPos(
+                (
+                    for_statement.initialiser.col,
+                    for_statement.initialiser.lnum,
+                ),
+                format!("Expected declaration found {:?}", for_statement.initialiser),
+            ));
         };
         self.symbol_table.push_scope();
 
@@ -203,8 +206,7 @@ impl<'ctx> CodeGen<'ctx> {
             .append_basic_block(current_function, "afterloop");
 
         self.builder
-            .build_conditional_branch(end_cond, loop_bb, after_bb)
-            .expect("Build failed");
+            .build_conditional_branch(end_cond, loop_bb, after_bb)?;
         self.builder.position_at_end(after_bb);
         self.symbol_table.pop_scope();
 

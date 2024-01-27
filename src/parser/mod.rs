@@ -334,13 +334,13 @@ impl Parser {
         let for_pos = self.current_pos();
         self.expect(TokenKind::For)?;
         self.expect(TokenKind::OpenPar)?;
-        let initialiser = self.parse_declaration();
+        let initialiser = self.parse_declaration()?;
 
         self.expect(TokenKind::Semicolon)?;
-        let condition = self.parse_expression();
+        let condition = self.parse_expression()?;
 
         self.expect(TokenKind::Semicolon)?;
-        let accumalator = self.parse_expression();
+        let accumalator = self.parse_expression()?;
         self.expect(TokenKind::ClosePar)?;
 
         let body = if let Some(TokenKind::OpenCurB) = self.peek() {
@@ -355,9 +355,9 @@ impl Parser {
 
         Ok(Statement::from_pos(
             StatementKind::For(Box::new(ForStatement {
-                initialiser: initialiser?,
-                condition: condition?,
-                accumalator: accumalator?,
+                initialiser,
+                condition,
+                accumalator,
                 body: Some(body),
             })),
             for_pos,
