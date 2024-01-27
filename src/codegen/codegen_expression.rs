@@ -27,7 +27,12 @@ impl<'ctx> CodeGen<'ctx> {
                 self.build_call(callee, arguments, (expression.col, expression.lnum))
             }
             ExpressionKind::Assignment { lhs, rhs } => {
-                let var = self.symbol_table.fetch_variable(&lhs).unwrap();
+                let Some(var) = self.symbol_table.fetch_variable(&lhs) else {
+                    return Err(CompilerError::CodeGenErrorWithPos(
+                        (expression.col, expression.lnum),
+                        format!("Unknown varaible: {}", lhs),
+                    ));
+                };
                 if !var.mutability.contains(Mutable::Reassignable) {
                     return Err(CompilerError::CodeGenErrorWithPos(
                         (expression.col, expression.lnum),
