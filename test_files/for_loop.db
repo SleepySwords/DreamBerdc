@@ -1,10 +1,10 @@
 function max(a: int, b: int, c: int): int => {
     var var d = 0!
-    for (var var i = 0; i < 10; 0) {
+    for (var var i = 0; i < 10; i = i + 1) {
         d = d + i!
     }
     putchar(d+65)!
-    for (var var i = 0; i < 10; 0) {
+    for (var var i = 0; i < 10; i = i + 1) {
         putchar(i + 97)!
     }
     return d!

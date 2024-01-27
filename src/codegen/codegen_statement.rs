@@ -91,15 +91,12 @@ impl<'ctx> CodeGen<'ctx> {
             .into_int_value();
 
         // FIXME: need to not rely on int stuff
-        let condition = self
-            .builder
-            .build_int_compare(
-                IntPredicate::NE,
-                self.context.i32_type().const_zero(),
-                value,
-                "ifcond",
-            )
-            .expect("Build failed");
+        let condition = self.builder.build_int_compare(
+            IntPredicate::NE,
+            self.context.i32_type().const_zero(),
+            value,
+            "ifcond",
+        )?;
 
         let current_function = self
             .builder
@@ -174,17 +171,7 @@ impl<'ctx> CodeGen<'ctx> {
             self.build_statement(statement)?;
         }
 
-        let step_value = self.context.i32_type().const_int(1, false);
-        let next_var = self.builder.build_int_add(
-            self.builder
-                .build_load(self.context.i32_type(), variable, "var")
-                .expect("Failed")
-                .into_int_value(),
-            step_value,
-            "nextvar",
-        )?;
-
-        self.builder.build_store(variable, next_var)?;
+        self.build_expression(for_statement.accumalator)?;
 
         let value = self
             .build_expression(for_statement.condition)?
@@ -198,8 +185,7 @@ impl<'ctx> CodeGen<'ctx> {
                 self.context.i32_type().const_zero(),
                 value,
                 "loopcond",
-            )
-            .expect("Build failed");
+            )?;
 
         let after_bb = self
             .context
