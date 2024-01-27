@@ -93,7 +93,7 @@ impl Parser {
     }
 
     pub fn parse_expression(&mut self) -> Result<Expression, CompilerError> {
-        let pos = self.current_pos();
+        let expression_pos = self.current_pos();
         // FIXME: Perhaps make this next and then implement backtracking?
         // This is really ugly right now
         return match self.peek() {
@@ -106,7 +106,7 @@ impl Parser {
                             lhs,
                             rhs: Box::new(rhs),
                         },
-                        self.current_pos(),
+                        expression_pos,
                     ))
                 } else {
                     panic!("Invalid state")
@@ -117,7 +117,7 @@ impl Parser {
                 if let Some(TokenKind::String(str)) = self.next() {
                     Ok(Expression::from_pos(
                         ExpressionKind::LiteralValue(str),
-                        self.current_pos(),
+                        expression_pos,
                     ))
                 } else {
                     panic!("Invalid state")
@@ -127,7 +127,7 @@ impl Parser {
                 return self.parse_array();
             }
             tkn => Err(CompilerError::SyntaxError(
-                pos,
+                expression_pos,
                 format!(
                     "Expected expression, found {}",
                     tkn.map_or("none".to_string(), |f| format!("{:?}", f))
@@ -228,6 +228,7 @@ impl Parser {
     }
 
     pub fn parse_factor(&mut self) -> Result<Expression, CompilerError> {
+        let factor_pos = self.current_pos();
         let mut expr = self.parse_value()?;
 
         while let Some(TokenKind::Star | TokenKind::Slash) = self.peek() {
@@ -236,7 +237,6 @@ impl Parser {
                 TokenKind::Slash => Operation::Divide,
                 _ => panic!("Invalid operation"),
             };
-            let factor_pos = self.current_pos();
             let rhs = self.parse_value();
 
             expr = Expression::from_pos(
@@ -245,14 +245,18 @@ impl Parser {
                     rhs: Box::new(rhs?),
                     operation,
                 },
-                self.current_pos(),
+                factor_pos,
             );
         }
 
         Ok(expr)
     }
 
-    fn parse_call(&mut self, callee: String, value_pos: (usize, usize)) -> Result<Expression, CompilerError> {
+    fn parse_call(
+        &mut self,
+        callee: String,
+        value_pos: (usize, usize),
+    ) -> Result<Expression, CompilerError> {
         let mut args = Vec::new();
         while let Some(token) = self.peek() {
             if *token == TokenKind::ClosePar {
@@ -546,7 +550,10 @@ impl Parser {
         let return_value = self.parse_expression()?;
         // Should probably be in statement
         self.optional(TokenKind::Bang);
-        Ok(Statement::from_pos(StatementKind::Return { return_value }, return_pos))
+        Ok(Statement::from_pos(
+            StatementKind::Return { return_value },
+            return_pos,
+        ))
     }
 
     fn parse_array(&mut self) -> Result<Expression, CompilerError> {

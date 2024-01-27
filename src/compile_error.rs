@@ -57,6 +57,6 @@ impl Display for CompilerError {
 
 impl From<BuilderError> for CompilerError {
     fn from(value: BuilderError) -> Self {
-        return CompilerError::CodeGenError(format!("Build error: {}", value))
+        return CompilerError::CodeGenError(format!("Build error: {}", value));
     }
 }

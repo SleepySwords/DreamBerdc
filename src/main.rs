@@ -114,7 +114,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         context: &context,
         module,
         builder,
-        symbol_table: SymbolTable::default(),
+        symbol_table: SymbolTable::new(),
     };
 
     // Add the function declarations first

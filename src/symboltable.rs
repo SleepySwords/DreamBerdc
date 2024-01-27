@@ -2,15 +2,30 @@ use std::collections::{HashMap, VecDeque};
 
 use inkwell::values::{AnyValueEnum, BasicValueEnum, FloatValue, IntValue, PointerValue};
 
-use crate::{types::{Type, Value}, utils::Mutable};
+use crate::{
+    types::{Type, Value},
+    utils::Mutable,
+};
 
-#[derive(Default)]
 pub struct SymbolTable<'ctx> {
     symbol_table: VecDeque<HashMap<String, BasicValueEnum<'ctx>>>,
     ptr_symbol_table: VecDeque<HashMap<String, Value<'ctx>>>,
 }
 
 impl<'a> SymbolTable<'a> {
+    pub fn new() -> SymbolTable<'a> {
+        let mut symbol_table = VecDeque::new();
+        symbol_table.push_front(HashMap::new());
+
+        let mut ptr_symbol_table = VecDeque::new();
+        ptr_symbol_table.push_front(HashMap::new());
+
+        SymbolTable {
+            symbol_table,
+            ptr_symbol_table,
+        }
+    }
+
     pub fn push_scope(&mut self) {
         self.ptr_symbol_table.push_front(HashMap::new());
         self.symbol_table.push_front(HashMap::new());

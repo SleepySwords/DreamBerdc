@@ -5,7 +5,7 @@ use inkwell::{
 use itertools::Itertools;
 
 use crate::{
-    ast::{ExpressionKind, Operation, Expression},
+    ast::{Expression, ExpressionKind, Operation},
     compile_error::CompilerError,
     utils::Mutable,
 };
@@ -23,17 +23,16 @@ impl<'ctx> CodeGen<'ctx> {
                 operation,
                 rhs,
             } => self.parse_binary(*lhs, operation, *rhs),
-            ExpressionKind::Call { callee, arguments } => self.build_call(callee, arguments),
+            ExpressionKind::Call { callee, arguments } => {
+                self.build_call(callee, arguments, (expression.col, expression.lnum))
+            }
             ExpressionKind::Assignment { lhs, rhs } => {
                 let var = self.symbol_table.fetch_variable(&lhs).unwrap();
                 if !var.mutability.contains(Mutable::Reassignable) {
-                    // FIXME: proper error handling for compiling
-                    panic!(
-                        "Compile Error: {}",
-                        CompilerError::CodeGenError(
-                            "Cannot reassign a constant variable".to_string()
-                        )
-                    )
+                    return Err(CompilerError::CodeGenErrorWithPos(
+                        (expression.col, expression.lnum),
+                        "Cannot reassign a constant variable".to_string(),
+                    ));
                 }
                 let ptr = var.pointer_value();
                 let expression = self.build_expression(*rhs)?;
@@ -55,7 +54,7 @@ impl<'ctx> CodeGen<'ctx> {
                         "pointer",
                     )
                     .unwrap();
-                self.builder.build_store(ptr, value).expect("Build failed");
+                self.builder.build_store(ptr, value)?;
                 Ok(ptr.into())
             }
             ExpressionKind::Identifier(id) => {
@@ -70,9 +69,16 @@ impl<'ctx> CodeGen<'ctx> {
                         let i32_type = self.context.i32_type();
                         Ok(i32_type.const_int(var as u64, false).into())
                     } else {
-                        let var_f32 = id.parse::<f32>().expect("Invalid constant type");
-                        let f32_type = self.context.f32_type();
-                        Ok(f32_type.const_float(var_f32 as f64).into())
+                        let var_f32 = id.parse::<f32>();
+                        if let Ok(var) = var_f32 {
+                            let f32_type = self.context.f32_type();
+                            Ok(f32_type.const_float(var as f64).into())
+                        } else {
+                            Err(CompilerError::CodeGenErrorWithPos(
+                                (expression.col, expression.lnum),
+                                format!("Could not recognise the symbol: {}", id),
+                            ))
+                        }
                     }
                 }
             }
@@ -84,14 +90,22 @@ impl<'ctx> CodeGen<'ctx> {
         &mut self,
         callee: String,
         arguments: Vec<Expression>,
+        position: (usize, usize),
     ) -> Result<BasicValueEnum<'ctx>, CompilerError> {
         let Some(function) = self.module.get_function(&callee) else {
-            panic!("Function not defined")
+            return Err(CompilerError::CodeGenErrorWithPos(
+                position,
+                format!("The function \"{}\" does not exist.", callee),
+            ));
         };
         // FIXME:, verify arguments with function arguments, and this should be an option
         // The None signifying null.
         if function.count_params() != arguments.len() as u32 {
-            panic!("Not enough arguments")
+            // FIXME: should be more specific with arguments
+            return Err(CompilerError::CodeGenErrorWithPos(
+                position,
+                format!("The function \"{}\" with argument length of {} does not match provided argument length of {}.", callee, function.count_params(), arguments.len()),
+            ));
         }
 
         let args = arguments
@@ -112,7 +126,7 @@ impl<'ctx> CodeGen<'ctx> {
         operation: Operation,
         rhs_expression: Expression,
     ) -> Result<BasicValueEnum<'ctx>, CompilerError> {
-        let position = (lhs_expression.col,lhs_expression.lnum, );
+        let position = (lhs_expression.col, lhs_expression.lnum);
         let lhs = self.build_expression(lhs_expression)?;
         let rhs = self.build_expression(rhs_expression)?;
         Ok(if lhs.is_int_value() && rhs.is_int_value() {
@@ -120,35 +134,28 @@ impl<'ctx> CodeGen<'ctx> {
             let lhs = lhs.into_int_value();
             let rhs = rhs.into_int_value();
             match operation {
-                Operation::Add => self
-                    .builder
-                    .build_int_add(lhs, rhs, "add")
-                    .expect("Build failed"),
-                Operation::Subtract => self
-                    .builder
-                    .build_int_sub(lhs, rhs, "sub")
-                    .expect("Build failed"),
-                Operation::Multiply => self
-                    .builder
-                    .build_int_mul(lhs, rhs, "mul")
-                    .expect("Build failed"),
-                Operation::Divide => self
-                    .builder
-                    .build_int_signed_div(lhs, rhs, "div")
-                    .expect("Build failed"),
-                Operation::Less => self
-                    .builder
-                    .build_int_compare(IntPredicate::SLT, lhs, rhs, "cond")
-                    .expect("Build failed"),
-                Operation::Greater => self
-                    .builder
-                    .build_int_compare(IntPredicate::SGT, lhs, rhs, "cond")
-                    .expect("Build failed"),
-                Operation::Equal => self
-                    .builder
-                    .build_int_compare(IntPredicate::EQ, lhs, rhs, "cond")
-                    .expect("Build failed"),
-                _ => panic!("aefj"),
+                Operation::Add => self.builder.build_int_add(lhs, rhs, "add")?,
+                Operation::Subtract => self.builder.build_int_sub(lhs, rhs, "sub")?,
+                Operation::Multiply => self.builder.build_int_mul(lhs, rhs, "mul")?,
+                Operation::Divide => self.builder.build_int_signed_div(lhs, rhs, "div")?,
+                Operation::Less => {
+                    self.builder
+                        .build_int_compare(IntPredicate::SLT, lhs, rhs, "cond")?
+                }
+                Operation::Greater => {
+                    self.builder
+                        .build_int_compare(IntPredicate::SGT, lhs, rhs, "cond")?
+                }
+                Operation::Equal => {
+                    self.builder
+                        .build_int_compare(IntPredicate::EQ, lhs, rhs, "cond")?
+                }
+                _ => {
+                    return Err(CompilerError::CodeGenErrorWithPos(
+                        position,
+                        format!("Operation {:?} not yet implemented", operation,),
+                    ))
+                }
             }
             .into()
         } else if lhs.is_float_value() && rhs.is_float_value() {
@@ -157,45 +164,38 @@ impl<'ctx> CodeGen<'ctx> {
             let rhs = rhs.into_float_value();
             match operation {
                 Operation::Add => self.builder.build_float_add(lhs, rhs, "add")?.into(),
-                Operation::Subtract => self
-                    .builder
-                    .build_float_sub(lhs, rhs, "sub")
-                    .expect("Build failed")
-                    .into(),
-                Operation::Multiply => self
-                    .builder
-                    .build_float_mul(lhs, rhs, "mul")
-                    .expect("Build failed")
-                    .into(),
-                Operation::Divide => self
-                    .builder
-                    .build_float_div(lhs, rhs, "div")
-                    .expect("Build failed")
-                    .into(),
+                Operation::Subtract => self.builder.build_float_sub(lhs, rhs, "sub")?.into(),
+                Operation::Multiply => self.builder.build_float_mul(lhs, rhs, "mul")?.into(),
+                Operation::Divide => self.builder.build_float_div(lhs, rhs, "div")?.into(),
                 Operation::Less => self
                     .builder
-                    .build_float_compare(FloatPredicate::OLT, lhs, rhs, "cond")
-                    .expect("Build failed")
+                    .build_float_compare(FloatPredicate::OLT, lhs, rhs, "cond")?
                     .into(),
                 Operation::Greater => self
                     .builder
-                    .build_float_compare(FloatPredicate::OGT, lhs, rhs, "cond")
-                    .expect("Build failed")
+                    .build_float_compare(FloatPredicate::OGT, lhs, rhs, "cond")?
                     .into(),
                 Operation::Equal => self
                     .builder
-                    .build_float_compare(FloatPredicate::OEQ, lhs, rhs, "cond")
-                    .expect("Build failed")
+                    .build_float_compare(FloatPredicate::OEQ, lhs, rhs, "cond")?
                     .into(),
-                _ => panic!("aefj"),
+                _ => {
+                    return Err(CompilerError::CodeGenErrorWithPos(
+                        position,
+                        format!("Operation {:?} not yet implemented", operation,),
+                    ))
+                }
             }
         } else {
-            return Err(CompilerError::CodeGenErrorWithPos(position, format!(
-                "Cannot use the operation {:?} on incompatible types of: {} and {}",
-                operation,
-                lhs.get_type(),
-                rhs.get_type(),
-            )));
+            return Err(CompilerError::CodeGenErrorWithPos(
+                position,
+                format!(
+                    "Cannot use the operation {:?} with incompatible types of: {} and {}",
+                    operation,
+                    lhs.get_type(),
+                    rhs.get_type(),
+                ),
+            ));
         })
     }
 }

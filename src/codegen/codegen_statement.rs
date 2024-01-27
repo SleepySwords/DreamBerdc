@@ -1,7 +1,7 @@
 use inkwell::{types::BasicMetadataTypeEnum, values::FunctionValue, IntPredicate};
 
 use crate::{
-    ast::{Declaration, ForStatement, Function, IfStatement, StatementKind, Statement},
+    ast::{Declaration, ForStatement, Function, IfStatement, Statement, StatementKind},
     compile_error::CompilerError,
 };
 
@@ -15,15 +15,13 @@ impl<'ctx> CodeGen<'ctx> {
                     .builder
                     .build_alloca(self.context.i32_type(), &declaration.lhs)?;
                 let rhs = self.build_expression(declaration.rhs)?;
-                self.builder
-                    .build_store(variable, rhs)?;
+                self.builder.build_store(variable, rhs)?;
                 self.symbol_table
                     .store_variable_ptr(declaration.lhs, variable, declaration.mutable)
             }
             StatementKind::Return { return_value } => {
                 let value = self.build_expression(return_value)?;
-                self.builder
-                    .build_return(Some(&value))?;
+                self.builder.build_return(Some(&value))?;
             }
             StatementKind::Function(function) => {
                 self.build_function(function)?;
@@ -161,8 +159,7 @@ impl<'ctx> CodeGen<'ctx> {
         self.symbol_table.store_variable_ptr(lhs, variable, mutable);
 
         let initial_expression = self.build_expression(rhs)?;
-        self.builder
-            .build_store(variable, initial_expression)?;
+        self.builder.build_store(variable, initial_expression)?;
 
         let loop_bb = self.context.append_basic_block(current_function, "loop");
         self.builder.build_unconditional_branch(loop_bb)?;
@@ -186,7 +183,9 @@ impl<'ctx> CodeGen<'ctx> {
 
         self.builder.build_store(variable, next_var)?;
 
-        let value = self.build_expression(for_statement.condition)?.into_int_value();
+        let value = self
+            .build_expression(for_statement.condition)?
+            .into_int_value();
 
         // FIXME: need to not rely on int stuff
         let end_cond = self

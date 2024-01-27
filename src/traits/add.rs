@@ -1,4 +1,3 @@
 use inkwell::types::AnyTypeEnum;
 
-trait Add<T> {
-}
+trait Add<T> {}

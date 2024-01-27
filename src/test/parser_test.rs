@@ -1,7 +1,9 @@
 use itertools::Itertools;
 
 use crate::{
-    ast::{Declaration, ExpressionKind, ForStatement, Function, Operation, Prototype, StatementKind},
+    ast::{
+        Declaration, ExpressionKind, ForStatement, Function, Operation, Prototype, StatementKind,
+    },
     lexer::Lexer,
     parser::Parser,
     types::Type,
@@ -122,14 +124,16 @@ fn test_parse_for() -> Result<(), Box<dyn Error>> {
                             rhs: Box::new(ExpressionKind::Identifier(String::from("10"))),
                         },
                         accumalator: ExpressionKind::Identifier(String::from("0"),),
-                        body: Some(vec![StatementKind::Expression(ExpressionKind::Assignment {
-                            lhs: String::from("d"),
-                            rhs: Box::new(ExpressionKind::Binary {
-                                lhs: Box::new(ExpressionKind::Identifier(String::from("d"))),
-                                operation: Operation::Add,
-                                rhs: Box::new(ExpressionKind::Identifier(String::from("i"))),
-                            }),
-                        })]),
+                        body: Some(vec![StatementKind::Expression(
+                            ExpressionKind::Assignment {
+                                lhs: String::from("d"),
+                                rhs: Box::new(ExpressionKind::Binary {
+                                    lhs: Box::new(ExpressionKind::Identifier(String::from("d"))),
+                                    operation: Operation::Add,
+                                    rhs: Box::new(ExpressionKind::Identifier(String::from("i"))),
+                                }),
+                            }
+                        )]),
                     })),
                     StatementKind::Expression(ExpressionKind::Call {
                         callee: String::from("putchar"),

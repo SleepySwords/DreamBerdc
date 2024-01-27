@@ -1,6 +1,7 @@
 use inkwell::{
     context::Context,
-    types::{BasicMetadataTypeEnum, FunctionType}, values::{PointerValue, AnyValueEnum, IntValue, FloatValue, BasicValue, BasicValueEnum},
+    types::{BasicMetadataTypeEnum, FunctionType},
+    values::{AnyValueEnum, BasicValue, BasicValueEnum, FloatValue, IntValue, PointerValue},
 };
 
 use crate::utils::Mutable;
@@ -54,9 +55,12 @@ pub struct Value<'ctx> {
 }
 
 impl<'ctx> Value<'ctx> {
-
     pub fn new(value_type: Type, value: AnyValueEnum<'ctx>) -> Self {
-        return Self { value_type, value, mutability: Mutable::NONE }
+        return Self {
+            value_type,
+            value,
+            mutability: Mutable::NONE,
+        };
     }
 
     pub fn int_value(&self) -> IntValue<'ctx> {
