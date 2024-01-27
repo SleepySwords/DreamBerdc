@@ -517,7 +517,11 @@ impl Parser {
             flags |= Mutable::Modifiable;
         }
 
-        if let Some(TokenKind::Symbol(lhs)) = self.next() {
+        let symbol_pos = self.current_pos();
+        let expression = self.next();
+
+        if let Some(TokenKind::Symbol(lhs)) = expression {
+            let eq_pos = self.current_pos();
             if let Some(TokenKind::Eq) = self.next() {
                 let rhs = self.parse_expression();
                 self.consume_bang();
@@ -532,14 +536,14 @@ impl Parser {
                 ))
             } else {
                 Err(CompilerError::SyntaxError(
-                    self.current_pos(),
+                    eq_pos,
                     String::from("Expected '=' in the declaration."),
                 ))
             }
         } else {
             Err(CompilerError::SyntaxError(
-                self.current_pos(),
-                String::from("Missing identifier in declaration"),
+                symbol_pos,
+                format!("Expected identifier, found {:?} in declaration", expression),
             ))
         }
     }

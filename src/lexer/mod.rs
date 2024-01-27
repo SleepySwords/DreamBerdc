@@ -182,6 +182,7 @@ impl Lexer {
     }
 
     fn equal(&mut self) -> TokenKind {
+        let equal_pos = (self.current_col - 1, self.current_lnum);
         if Some(&'>') == self.peek() {
             self.next();
             return TokenKind::Arrow;
@@ -197,7 +198,7 @@ impl Lexer {
             3 => TokenKind::EqEqEq,
             4 => TokenKind::EqEqEqEq,
             _ => {
-                panic!("Too many eq")
+                panic!("Too many eq ({}, {})", equal_pos.1 + 1, equal_pos.0 + 1)
             }
         }
     }
