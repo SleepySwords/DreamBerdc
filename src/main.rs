@@ -120,7 +120,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     // Add the function declarations first
     for statement in &statements {
         if let StatementKind::Function(fun) = &statement.kind {
-            compiler.build_function_declaration(&fun);
+            compiler.build_function_declaration(fun);
         }
     }
 

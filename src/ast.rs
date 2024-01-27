@@ -8,7 +8,7 @@ pub struct Expression {
 }
 impl Expression {
     pub(crate) fn from_pos(kind: ExpressionKind, (col, lnum): (usize, usize)) -> Expression {
-        return Expression { kind, lnum, col };
+        Expression { kind, lnum, col }
     }
 }
 

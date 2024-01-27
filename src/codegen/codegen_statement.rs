@@ -32,7 +32,7 @@ impl<'ctx> CodeGen<'ctx> {
             StatementKind::If(if_statement) => self.build_if(if_statement)?,
             StatementKind::For(for_statement) => self.build_for(*for_statement)?,
         }
-        return Ok(());
+        Ok(())
     }
 
     pub fn build_function_declaration(&mut self, function: &Function) -> FunctionValue<'ctx> {
@@ -80,7 +80,7 @@ impl<'ctx> CodeGen<'ctx> {
 
         self.symbol_table.pop_scope();
 
-        return Ok(());
+        Ok(())
     }
 
     pub fn build_if(&mut self, if_statement: IfStatement) -> Result<(), CompilerError> {
@@ -132,7 +132,7 @@ impl<'ctx> CodeGen<'ctx> {
         self.builder.position_at_end(merge_bb);
         self.symbol_table.pop_scope();
 
-        return Ok(());
+        Ok(())
     }
 
     pub fn build_for(&mut self, for_statement: ForStatement) -> Result<(), CompilerError> {
@@ -208,6 +208,6 @@ impl<'ctx> CodeGen<'ctx> {
         self.builder.position_at_end(after_bb);
         self.symbol_table.pop_scope();
 
-        return Ok(());
+        Ok(())
     }
 }

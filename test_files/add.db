@@ -4,7 +4,6 @@ function add(a: int, b: int): int => {
     } else {
         puts("second")
     }
-    var var a: *int = *b;
     return a + b!
 }
 

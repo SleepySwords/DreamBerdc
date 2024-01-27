@@ -1,6 +1,6 @@
 use std::collections::{HashMap, VecDeque};
 
-use inkwell::values::{AnyValueEnum, BasicValueEnum, FloatValue, IntValue, PointerValue};
+use inkwell::values::{BasicValueEnum, PointerValue};
 
 use crate::{
     types::{Type, Value},
