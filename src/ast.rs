@@ -41,6 +41,7 @@ pub enum Operation {
     Subtract,
     Multiply,
     Divide,
+    Remainder,
     Equal,
     StrictEqual,
     VeryStrictEqual,

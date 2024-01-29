@@ -269,7 +269,7 @@ impl Parser {
 
     pub fn parse_factor(&mut self) -> Result<Expression, CompilerError> {
         let factor_pos = self.current_pos();
-        let mut expr = self.parse_value()?;
+        let mut expr = self.parse_remainder()?;
 
         while let Some(TokenKind::Star | TokenKind::Slash) = self.peek() {
             let operation = match self.next().unwrap() {
@@ -286,6 +286,30 @@ impl Parser {
                     operation,
                 },
                 factor_pos,
+            );
+        }
+
+        Ok(expr)
+    }
+
+    pub fn parse_remainder(&mut self) -> Result<Expression, CompilerError> {
+        let remainder_pos = self.current_pos();
+        let mut expr = self.parse_value()?;
+
+        while let Some(TokenKind::Percent) = self.peek() {
+            let operation = match self.next().unwrap() {
+                TokenKind::Percent => Operation::Remainder,
+                _ => panic!("Invalid operation"),
+            };
+            let rhs = self.parse_value();
+
+            expr = Expression::from_pos(
+                ExpressionKind::Binary {
+                    lhs: Box::new(expr),
+                    rhs: Box::new(rhs?),
+                    operation,
+                },
+                remainder_pos,
             );
         }
 

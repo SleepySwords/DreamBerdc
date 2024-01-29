@@ -143,6 +143,7 @@ impl<'ctx> CodeGen<'ctx> {
                 Operation::Subtract => self.builder.build_int_sub(lhs, rhs, "sub")?,
                 Operation::Multiply => self.builder.build_int_mul(lhs, rhs, "mul")?,
                 Operation::Divide => self.builder.build_int_signed_div(lhs, rhs, "div")?,
+                Operation::Remainder => self.builder.build_int_signed_rem(lhs, rhs, "rem")?,
                 Operation::Less => {
                     self.builder
                         .build_int_compare(IntPredicate::SLT, lhs, rhs, "cond")?

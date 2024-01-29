@@ -46,6 +46,8 @@ pub enum TokenKind {
     SlashEq,
     Dash,
     DashEq,
+    Percent,
+    PercentEq,
     Eq,
     EqEq,
     EqEqEq,
@@ -82,6 +84,7 @@ impl TokenKind {
             TokenKind::StarEq,
             TokenKind::DashEq,
             TokenKind::SlashEq,
+            TokenKind::PercentEq,
         ]
         .contains(self)
     }
@@ -92,6 +95,7 @@ impl TokenKind {
             Self::StarEq => Some(Operation::Multiply),
             Self::DashEq => Some(Operation::Subtract),
             Self::SlashEq => Some(Operation::Divide),
+            Self::PercentEq => Some(Operation::Remainder),
             _ => None,
         }
     }
@@ -175,6 +179,14 @@ impl Lexer {
                         TokenKind::SlashEq
                     } else {
                         TokenKind::Slash
+                    }
+                }
+                '%' => {
+                    if self.peek() == Some(&'=') {
+                        self.next();
+                        TokenKind::PercentEq
+                    } else {
+                        TokenKind::Percent
                     }
                 }
                 ';' => TokenKind::Semicolon,
