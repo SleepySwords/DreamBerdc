@@ -178,14 +178,12 @@ impl<'ctx> CodeGen<'ctx> {
             .into_int_value();
 
         // FIXME: need to not rely on int stuff
-        let end_cond = self
-            .builder
-            .build_int_compare(
-                IntPredicate::NE,
-                self.context.i32_type().const_zero(),
-                value,
-                "loopcond",
-            )?;
+        let end_cond = self.builder.build_int_compare(
+            IntPredicate::NE,
+            self.context.i32_type().const_zero(),
+            value,
+            "loopcond",
+        )?;
 
         let after_bb = self
             .context

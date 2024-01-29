@@ -1,6 +1,8 @@
 use std::fmt::Debug;
 use std::fmt::Display;
 
+use crate::ast::Operation;
+
 #[derive(PartialEq, Clone)]
 pub struct Token {
     pub kind: TokenKind,
@@ -37,9 +39,13 @@ pub enum TokenKind {
     Semicolon,
     Colon,
     Plus,
+    PlusEq,
     Star,
+    StarEq,
     Slash,
+    SlashEq,
     Dash,
+    DashEq,
     Eq,
     EqEq,
     EqEqEq,
@@ -67,6 +73,28 @@ pub enum TokenKind {
     Lt,
     Gt,
     //     Unkown,
+}
+
+impl TokenKind {
+    pub fn is_compound(&self) -> bool {
+        [
+            TokenKind::PlusEq,
+            TokenKind::StarEq,
+            TokenKind::DashEq,
+            TokenKind::SlashEq,
+        ]
+        .contains(self)
+    }
+
+    pub fn operation_compound(&self) -> Option<Operation> {
+        match self {
+            Self::PlusEq => Some(Operation::Add),
+            Self::StarEq => Some(Operation::Multiply),
+            Self::DashEq => Some(Operation::Subtract),
+            Self::SlashEq => Some(Operation::Divide),
+            _ => None,
+        }
+    }
 }
 
 pub struct Lexer {
@@ -117,10 +145,38 @@ impl Lexer {
                 '{' => TokenKind::OpenCurB,
                 '}' => TokenKind::CloseCurB,
                 '.' => TokenKind::Dot,
-                '+' => TokenKind::Plus,
-                '-' => TokenKind::Dash,
-                '*' => TokenKind::Star,
-                '/' => TokenKind::Slash,
+                '+' => {
+                    if self.peek() == Some(&'=') {
+                        self.next();
+                        TokenKind::PlusEq
+                    } else {
+                        TokenKind::Plus
+                    }
+                }
+                '-' => {
+                    if self.peek() == Some(&'=') {
+                        self.next();
+                        TokenKind::DashEq
+                    } else {
+                        TokenKind::Dash
+                    }
+                }
+                '*' => {
+                    if self.peek() == Some(&'=') {
+                        self.next();
+                        TokenKind::StarEq
+                    } else {
+                        TokenKind::Star
+                    }
+                }
+                '/' => {
+                    if self.peek() == Some(&'=') {
+                        self.next();
+                        TokenKind::SlashEq
+                    } else {
+                        TokenKind::Slash
+                    }
+                }
                 ';' => TokenKind::Semicolon,
                 ':' => TokenKind::Colon,
                 '?' => TokenKind::Question,

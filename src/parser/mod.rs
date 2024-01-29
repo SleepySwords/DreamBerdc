@@ -98,19 +98,59 @@ impl Parser {
         // This is really ugly right now
         return match self.peek() {
             Some(&TokenKind::Symbol(_)) if self.check_forward(TokenKind::Eq, 1) => {
-                if let Some(TokenKind::Symbol(lhs)) = self.next() {
-                    self.expect(TokenKind::Eq)?;
-                    let rhs = self.parse_expression()?;
-                    Ok(Expression::from_pos(
-                        ExpressionKind::Assignment {
-                            lhs,
-                            rhs: Box::new(rhs),
-                        },
-                        expression_pos,
-                    ))
-                } else {
+                let Some(TokenKind::Symbol(lhs)) = self.next() else {
                     panic!("Invalid state")
-                }
+                };
+                self.expect(TokenKind::Eq)?;
+                let rhs = self.parse_expression()?;
+                Ok(Expression::from_pos(
+                    ExpressionKind::Assignment {
+                        lhs,
+                        rhs: Box::new(rhs),
+                    },
+                    expression_pos,
+                ))
+            }
+            // FIXME: technically speaking, this should probably be in codegene
+            // To allow for operator overrides, rather than making it
+            // syntax sugar.
+            Some(&TokenKind::Symbol(_))
+                if self.peek_forward(1).is_some_and(|x| x.is_compound()) =>
+            {
+                let Some(TokenKind::Symbol(lhs)) = self.next() else {
+                    return Err(CompilerError::SyntaxError(
+                        expression_pos,
+                        "This should not happen... Invalid state".to_string(),
+                    ));
+                };
+                let Some(compound) = self.next() else {
+                    return Err(CompilerError::SyntaxError(
+                        expression_pos,
+                        "This should not happen... Invalid state".to_string(),
+                    ));
+                };
+                let Some(operation) = compound.operation_compound() else {
+                    return Err(CompilerError::SyntaxError(
+                        expression_pos,
+                        "This should not happen... Invalid state".to_string(),
+                    ));
+                };
+                let rhs = self.parse_expression()?;
+                let binary = ExpressionKind::Binary {
+                    lhs: Box::new(Expression::from_pos(
+                        ExpressionKind::Identifier(lhs.clone()),
+                        expression_pos,
+                    )),
+                    operation,
+                    rhs: Box::new(rhs),
+                };
+                Ok(Expression::from_pos(
+                    ExpressionKind::Assignment {
+                        lhs,
+                        rhs: Box::new(Expression::from_pos(binary, expression_pos)),
+                    },
+                    expression_pos,
+                ))
             }
             Some(&TokenKind::Symbol(_)) => Ok(self.parse_equality()?),
             Some(&TokenKind::String(_)) => {
