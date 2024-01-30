@@ -1,5 +1,3 @@
-use std::intrinsics::discriminant_value;
-
 use colored::Colorize;
 use inkwell::{types::BasicMetadataTypeEnum, values::FunctionValue, IntPredicate};
 
@@ -11,7 +9,7 @@ use crate::{
 use super::CodeGen;
 
 impl<'ctx> CodeGen<'ctx> {
-    pub fn build_statement(&mut self, statement: Statement) -> Result<(), CompilerError> {
+    pub fn build_statement(&mut self, statement: Statement) -> Result<bool, CompilerError> {
         match statement.kind {
             StatementKind::Declaration(declaration) => {
                 let variable = self
@@ -24,13 +22,8 @@ impl<'ctx> CodeGen<'ctx> {
             }
             StatementKind::Return { return_value } => {
                 let value = self.build_expression(return_value)?;
-                self.builder.build_return(Some(&value));
-                if let Some(ret) = self.return_value {
-                    self.builder.build_store(ret, value)?;
-                }
-                if let Some(return_block) = self.return_block {
-                    self.builder.build_unconditional_branch(return_block)?;
-                }
+                self.builder.build_return(Some(&value))?;
+                return Ok(true);
             }
             StatementKind::Function(function) => {
                 self.build_function(function)?;
@@ -41,7 +34,7 @@ impl<'ctx> CodeGen<'ctx> {
             StatementKind::If(if_statement) => self.build_if(if_statement)?,
             StatementKind::For(for_statement) => self.build_for(*for_statement)?,
         }
-        Ok(())
+        Ok(false)
     }
 
     pub fn build_function_declaration(&mut self, function: &Function) -> FunctionValue<'ctx> {
@@ -70,44 +63,32 @@ impl<'ctx> CodeGen<'ctx> {
         };
 
         let entry_basic_box = self.context.append_basic_block(fn_val, "entry");
-        let end_basic_box = self.context.append_basic_block(fn_val, "end");
 
         self.builder.position_at_end(entry_basic_box);
         self.symbol_table.push_scope();
-        self.return_block = Some(end_basic_box);
 
         for (index, (name, _)) in function.prototype.arguments.into_iter().enumerate() {
             self.symbol_table
                 .store_value(name, fn_val.get_nth_param(index as u32).unwrap())
         }
 
-        self.return_value = Some(
-            self.builder
-                .build_alloca(self.context.i32_type(), "return")?,
-        );
+        let mut build_ret = true;
 
         for statement in function.body {
-            self.build_statement(statement)?;
+            if self.build_statement(statement)? {
+                build_ret = false;
+                continue;
+            }
         }
-
-        self.builder.build_unconditional_branch(end_basic_box)?;
 
         // FIX: catch all return...
         // Should actually check if it returns something in all branches.
 
-        self.builder.position_at_end(end_basic_box);
-        if let Some(ret) = self.return_value {
-            let value = self
-                .builder
-                .build_load(self.context.i32_type(), ret, "retval")?;
-            self.builder.build_return(Some(&value))?;
-        } else {
+        if build_ret {
             self.builder.build_return(None)?;
         }
 
         self.symbol_table.pop_scope();
-        self.return_block = None;
-        self.return_value = None;
 
         println!(
             "{}: {}",
@@ -151,18 +132,30 @@ impl<'ctx> CodeGen<'ctx> {
             .build_conditional_branch(condition, then_bb, else_bb)?;
 
         self.builder.position_at_end(then_bb);
-        for statement in if_statement.then_statements {
-            self.build_statement(statement)?;
-        }
-        self.builder.build_unconditional_branch(merge_bb)?;
 
+        let mut build_branch = true;
+        for statement in if_statement.then_statements {
+            if self.build_statement(statement)? {
+                build_branch = false;
+                continue;
+            }
+        }
+        if build_branch {
+            self.builder.build_unconditional_branch(merge_bb)?;
+        }
+
+        build_branch = true;
         self.builder.position_at_end(else_bb);
         if let Some(else_st) = if_statement.else_statements {
             for statement in else_st {
-                self.build_statement(statement)?;
+                if self.build_statement(statement)? {
+                    build_branch = false;
+                }
             }
         }
-        self.builder.build_unconditional_branch(merge_bb)?;
+        if build_branch {
+            self.builder.build_unconditional_branch(merge_bb)?;
+        }
 
         self.builder.position_at_end(merge_bb);
         self.symbol_table.pop_scope();

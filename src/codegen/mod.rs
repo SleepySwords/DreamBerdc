@@ -9,7 +9,7 @@ use inkwell::{
     execution_engine::JitFunction,
     module::Module,
     targets::{InitializationConfig, Target, TargetMachine},
-    OptimizationLevel, basic_block::BasicBlock, values::PointerValue,
+    OptimizationLevel,
 };
 
 use crate::symboltable::SymbolTable;
@@ -19,8 +19,6 @@ pub struct CodeGen<'ctx> {
     pub module: Module<'ctx>,
     pub builder: Builder<'ctx>,
     pub symbol_table: SymbolTable<'ctx>,
-    pub return_block: Option<BasicBlock<'ctx>>,
-    pub return_value: Option<PointerValue<'ctx>>,
 }
 
 impl<'ctx> CodeGen<'ctx> {
@@ -86,4 +84,8 @@ impl<'ctx> CodeGen<'ctx> {
     //     dibuilder.finalize();
     //     dibuilder.create_file(compile_unit.get_file(), compile_unit.get_file())
     // }
+}
+
+struct CompileInfo {
+    early_return: bool,
 }

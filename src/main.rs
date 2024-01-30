@@ -115,8 +115,6 @@ fn main() -> Result<(), Box<dyn Error>> {
         module,
         builder,
         symbol_table: SymbolTable::new(),
-        return_block: None,
-        return_value: None,
     };
 
     // Add the function declarations first
@@ -128,7 +126,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     for statement in &statements {
         match compiler.build_statement(statement.clone()) {
-            Ok(()) => {}
+            Ok(_) => {}
             Err(e) => {
                 println!("{}", e);
                 exit(1);
