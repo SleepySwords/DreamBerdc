@@ -6,10 +6,10 @@ use crate::{
     compile_error::CompilerError,
 };
 
-use super::CodeGen;
+use super::{CodeGen, CompileInfo};
 
 impl<'ctx> CodeGen<'ctx> {
-    pub fn build_statement(&mut self, statement: Statement) -> Result<bool, CompilerError> {
+    pub fn build_statement(&mut self, statement: Statement) -> Result<CompileInfo, CompilerError> {
         match statement.kind {
             StatementKind::Declaration(declaration) => {
                 let variable = self
@@ -23,7 +23,7 @@ impl<'ctx> CodeGen<'ctx> {
             StatementKind::Return { return_value } => {
                 let value = self.build_expression(return_value)?;
                 self.builder.build_return(Some(&value))?;
-                return Ok(true);
+                return Ok(CompileInfo { terminator_instruction: true });
             }
             StatementKind::Function(function) => {
                 self.build_function(function)?;
@@ -34,7 +34,7 @@ impl<'ctx> CodeGen<'ctx> {
             StatementKind::If(if_statement) => self.build_if(if_statement)?,
             StatementKind::For(for_statement) => self.build_for(*for_statement)?,
         }
-        Ok(false)
+        Ok(CompileInfo { terminator_instruction: false })
     }
 
     pub fn build_function_declaration(&mut self, function: &Function) -> FunctionValue<'ctx> {
@@ -75,7 +75,7 @@ impl<'ctx> CodeGen<'ctx> {
         let mut build_ret = true;
 
         for statement in function.body {
-            if self.build_statement(statement)? {
+            if self.build_statement(statement)?.terminator_instruction {
                 build_ret = false;
                 continue;
             }
@@ -133,29 +133,32 @@ impl<'ctx> CodeGen<'ctx> {
 
         self.builder.position_at_end(then_bb);
 
-        let mut build_branch = true;
+        let mut then_terminated = false;
         for statement in if_statement.then_statements {
-            if self.build_statement(statement)? {
-                build_branch = false;
+            if self.build_statement(statement)?.terminator_instruction {
+                then_terminated = true;
                 continue;
             }
         }
-        if build_branch {
+        if !then_terminated {
             self.builder.build_unconditional_branch(merge_bb)?;
         }
 
-        build_branch = true;
+        let mut else_terminated = false;
         self.builder.position_at_end(else_bb);
         if let Some(else_st) = if_statement.else_statements {
             for statement in else_st {
-                if self.build_statement(statement)? {
-                    build_branch = false;
+                if self.build_statement(statement)?.terminator_instruction {
+                    else_terminated = true;
                 }
             }
         }
-        if build_branch {
+        if !else_terminated {
             self.builder.build_unconditional_branch(merge_bb)?;
         }
+
+        // FIXME: if both `then_terminated` and `else_terminated` is true
+        // don't have to generate the merge branch
 
         self.builder.position_at_end(merge_bb);
         self.symbol_table.pop_scope();
