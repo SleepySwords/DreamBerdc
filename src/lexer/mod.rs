@@ -38,6 +38,7 @@ pub enum TokenKind {
     Question,
     Semicolon,
     Colon,
+
     Plus,
     PlusEq,
     Star,
@@ -48,10 +49,16 @@ pub enum TokenKind {
     DashEq,
     Percent,
     PercentEq,
+
     Eq,
     EqEq,
     EqEqEq,
     EqEqEqEq,
+    Lt,
+    LtEq,
+    Gt,
+    GtEq,
+
     Arrow,
     Dot,
 
@@ -72,8 +79,6 @@ pub enum TokenKind {
     If,
     Else,
     For,
-    Lt,
-    Gt,
     //     Unkown,
 }
 
@@ -194,8 +199,22 @@ impl Lexer {
                 '?' => TokenKind::Question,
                 '!' => TokenKind::Bang,
                 ',' => TokenKind::Comma,
-                '>' => TokenKind::Gt,
-                '<' => TokenKind::Lt,
+                '>' => {
+                    if self.peek() == Some(&'=') {
+                        self.next();
+                        TokenKind::GtEq
+                    } else {
+                        TokenKind::Gt
+                    }
+                }
+                '<' => {
+                    if self.peek() == Some(&'=') {
+                        self.next();
+                        TokenKind::LtEq
+                    } else {
+                        TokenKind::Lt
+                    }
+                }
                 '"' => self.string(),
                 _ => {
                     if !token.is_alphanumeric() || token.is_whitespace() {

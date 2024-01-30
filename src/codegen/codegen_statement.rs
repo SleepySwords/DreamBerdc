@@ -23,7 +23,9 @@ impl<'ctx> CodeGen<'ctx> {
             StatementKind::Return { return_value } => {
                 let value = self.build_expression(return_value)?;
                 self.builder.build_return(Some(&value))?;
-                return Ok(CompileInfo { terminator_instruction: true });
+                return Ok(CompileInfo {
+                    terminator_instruction: true,
+                });
             }
             StatementKind::Function(function) => {
                 self.build_function(function)?;
@@ -34,7 +36,9 @@ impl<'ctx> CodeGen<'ctx> {
             StatementKind::If(if_statement) => self.build_if(if_statement)?,
             StatementKind::For(for_statement) => self.build_for(*for_statement)?,
         }
-        Ok(CompileInfo { terminator_instruction: false })
+        Ok(CompileInfo {
+            terminator_instruction: false,
+        })
     }
 
     pub fn build_function_declaration(&mut self, function: &Function) -> FunctionValue<'ctx> {
@@ -159,6 +163,7 @@ impl<'ctx> CodeGen<'ctx> {
 
         // FIXME: if both `then_terminated` and `else_terminated` is true
         // don't have to generate the merge branch
+        // Relies on the function not generating the return in this case.
 
         self.builder.position_at_end(merge_bb);
         self.symbol_table.pop_scope();

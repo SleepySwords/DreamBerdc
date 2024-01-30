@@ -156,6 +156,14 @@ impl<'ctx> CodeGen<'ctx> {
                     self.builder
                         .build_int_compare(IntPredicate::EQ, lhs, rhs, "cond")?
                 }
+                Operation::LessThanOrEqual => {
+                    self.builder
+                        .build_int_compare(IntPredicate::SLE, lhs, rhs, "cond")?
+                }
+                Operation::GreaterThanOrEqual => {
+                    self.builder
+                        .build_int_compare(IntPredicate::SGE, lhs, rhs, "cond")?
+                }
                 _ => {
                     return Err(CompilerError::CodeGenErrorWithPos(
                         position,

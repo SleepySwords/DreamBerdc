@@ -216,7 +216,9 @@ impl Parser {
             | TokenKind::EqEqEq
             | TokenKind::EqEqEqEq
             | TokenKind::Lt
-            | TokenKind::Gt,
+            | TokenKind::Gt
+            | TokenKind::LtEq
+            | TokenKind::GtEq,
         ) = self.peek()
         {
             let operation = match self.next().unwrap() {
@@ -225,6 +227,8 @@ impl Parser {
                 TokenKind::EqEqEqEq => Operation::VeryStrictEqual,
                 TokenKind::Lt => Operation::Less,
                 TokenKind::Gt => Operation::Greater,
+                TokenKind::LtEq => Operation::LessThanOrEqual,
+                TokenKind::GtEq => Operation::GreaterThanOrEqual,
                 _ => panic!("Invalid operation (the compiler should not do this)"),
             };
             let binary_pos = self.current_pos();

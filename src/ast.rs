@@ -46,7 +46,9 @@ pub enum Operation {
     StrictEqual,
     VeryStrictEqual,
     Greater,
+    GreaterThanOrEqual,
     Less,
+    LessThanOrEqual,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
