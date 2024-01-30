@@ -86,6 +86,6 @@ impl<'ctx> CodeGen<'ctx> {
     // }
 }
 
-struct CompileInfo {
-    early_return: bool,
+pub struct CompileInfo {
+    terminator_instruction: bool,
 }
