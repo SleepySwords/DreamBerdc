@@ -134,6 +134,12 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
     }
 
+
+    if let Err(str) = compiler.module.verify() {
+        println!("{}:\n{}", "Errors while verifying".red(), str.to_string().replace("\\n", "\n"));
+        exit(1);
+    }
+
     println!("{}", "Compiled succesfully".green().bold());
 
     match args.mode {

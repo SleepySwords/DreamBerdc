@@ -79,6 +79,10 @@ impl<'ctx> CodeGen<'ctx> {
         self.builder.build_return(None)?;
 
         self.symbol_table.pop_scope();
+        println!("{}: {}", "Verifying the function".bright_yellow(), function.prototype.name);
+        if !fn_val.verify(true) {
+            println!();
+        }
 
         Ok(())
     }

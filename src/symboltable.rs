@@ -39,7 +39,7 @@ impl<'a> SymbolTable<'a> {
         }
     }
 
-    pub fn fetch_value(&mut self, name: &String) -> Option<BasicValueEnum<'a>> {
+    pub fn fetch_value(&mut self, name: &str) -> Option<BasicValueEnum<'a>> {
         for i in 0..self.symbol_table.len() {
             if self.symbol_table[i].contains_key(name) {
                 return Some(self.symbol_table[i][name]);
@@ -53,7 +53,7 @@ impl<'a> SymbolTable<'a> {
         self.symbol_table[0].insert(name, ptr);
     }
 
-    pub fn fetch_variable(&mut self, name: &String) -> Option<&Value<'a>> {
+    pub fn fetch_variable(&mut self, name: &str) -> Option<&Value<'a>> {
         for i in 0..self.ptr_symbol_table.len() {
             if self.ptr_symbol_table[i].contains_key(name) {
                 return Some(&self.ptr_symbol_table[i][name]);
@@ -62,7 +62,7 @@ impl<'a> SymbolTable<'a> {
         None
     }
 
-    pub fn fetch_variable_ptr(&mut self, name: &String) -> Option<PointerValue<'a>> {
+    pub fn fetch_variable_ptr(&mut self, name: &str) -> Option<PointerValue<'a>> {
         for i in 0..self.ptr_symbol_table.len() {
             if self.ptr_symbol_table[i].contains_key(name) {
                 return Some(self.ptr_symbol_table[i][name].pointer_value());
