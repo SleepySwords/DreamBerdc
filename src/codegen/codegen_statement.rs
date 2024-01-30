@@ -1,3 +1,6 @@
+use std::intrinsics::discriminant_value;
+
+use colored::Colorize;
 use inkwell::{types::BasicMetadataTypeEnum, values::FunctionValue, IntPredicate};
 
 use crate::{
@@ -21,7 +24,13 @@ impl<'ctx> CodeGen<'ctx> {
             }
             StatementKind::Return { return_value } => {
                 let value = self.build_expression(return_value)?;
-                self.builder.build_return(Some(&value))?;
+                self.builder.build_return(Some(&value));
+                if let Some(ret) = self.return_value {
+                    self.builder.build_store(ret, value)?;
+                }
+                if let Some(return_block) = self.return_block {
+                    self.builder.build_unconditional_branch(return_block)?;
+                }
             }
             StatementKind::Function(function) => {
                 self.build_function(function)?;
@@ -61,25 +70,50 @@ impl<'ctx> CodeGen<'ctx> {
         };
 
         let entry_basic_box = self.context.append_basic_block(fn_val, "entry");
-        self.builder.position_at_end(entry_basic_box);
+        let end_basic_box = self.context.append_basic_block(fn_val, "end");
 
+        self.builder.position_at_end(entry_basic_box);
         self.symbol_table.push_scope();
+        self.return_block = Some(end_basic_box);
 
         for (index, (name, _)) in function.prototype.arguments.into_iter().enumerate() {
             self.symbol_table
                 .store_value(name, fn_val.get_nth_param(index as u32).unwrap())
         }
 
+        self.return_value = Some(
+            self.builder
+                .build_alloca(self.context.i32_type(), "return")?,
+        );
+
         for statement in function.body {
             self.build_statement(statement)?;
         }
 
+        self.builder.build_unconditional_branch(end_basic_box)?;
+
         // FIX: catch all return...
         // Should actually check if it returns something in all branches.
-        self.builder.build_return(None)?;
+
+        self.builder.position_at_end(end_basic_box);
+        if let Some(ret) = self.return_value {
+            let value = self
+                .builder
+                .build_load(self.context.i32_type(), ret, "retval")?;
+            self.builder.build_return(Some(&value))?;
+        } else {
+            self.builder.build_return(None)?;
+        }
 
         self.symbol_table.pop_scope();
-        println!("{}: {}", "Verifying the function".bright_yellow(), function.prototype.name);
+        self.return_block = None;
+        self.return_value = None;
+
+        println!(
+            "{}: {}",
+            "Verifying the function".bright_yellow(),
+            function.prototype.name
+        );
         if !fn_val.verify(true) {
             println!();
         }

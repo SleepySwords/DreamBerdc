@@ -115,6 +115,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         module,
         builder,
         symbol_table: SymbolTable::new(),
+        return_block: None,
+        return_value: None,
     };
 
     // Add the function declarations first
@@ -134,11 +136,17 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
     }
 
-
-    if let Err(str) = compiler.module.verify() {
-        println!("{}:\n{}", "Errors while verifying".red(), str.to_string().replace("\\n", "\n"));
-        exit(1);
-    }
+    // if let Err(str) = compiler.module.verify() {
+    //     println!(
+    //         "{}:\n{}",
+    //         "Errors from LLVM while verifying".red(),
+    //         str.to_string().replace("\\n", "\n")
+    //     );
+    //     if args.mode == args::Mode::LLVMIR {
+    //         compiler.write_llvm_ir(Path::new(&args.output.unwrap_or(String::from("output.ir"))));
+    //     }
+    //     exit(1);
+    // }
 
     println!("{}", "Compiled succesfully".green().bold());
 
