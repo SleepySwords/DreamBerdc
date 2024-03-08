@@ -1,5 +1,5 @@
 use colored::Colorize;
-use inkwell::{types::BasicMetadataTypeEnum, values::FunctionValue, IntPredicate};
+use inkwell::{types::{BasicMetadataTypeEnum, BasicType}, values::FunctionValue, IntPredicate};
 
 use crate::{
     ast::{Declaration, ForStatement, Function, IfStatement, Statement, StatementKind},
@@ -37,8 +37,12 @@ impl<'ctx> CodeGen<'ctx> {
                     .store_variable_ptr(declaration.lhs, variable, declaration.mutable)
             }
             StatementKind::Return { return_value } => {
-                let value = self.build_expression(return_value)?;
-                self.builder.build_return(Some(&value))?;
+                if let Some(return_expression) = return_value {
+                    let value = self.build_expression(return_expression)?;
+                    self.builder.build_return(Some(&value))?;
+                } else {
+                    self.builder.build_return(None)?;
+                }
                 return Ok(CompileInfo {
                     terminator_instruction: true,
                 });
@@ -57,21 +61,22 @@ impl<'ctx> CodeGen<'ctx> {
         })
     }
 
-    pub fn build_function_declaration(&mut self, function: &Function) -> FunctionValue<'ctx> {
+    pub fn build_function_declaration(&mut self, function: &Function) -> Option<FunctionValue<'ctx>> {
         let types = function
             .prototype
             .arguments
             .iter()
             .map(|(_, t)| t.basic_metadata_enum(self.context))
-            .collect::<Vec<BasicMetadataTypeEnum>>();
+            .collect::<Option<Vec<BasicMetadataTypeEnum>>>();
+
         let fn_type =
             function
                 .prototype
                 .return_type
-                .function(self.context, types.as_slice(), false);
-        return self
+                .function(self.context, types?.as_slice(), false);
+        return Some(self
             .module
-            .add_function(&function.prototype.name, fn_type, None);
+            .add_function(&function.prototype.name, fn_type?, None));
     }
 
     /// Builds a function
@@ -79,7 +84,11 @@ impl<'ctx> CodeGen<'ctx> {
         let fn_val = if let Some(fn_val) = self.module.get_function(&function.prototype.name) {
             fn_val
         } else {
-            self.build_function_declaration(&function)
+            if let Some(fun) = self.build_function_declaration(&function) {
+                fun
+            } else {
+                return Err(CompilerError::code_gen_error((0, 0), "Invalid return type!"));
+            }
         };
 
         let entry_basic_box = self.context.append_basic_block(fn_val, "entry");

@@ -634,7 +634,7 @@ impl Parser {
     fn parse_return(&mut self) -> Result<Statement, CompilerError> {
         let return_pos = self.current_pos();
         self.expect(TokenKind::Return)?;
-        let return_value = self.parse_expression()?;
+        let return_value = self.parse_expression().ok();
         // Should probably be in statement
         self.optional(TokenKind::Bang);
         Ok(Statement::from_pos(

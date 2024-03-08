@@ -12,6 +12,12 @@ pub enum CompilerError {
     CodeGenError((usize, usize), String),
 }
 
+impl CompilerError {
+    pub fn code_gen_error<T: Into<String>>(pos: (usize, usize), str: T) -> Self{
+        return Self::CodeGenError(pos, str.into());
+    }
+}
+
 impl Display for CompilerError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {

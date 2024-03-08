@@ -1,7 +1,8 @@
 use inkwell::{
     context::Context,
-    types::{BasicMetadataTypeEnum, BasicType, BasicTypeEnum, FunctionType},
-    values::{AnyValueEnum, BasicValueEnum, FloatValue, IntValue, PointerValue},
+    types::{AnyType, AnyTypeEnum, BasicMetadataTypeEnum, BasicType, BasicTypeEnum, FunctionType},
+    values::{AnyValueEnum, FloatValue, IntValue, PointerValue},
+    AddressSpace,
 };
 
 use crate::utils::Mutable;
@@ -9,7 +10,11 @@ use crate::utils::Mutable;
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Type {
     Int,
+    Short,
+    Long,
+    Byte,
     Float,
+    Double,
     Void,
     Pointer(Box<Type>),
 }
@@ -20,37 +25,62 @@ impl Type {
         context: &'a Context,
         param_types: &[BasicMetadataTypeEnum<'a>],
         is_var_args: bool,
-    ) -> FunctionType<'a> {
-        match self {
+    ) -> Option<FunctionType<'a>> {
+        Some(match self {
             Type::Int => context.i32_type().fn_type(param_types, is_var_args),
+            Type::Short => context.i16_type().fn_type(param_types, is_var_args),
+            Type::Long => context.i64_type().fn_type(param_types, is_var_args),
+            Type::Byte => context.i8_type().fn_type(param_types, is_var_args),
             Type::Float => context.f32_type().fn_type(param_types, is_var_args),
+            Type::Double => context.f64_type().fn_type(param_types, is_var_args),
             Type::Void => context.void_type().fn_type(param_types, is_var_args),
-            Type::Pointer(_) => context.i64_type().fn_type(param_types, is_var_args),
-        }
+            Type::Pointer(t) => t
+                .basic_type_enum(context)?
+                .ptr_type(AddressSpace::default())
+                .fn_type(param_types, is_var_args),
+        })
     }
 
     pub fn basic_type_enum<'a>(&self, context: &'a Context) -> Option<BasicTypeEnum<'a>> {
         match self {
             Type::Int => Some(context.i32_type().as_basic_type_enum()),
+            Type::Short => Some(context.i16_type().as_basic_type_enum()),
+            Type::Long => Some(context.i64_type().as_basic_type_enum()),
+            Type::Byte => Some(context.i8_type().as_basic_type_enum()),
             Type::Float => Some(context.f32_type().as_basic_type_enum()),
+            Type::Double => Some(context.f64_type().as_basic_type_enum()),
             Type::Void => None,
             Type::Pointer(_) => Some(context.i64_type().as_basic_type_enum()),
         }
     }
 
-    pub fn basic_metadata_enum<'a>(&self, context: &'a Context) -> BasicMetadataTypeEnum<'a> {
-        match &self {
+    pub fn basic_metadata_enum<'a>(
+        &self,
+        context: &'a Context,
+    ) -> Option<BasicMetadataTypeEnum<'a>> {
+        Some(match &self {
             Type::Int => context.i32_type().into(),
+            Type::Short => context.i16_type().into(),
+            Type::Long => context.i64_type().into(),
+            Type::Byte => context.i8_type().into(),
             Type::Float => context.f32_type().into(),
-            Type::Pointer(_) => context.i64_type().into(),
-            Type::Void => panic!("Invalid type"),
-        }
+            Type::Double => context.f64_type().into(),
+            Type::Pointer(t) => t
+                .basic_type_enum(context)?
+                .ptr_type(AddressSpace::default())
+                .into(),
+            Type::Void => return None,
+        })
     }
 
     pub(crate) fn parse(t: &str) -> Type {
         match t {
             "int" => Type::Int,
+            "short" => Type::Short,
+            "long" => Type::Long,
+            "byte" => Type::Byte,
             "float" => Type::Float,
+            "double" => Type::Double,
             "void" => Type::Void,
             _ => panic!("Type {t} not implemented!"),
         }

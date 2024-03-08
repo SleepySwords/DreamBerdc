@@ -6,7 +6,8 @@ use std::process::exit;
 use clap::Parser;
 use colored::Colorize;
 use inkwell::context::Context;
-use inkwell::OptimizationLevel;
+use inkwell::types::BasicType;
+use inkwell::{AddressSpace, OptimizationLevel};
 use itertools::Itertools;
 
 use crate::args::Args;
@@ -84,7 +85,8 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let put_fn_type = context
         .i32_type()
-        .fn_type(&[context.i32_type().into()], false);
+        .as_basic_type_enum()
+        .fn_type(&[context.i8_type().ptr_type(AddressSpace::default()).into()], false);
 
     module.add_function(
         "puts",

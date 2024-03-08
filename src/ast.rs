@@ -78,7 +78,7 @@ pub enum StatementKind {
     If(IfStatement),
     For(Box<ForStatement>),
     Function(Function),
-    Return { return_value: Expression },
+    Return { return_value: Option<Expression> },
     Expression(Expression),
 }
 
