@@ -65,10 +65,9 @@ impl<'ctx> CodeGen<'ctx> {
             }
             ExpressionKind::Identifier(id) => {
                 if let Some(ptr) = self.symbol_table.fetch_variable(&id) {
-                    let basic_type = ptr
-                        .value_type
-                        .basic_type_enum(self.context)
-                        .ok_or(CompilerError::code_gen_error(expression_pos, "Invalid type"))?;
+                    let basic_type = ptr.value_type.basic_type_enum(self.context).ok_or(
+                        CompilerError::code_gen_error(expression_pos, "Invalid type"),
+                    )?;
                     let value = self
                         .builder
                         .build_load(basic_type, ptr.pointer_value(), &id);
@@ -143,8 +142,21 @@ impl<'ctx> CodeGen<'ctx> {
         let rhs = self.build_expression(rhs_expression)?;
         Ok(if lhs.is_int_value() && rhs.is_int_value() {
             // Need to abstract this!
-            let lhs = lhs.into_int_value();
-            let rhs = rhs.into_int_value();
+            let mut lhs = lhs.into_int_value();
+            let mut rhs = rhs.into_int_value();
+            match lhs
+                .get_type()
+                .get_bit_width()
+                .cmp(&rhs.get_type().get_bit_width())
+            {
+                std::cmp::Ordering::Less => {
+                    lhs = self.builder.build_int_cast(lhs, rhs.get_type(), "cast")?;
+                }
+                std::cmp::Ordering::Greater => {
+                    rhs = self.builder.build_int_cast(rhs, lhs.get_type(), "cast")?;
+                }
+                std::cmp::Ordering::Equal => {}
+            }
             match operation {
                 Operation::Add => self.builder.build_int_add(lhs, rhs, "add")?,
                 Operation::Subtract => self.builder.build_int_sub(lhs, rhs, "sub")?,

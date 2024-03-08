@@ -154,7 +154,7 @@ impl<'ctx> CodeGen<'ctx> {
         // FIXME: need to not rely on int stuff
         let condition = self.builder.build_int_compare(
             IntPredicate::NE,
-            self.context.i32_type().const_zero(),
+            value.get_type().const_zero(),
             value,
             "ifcond",
         )?;
@@ -262,7 +262,7 @@ impl<'ctx> CodeGen<'ctx> {
         // FIXME: need to not rely on int stuff
         let end_cond = self.builder.build_int_compare(
             IntPredicate::NE,
-            self.context.i32_type().const_zero(),
+            value.get_type().const_zero(),
             value,
             "loopcond",
         )?;
