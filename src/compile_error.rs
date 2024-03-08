@@ -8,8 +8,8 @@ use thiserror::Error;
 #[derive(Debug, Error)]
 pub enum CompilerError {
     SyntaxError((usize, usize), String),
-    CodeGenError(String),
-    CodeGenErrorWithPos((usize, usize), String),
+    BuilderError(String),
+    CodeGenError((usize, usize), String),
 }
 
 impl Display for CompilerError {
@@ -29,7 +29,7 @@ impl Display for CompilerError {
                     format!("Syntax Error: {}", msg).bold(),
                 )
             }
-            CompilerError::CodeGenError(msg) => {
+            CompilerError::BuilderError(msg) => {
                 write!(
                     f,
                     "{} {}",
@@ -37,7 +37,7 @@ impl Display for CompilerError {
                     format!("Compile Error: {}", msg).bold(),
                 )
             }
-            CompilerError::CodeGenErrorWithPos((col, lnum), msg) => {
+            CompilerError::CodeGenError((col, lnum), msg) => {
                 write!(
                     f,
                     "{} {}",
@@ -57,6 +57,6 @@ impl Display for CompilerError {
 
 impl From<BuilderError> for CompilerError {
     fn from(value: BuilderError) -> Self {
-        CompilerError::CodeGenError(format!("Build error: {}", value))
+        CompilerError::BuilderError(format!("Build error: {}", value))
     }
 }

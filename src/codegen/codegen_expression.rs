@@ -17,6 +17,7 @@ impl<'ctx> CodeGen<'ctx> {
         &mut self,
         expression: Expression,
     ) -> Result<BasicValueEnum<'ctx>, CompilerError> {
+        let expression_pos = expression.pos();
         match expression.kind {
             ExpressionKind::Binary {
                 lhs,
@@ -24,18 +25,18 @@ impl<'ctx> CodeGen<'ctx> {
                 rhs,
             } => self.parse_binary(*lhs, operation, *rhs),
             ExpressionKind::Call { callee, arguments } => {
-                self.build_call(callee, arguments, (expression.col, expression.lnum))
+                self.build_call(callee, arguments, expression_pos)
             }
             ExpressionKind::Assignment { lhs, rhs } => {
                 let Some(var) = self.symbol_table.fetch_variable(&lhs) else {
-                    return Err(CompilerError::CodeGenErrorWithPos(
-                        (expression.col, expression.lnum),
+                    return Err(CompilerError::CodeGenError(
+                        expression_pos,
                         format!("Unknown varaible: {}", lhs),
                     ));
                 };
                 if !var.mutability.contains(Mutable::Reassignable) {
-                    return Err(CompilerError::CodeGenErrorWithPos(
-                        (expression.col, expression.lnum),
+                    return Err(CompilerError::CodeGenError(
+                        expression_pos,
                         "Cannot reassign a constant variable".to_string(),
                     ));
                 }
@@ -79,8 +80,8 @@ impl<'ctx> CodeGen<'ctx> {
                             let f32_type = self.context.f32_type();
                             Ok(f32_type.const_float(var as f64).into())
                         } else {
-                            Err(CompilerError::CodeGenErrorWithPos(
-                                (expression.col, expression.lnum),
+                            Err(CompilerError::CodeGenError(
+                                expression_pos,
                                 format!("Could not recognise the symbol: {}", id),
                             ))
                         }
@@ -98,7 +99,7 @@ impl<'ctx> CodeGen<'ctx> {
         position: (usize, usize),
     ) -> Result<BasicValueEnum<'ctx>, CompilerError> {
         let Some(function) = self.module.get_function(&callee) else {
-            return Err(CompilerError::CodeGenErrorWithPos(
+            return Err(CompilerError::CodeGenError(
                 position,
                 format!("The function \"{}\" does not exist.", callee),
             ));
@@ -107,7 +108,7 @@ impl<'ctx> CodeGen<'ctx> {
         // The None signifying null.
         if function.count_params() != arguments.len() as u32 {
             // FIXME: should be more specific with arguments
-            return Err(CompilerError::CodeGenErrorWithPos(
+            return Err(CompilerError::CodeGenError(
                 position,
                 format!("The function \"{}\" with argument length of {} does not match provided argument length of {}.", callee, function.count_params(), arguments.len()),
             ));
@@ -165,7 +166,7 @@ impl<'ctx> CodeGen<'ctx> {
                         .build_int_compare(IntPredicate::SGE, lhs, rhs, "cond")?
                 }
                 _ => {
-                    return Err(CompilerError::CodeGenErrorWithPos(
+                    return Err(CompilerError::CodeGenError(
                         position,
                         format!("Operation {:?} not yet implemented", operation,),
                     ))
@@ -194,14 +195,14 @@ impl<'ctx> CodeGen<'ctx> {
                     .build_float_compare(FloatPredicate::OEQ, lhs, rhs, "cond")?
                     .into(),
                 _ => {
-                    return Err(CompilerError::CodeGenErrorWithPos(
+                    return Err(CompilerError::CodeGenError(
                         position,
                         format!("Operation {:?} not yet implemented", operation,),
                     ))
                 }
             }
         } else {
-            return Err(CompilerError::CodeGenErrorWithPos(
+            return Err(CompilerError::CodeGenError(
                 position,
                 format!(
                     "Cannot use the operation {:?} with incompatible types of: {} and {}",

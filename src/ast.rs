@@ -10,6 +10,10 @@ impl Expression {
     pub(crate) fn from_pos(kind: ExpressionKind, (col, lnum): (usize, usize)) -> Expression {
         Expression { kind, lnum, col }
     }
+
+    pub(crate) fn pos(&self) -> (usize, usize) {
+        (self.col, self.lnum)
+    }
 }
 
 // Expressions return values, statements do not.
@@ -61,6 +65,10 @@ pub struct Statement {
 impl Statement {
     pub(crate) fn from_pos(kind: StatementKind, (col, lnum): (usize, usize)) -> Statement {
         Statement { kind, lnum, col }
+    }
+
+    pub fn pos(&self) -> (usize, usize) {
+        (self.col, self.lnum)
     }
 }
 

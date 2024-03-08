@@ -1,6 +1,6 @@
 use inkwell::{
     context::Context,
-    types::{BasicMetadataTypeEnum, FunctionType},
+    types::{BasicMetadataTypeEnum, BasicType, BasicTypeEnum, FunctionType},
     values::{AnyValueEnum, BasicValueEnum, FloatValue, IntValue, PointerValue},
 };
 
@@ -29,6 +29,15 @@ impl Type {
         }
     }
 
+    pub fn basic_type_enum<'a>(&self, context: &'a Context) -> Option<BasicTypeEnum<'a>> {
+        match self {
+            Type::Int => Some(context.i32_type().as_basic_type_enum()),
+            Type::Float => Some(context.f32_type().as_basic_type_enum()),
+            Type::Void => None,
+            Type::Pointer(_) => Some(context.i64_type().as_basic_type_enum()),
+        }
+    }
+
     pub fn basic_metadata_enum<'a>(&self, context: &'a Context) -> BasicMetadataTypeEnum<'a> {
         match &self {
             Type::Int => context.i32_type().into(),
@@ -38,10 +47,11 @@ impl Type {
         }
     }
 
-    pub(crate) fn parse(t: String) -> Type {
-        match t.as_str() {
+    pub(crate) fn parse(t: &str) -> Type {
+        match t {
             "int" => Type::Int,
             "float" => Type::Float,
+            "void" => Type::Void,
             _ => panic!("Type {t} not implemented!"),
         }
     }
@@ -76,25 +86,5 @@ impl<'ctx> Value<'ctx> {
     pub fn pointer_value(&self) -> PointerValue<'ctx> {
         // Should panic if not correct cast.
         return self.value.into_pointer_value();
-    }
-
-    // Returns basic values
-    // pub fn basic_value(&self) -> Option<dyn BasicValue<'ctx>> {
-    //     match self.value_type {
-    //         Type::Int => Some(self.value.into_int_value().into()),
-    //         Type::Float => Some(self.value.into_float_value().into()),
-    //         Type::Void => None,
-    //         Type::Pointer(_) => Some(self.value.into_pointer_value().into()),
-    //     }
-    // }
-
-    // Returns basic values
-    pub fn basic_value_enum(&self) -> Option<BasicValueEnum<'ctx>> {
-        match self.value_type {
-            Type::Int => Some(self.value.into_int_value().into()),
-            Type::Float => Some(self.value.into_float_value().into()),
-            Type::Void => None,
-            Type::Pointer(_) => Some(self.value.into_pointer_value().into()),
-        }
     }
 }

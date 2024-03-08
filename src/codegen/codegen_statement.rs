@@ -4,17 +4,33 @@ use inkwell::{types::BasicMetadataTypeEnum, values::FunctionValue, IntPredicate}
 use crate::{
     ast::{Declaration, ForStatement, Function, IfStatement, Statement, StatementKind},
     compile_error::CompilerError,
+    types::Type,
 };
 
 use super::{CodeGen, CompileInfo};
 
 impl<'ctx> CodeGen<'ctx> {
     pub fn build_statement(&mut self, statement: Statement) -> Result<CompileInfo, CompilerError> {
+        let statement_pos = statement.pos();
         match statement.kind {
             StatementKind::Declaration(declaration) => {
+                let var_type = if let Some(t) = declaration.var_type {
+                    t
+                } else {
+                    // FIXME: need declaration inference...
+                    Type::Int
+                };
+                let basic_type_enum = if let Some(t) = var_type.basic_type_enum(self.context) {
+                    t
+                } else {
+                    return Err(CompilerError::CodeGenError(
+                        statement_pos,
+                        "Cannot use the void type as a variable.".to_owned(),
+                    ));
+                };
                 let variable = self
                     .builder
-                    .build_alloca(self.context.i32_type(), &declaration.lhs)?;
+                    .build_alloca(basic_type_enum, &declaration.lhs)?;
                 let rhs = self.build_expression(declaration.rhs)?;
                 self.builder.build_store(variable, rhs)?;
                 self.symbol_table
@@ -33,7 +49,7 @@ impl<'ctx> CodeGen<'ctx> {
             StatementKind::Expression(expr) => {
                 self.build_expression(expr)?;
             }
-            StatementKind::If(if_statement) => self.build_if(if_statement)?,
+            StatementKind::If(if_statement) => self.build_if(if_statement, statement_pos)?,
             StatementKind::For(for_statement) => self.build_for(*for_statement)?,
         }
         Ok(CompileInfo {
@@ -106,7 +122,7 @@ impl<'ctx> CodeGen<'ctx> {
         Ok(())
     }
 
-    pub fn build_if(&mut self, if_statement: IfStatement) -> Result<(), CompilerError> {
+    pub fn build_if(&mut self, if_statement: IfStatement, statement_pos: (usize, usize)) -> Result<(), CompilerError> {
         self.symbol_table.push_scope();
 
         let value = self
@@ -124,9 +140,9 @@ impl<'ctx> CodeGen<'ctx> {
         let current_function = self
             .builder
             .get_insert_block()
-            .ok_or_else(|| CompilerError::CodeGenError("Cannot find insert block".to_string()))?
+            .ok_or_else(|| CompilerError::CodeGenError(statement_pos, "Cannot find insert block".to_string()))?
             .get_parent()
-            .ok_or_else(|| CompilerError::CodeGenError("Cannot get parent".to_string()))?;
+            .ok_or_else(|| CompilerError::CodeGenError(statement_pos, "Cannot get parent".to_string()))?;
 
         let then_bb = self.context.append_basic_block(current_function, "then");
         let else_bb = self.context.append_basic_block(current_function, "else");
@@ -183,7 +199,7 @@ impl<'ctx> CodeGen<'ctx> {
             mutable, lhs, rhs, ..
         }) = for_statement.initialiser.kind
         else {
-            return Err(CompilerError::CodeGenErrorWithPos(
+            return Err(CompilerError::CodeGenError(
                 (
                     for_statement.initialiser.col,
                     for_statement.initialiser.lnum,

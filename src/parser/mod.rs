@@ -96,7 +96,7 @@ impl Parser {
         let expression_pos = self.current_pos();
         // FIXME: Perhaps make this next and then implement backtracking?
         // This is really ugly right now
-        return match self.peek() {
+        match self.peek() {
             Some(&TokenKind::Symbol(_)) if self.check_forward(TokenKind::Eq, 1) => {
                 let Some(TokenKind::Symbol(lhs)) = self.next() else {
                     panic!("Invalid state")
@@ -173,7 +173,7 @@ impl Parser {
                     tkn.map_or("none".to_string(), |f| format!("{:?}", f))
                 ),
             )),
-        };
+        }
     }
 
     pub fn parse_value(&mut self) -> Result<Expression, CompilerError> {
@@ -477,7 +477,7 @@ impl Parser {
                         Some(TokenKind::Symbol(t)) => Ok(Prototype {
                             name: function_name,
                             arguments,
-                            return_type: Type::parse(t),
+                            return_type: Type::parse(&t),
                         }),
                         tkn => Err(CompilerError::SyntaxError(
                             self.previous_pos(),
@@ -499,7 +499,7 @@ impl Parser {
                     self.expect(TokenKind::Colon)?;
                     match self.next() {
                         Some(TokenKind::Symbol(t)) => {
-                            arguments.push((arg, Type::parse(t)));
+                            arguments.push((arg, Type::parse(&t)));
                             if self.check(TokenKind::ClosePar) {
                                 continue;
                             } else {
@@ -588,30 +588,45 @@ impl Parser {
         let symbol_pos = self.current_pos();
         let expression = self.next();
 
-        if let Some(TokenKind::Symbol(lhs)) = expression {
-            let eq_pos = self.current_pos();
-            if let Some(TokenKind::Eq) = self.next() {
-                let rhs = self.parse_expression();
-                self.consume_bang();
-                Ok(Statement::from_pos(
-                    StatementKind::Declaration(Declaration {
-                        mutable: flags,
-                        lhs,
-                        rhs: rhs?,
-                        var_type: None,
-                    }),
-                    declaration_pos,
-                ))
-            } else {
-                Err(CompilerError::SyntaxError(
-                    eq_pos,
-                    String::from("Expected '=' in the declaration."),
-                ))
-            }
-        } else {
-            Err(CompilerError::SyntaxError(
+        let Some(TokenKind::Symbol(lhs)) = expression else {
+            return Err(CompilerError::SyntaxError(
                 symbol_pos,
                 format!("Expected identifier, found {:?} in declaration", expression),
+            ));
+        };
+
+        let t = if let Some(TokenKind::Colon) = self.peek() {
+            self.next();
+            let type_expr = self.next();
+            if let Some(TokenKind::Symbol(type_str)) = type_expr {
+                Some(Type::parse(&type_str))
+            } else {
+                return Err(CompilerError::SyntaxError(
+                    symbol_pos,
+                    format!("Expected type, found {:?} in declaration", type_expr),
+                ));
+            }
+        } else {
+            None
+        };
+
+        let eq_pos = self.current_pos();
+        if let Some(TokenKind::Eq) = self.next() {
+            let rhs = self.parse_expression();
+            self.consume_bang();
+            Ok(Statement::from_pos(
+                StatementKind::Declaration(Declaration {
+                    mutable: flags,
+                    lhs,
+                    rhs: rhs?,
+                    var_type: t,
+                }),
+                declaration_pos,
+            ))
+        } else {
+            Err(CompilerError::SyntaxError(
+                eq_pos,
+                String::from("Expected '=' in the declaration."),
             ))
         }
     }
