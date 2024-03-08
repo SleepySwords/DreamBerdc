@@ -163,9 +163,7 @@ impl Parser {
                     panic!("Invalid state")
                 }
             }
-            Some(&TokenKind::OpenSqB) => {
-                self.parse_array()
-            }
+            Some(&TokenKind::OpenSqB) => self.parse_array(),
             tkn => Err(CompilerError::SyntaxError(
                 expression_pos,
                 format!(

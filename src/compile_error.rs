@@ -13,7 +13,7 @@ pub enum CompilerError {
 }
 
 impl CompilerError {
-    pub fn code_gen_error<T: Into<String>>(pos: (usize, usize), str: T) -> Self{
+    pub fn code_gen_error<T: Into<String>>(pos: (usize, usize), str: T) -> Self {
         Self::CodeGenError(pos, str.into())
     }
 }

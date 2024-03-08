@@ -83,10 +83,10 @@ fn main() -> Result<(), Box<dyn Error>> {
         Some(inkwell::module::Linkage::External),
     );
 
-    let put_fn_type = context
-        .i32_type()
-        .as_basic_type_enum()
-        .fn_type(&[context.i8_type().ptr_type(AddressSpace::default()).into()], false);
+    let put_fn_type = context.i32_type().as_basic_type_enum().fn_type(
+        &[context.i8_type().ptr_type(AddressSpace::default()).into()],
+        false,
+    );
 
     module.add_function(
         "puts",

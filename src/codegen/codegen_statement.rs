@@ -1,5 +1,5 @@
 use colored::Colorize;
-use inkwell::{types::{BasicMetadataTypeEnum}, values::FunctionValue, IntPredicate};
+use inkwell::{types::BasicMetadataTypeEnum, values::FunctionValue, IntPredicate};
 
 use crate::{
     ast::{Declaration, ForStatement, Function, IfStatement, Statement, StatementKind},
@@ -33,8 +33,12 @@ impl<'ctx> CodeGen<'ctx> {
                     .build_alloca(basic_type_enum, &declaration.lhs)?;
                 let rhs = self.build_expression(declaration.rhs)?;
                 self.builder.build_store(variable, rhs)?;
-                self.symbol_table
-                    .store_variable_ptr(declaration.lhs, variable, declaration.mutable)
+                self.symbol_table.store_variable_ptr(
+                    declaration.lhs,
+                    variable,
+                    var_type,
+                    declaration.mutable,
+                )
             }
             StatementKind::Return { return_value } => {
                 if let Some(return_expression) = return_value {
@@ -61,7 +65,10 @@ impl<'ctx> CodeGen<'ctx> {
         })
     }
 
-    pub fn build_function_declaration(&mut self, function: &Function) -> Option<FunctionValue<'ctx>> {
+    pub fn build_function_declaration(
+        &mut self,
+        function: &Function,
+    ) -> Option<FunctionValue<'ctx>> {
         let types = function
             .prototype
             .arguments
@@ -74,9 +81,10 @@ impl<'ctx> CodeGen<'ctx> {
                 .prototype
                 .return_type
                 .function(self.context, types?.as_slice(), false);
-        return Some(self
-            .module
-            .add_function(&function.prototype.name, fn_type?, None));
+        return Some(
+            self.module
+                .add_function(&function.prototype.name, fn_type?, None),
+        );
     }
 
     /// Builds a function
@@ -86,7 +94,10 @@ impl<'ctx> CodeGen<'ctx> {
         } else if let Some(fun) = self.build_function_declaration(&function) {
             fun
         } else {
-            return Err(CompilerError::code_gen_error((0, 0), "Invalid return type!"));
+            return Err(CompilerError::code_gen_error(
+                (0, 0),
+                "Invalid return type!",
+            ));
         };
 
         let entry_basic_box = self.context.append_basic_block(fn_val, "entry");
@@ -129,7 +140,11 @@ impl<'ctx> CodeGen<'ctx> {
         Ok(())
     }
 
-    pub fn build_if(&mut self, if_statement: IfStatement, statement_pos: (usize, usize)) -> Result<(), CompilerError> {
+    pub fn build_if(
+        &mut self,
+        if_statement: IfStatement,
+        statement_pos: (usize, usize),
+    ) -> Result<(), CompilerError> {
         self.symbol_table.push_scope();
 
         let value = self
@@ -147,9 +162,13 @@ impl<'ctx> CodeGen<'ctx> {
         let current_function = self
             .builder
             .get_insert_block()
-            .ok_or_else(|| CompilerError::CodeGenError(statement_pos, "Cannot find insert block".to_string()))?
+            .ok_or_else(|| {
+                CompilerError::CodeGenError(statement_pos, "Cannot find insert block".to_string())
+            })?
             .get_parent()
-            .ok_or_else(|| CompilerError::CodeGenError(statement_pos, "Cannot get parent".to_string()))?;
+            .ok_or_else(|| {
+                CompilerError::CodeGenError(statement_pos, "Cannot get parent".to_string())
+            })?;
 
         let then_bb = self.context.append_basic_block(current_function, "then");
         let else_bb = self.context.append_basic_block(current_function, "else");
@@ -218,7 +237,8 @@ impl<'ctx> CodeGen<'ctx> {
 
         let variable = self.builder.build_alloca(self.context.i32_type(), &lhs)?;
 
-        self.symbol_table.store_variable_ptr(lhs, variable, mutable);
+        self.symbol_table
+            .store_variable_ptr(lhs, variable, Type::Int, mutable);
 
         let initial_expression = self.build_expression(rhs)?;
         self.builder.build_store(variable, initial_expression)?;
