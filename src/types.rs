@@ -1,6 +1,6 @@
 use inkwell::{
     context::Context,
-    types::{AnyType, AnyTypeEnum, BasicMetadataTypeEnum, BasicType, BasicTypeEnum, FunctionType},
+    types::{BasicMetadataTypeEnum, BasicType, BasicTypeEnum, FunctionType},
     values::{AnyValueEnum, FloatValue, IntValue, PointerValue},
     AddressSpace,
 };

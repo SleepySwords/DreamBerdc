@@ -164,7 +164,7 @@ impl Parser {
                 }
             }
             Some(&TokenKind::OpenSqB) => {
-                return self.parse_array();
+                self.parse_array()
             }
             tkn => Err(CompilerError::SyntaxError(
                 expression_pos,

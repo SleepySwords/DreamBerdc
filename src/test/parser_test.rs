@@ -47,7 +47,7 @@ fn test_parse_addtokenize() -> Result<(), Box<dyn Error>> {
                     },
                     body: vec![Statement::from_pos(
                         StatementKind::Return {
-                            return_value: Expression::from_pos(
+                            return_value: Some(Expression::from_pos(
                                 ExpressionKind::Binary {
                                     lhs: Box::new(Expression::from_pos(
                                         ExpressionKind::Identifier("a".to_string()),
@@ -60,7 +60,7 @@ fn test_parse_addtokenize() -> Result<(), Box<dyn Error>> {
                                     ))
                                 },
                                 (15, 1)
-                            )
+                            ))
                         },
                         (4, 1)
                     )]
@@ -76,7 +76,7 @@ fn test_parse_addtokenize() -> Result<(), Box<dyn Error>> {
                     },
                     body: vec![Statement::from_pos(
                         StatementKind::Return {
-                            return_value: Expression::from_pos(
+                            return_value: Some(Expression::from_pos(
                                 ExpressionKind::Call {
                                     callee: "add".to_string(),
                                     arguments: vec![
@@ -91,7 +91,7 @@ fn test_parse_addtokenize() -> Result<(), Box<dyn Error>> {
                                     ]
                                 },
                                 (11, 5)
-                            )
+                            ))
                         },
                         (4, 5)
                     )]
@@ -238,10 +238,10 @@ fn test_parse_for() -> Result<(), Box<dyn Error>> {
                         ),
                         Statement::from_pos(
                             StatementKind::Return {
-                                return_value: Expression::from_pos(
+                                return_value: Some(Expression::from_pos(
                                     ExpressionKind::Identifier(String::from("d")),
                                     (11, 6)
-                                ),
+                                )),
                             },
                             (4, 6)
                         ),
@@ -261,7 +261,7 @@ fn test_parse_for() -> Result<(), Box<dyn Error>> {
                     },
                     body: vec![Statement::from_pos(
                         StatementKind::Return {
-                            return_value: Expression::from_pos(
+                            return_value: Some(Expression::from_pos(
                                 ExpressionKind::Binary {
                                     lhs: Box::new(Expression::from_pos(
                                         ExpressionKind::Binary {
@@ -284,7 +284,7 @@ fn test_parse_for() -> Result<(), Box<dyn Error>> {
                                     )),
                                 },
                                 (19, 10)
-                            ),
+                            )),
                         },
                         (4, 10)
                     )]
@@ -303,7 +303,7 @@ fn test_parse_for() -> Result<(), Box<dyn Error>> {
                     },
                     body: vec![Statement::from_pos(
                         StatementKind::Return {
-                            return_value: Expression::from_pos(
+                            return_value: Some(Expression::from_pos(
                                 ExpressionKind::Call {
                                     callee: String::from("max"),
                                     arguments: vec![
@@ -322,7 +322,7 @@ fn test_parse_for() -> Result<(), Box<dyn Error>> {
                                     ],
                                 },
                                 (11, 14)
-                            ),
+                            )),
                         },
                         (4, 14)
                     )],

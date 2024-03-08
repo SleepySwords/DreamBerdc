@@ -1,5 +1,5 @@
 use colored::Colorize;
-use inkwell::{types::{BasicMetadataTypeEnum, BasicType}, values::FunctionValue, IntPredicate};
+use inkwell::{types::{BasicMetadataTypeEnum}, values::FunctionValue, IntPredicate};
 
 use crate::{
     ast::{Declaration, ForStatement, Function, IfStatement, Statement, StatementKind},
@@ -83,12 +83,10 @@ impl<'ctx> CodeGen<'ctx> {
     pub fn build_function(&mut self, function: Function) -> Result<(), CompilerError> {
         let fn_val = if let Some(fn_val) = self.module.get_function(&function.prototype.name) {
             fn_val
+        } else if let Some(fun) = self.build_function_declaration(&function) {
+            fun
         } else {
-            if let Some(fun) = self.build_function_declaration(&function) {
-                fun
-            } else {
-                return Err(CompilerError::code_gen_error((0, 0), "Invalid return type!"));
-            }
+            return Err(CompilerError::code_gen_error((0, 0), "Invalid return type!"));
         };
 
         let entry_basic_box = self.context.append_basic_block(fn_val, "entry");
