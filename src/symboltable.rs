@@ -3,13 +3,13 @@ use std::collections::{HashMap, VecDeque};
 use inkwell::values::{BasicValueEnum, PointerValue};
 
 use crate::{
-    types::{Type, Value},
+    types::{Type, Variable},
     utils::Mutable,
 };
 
 pub struct SymbolTable<'ctx> {
     symbol_table: VecDeque<HashMap<String, BasicValueEnum<'ctx>>>,
-    ptr_symbol_table: VecDeque<HashMap<String, Value<'ctx>>>,
+    ptr_symbol_table: VecDeque<HashMap<String, Variable<'ctx>>>,
 }
 
 impl<'a> SymbolTable<'a> {
@@ -53,7 +53,7 @@ impl<'a> SymbolTable<'a> {
         self.symbol_table[0].insert(name, ptr);
     }
 
-    pub fn fetch_variable(&self, name: &str) -> Option<&Value<'a>> {
+    pub fn fetch_variable(&self, name: &str) -> Option<&Variable<'a>> {
         for i in 0..self.ptr_symbol_table.len() {
             if self.ptr_symbol_table[i].contains_key(name) {
                 return Some(&self.ptr_symbol_table[i][name]);
@@ -70,9 +70,9 @@ impl<'a> SymbolTable<'a> {
         value_type: Type,
         mutability: Mutable,
     ) {
-        let variable = Value {
+        let variable = Variable {
             value_type,
-            value: ptr.into(),
+            pointer: ptr,
             mutability,
         };
         self.ptr_symbol_table[0].insert(name, variable);

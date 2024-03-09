@@ -94,6 +94,17 @@ fn main() -> Result<(), Box<dyn Error>> {
         Some(inkwell::module::Linkage::External),
     );
 
+    let printf_fn_type = context.i32_type().as_basic_type_enum().fn_type(
+        &[context.i8_type().ptr_type(AddressSpace::default()).into()],
+        true,
+    );
+
+    module.add_function(
+        "printf",
+        printf_fn_type,
+        Some(inkwell::module::Linkage::External),
+    );
+
     let getchar_fn_type = context.i32_type().fn_type(&[], false);
     module.add_function(
         "getchar",

@@ -72,49 +72,48 @@ impl Type {
             Type::Void => return None,
         })
     }
-
-    pub(crate) fn parse(t: &str) -> Type {
-        match t {
-            "int" => Type::Int,
-            "short" => Type::Short,
-            "long" => Type::Long,
-            "byte" => Type::Byte,
-            "float" => Type::Float,
-            "double" => Type::Double,
-            "void" => Type::Void,
-            _ => panic!("Type {t} not implemented!"),
-        }
-    }
 }
 
-pub struct Value<'ctx> {
+pub struct Variable<'ctx> {
     // value could also act as value_type
     pub value_type: Type,
-    pub value: AnyValueEnum<'ctx>,
+    pub pointer: PointerValue<'ctx>,
     pub mutability: Mutable,
 }
 
-impl<'ctx> Value<'ctx> {
-    pub fn new(value_type: Type, value: AnyValueEnum<'ctx>) -> Self {
-        Self {
-            value_type,
-            value,
-            mutability: Mutable::NONE,
-        }
-    }
-
-    pub fn int_value(&self) -> IntValue<'ctx> {
-        // Should panic if not correct type.
-        return self.value.into_int_value();
-    }
-
-    pub fn float_value(&self) -> FloatValue<'ctx> {
+impl<'ctx> Variable<'ctx> {
+    pub fn pointer(&self) -> PointerValue<'ctx> {
         // Should panic if not correct cast.
-        return self.value.into_float_value();
-    }
-
-    pub fn pointer_value(&self) -> PointerValue<'ctx> {
-        // Should panic if not correct cast.
-        return self.value.into_pointer_value();
+        return self.pointer;
     }
 }
+
+// pub struct Value<'ctx> {
+//     // value could also act as value_type
+//     pub value_type: Type,
+//     pub value: AnyValueEnum<'ctx>,
+// }
+
+// impl<'ctx> Value<'ctx> {
+//     pub fn new(value_type: Type, value: AnyValueEnum<'ctx>) -> Self {
+//         Self {
+//             value_type,
+//             value,
+//         }
+//     }
+
+//     pub fn int_value(&self) -> IntValue<'ctx> {
+//         // Should panic if not correct type.
+//         return self.value.into_int_value();
+//     }
+
+//     pub fn float_value(&self) -> FloatValue<'ctx> {
+//         // Should panic if not correct cast.
+//         return self.value.into_float_value();
+//     }
+
+//     pub fn pointer_value(&self) -> PointerValue<'ctx> {
+//         // Should panic if not correct cast.
+//         return self.value.into_pointer_value();
+//     }
+// }

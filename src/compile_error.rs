@@ -16,6 +16,10 @@ impl CompilerError {
     pub fn code_gen_error<T: Into<String>>(pos: (usize, usize), str: T) -> Self {
         Self::CodeGenError(pos, str.into())
     }
+
+    pub fn syntax_error<T: Into<String>>(pos: (usize, usize), str: T) -> Self {
+        Self::CodeGenError(pos, str.into())
+    }
 }
 
 impl Display for CompilerError {

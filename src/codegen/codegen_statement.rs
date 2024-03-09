@@ -23,9 +23,9 @@ impl<'ctx> CodeGen<'ctx> {
                 let basic_type_enum = if let Some(t) = var_type.basic_type_enum(self.context) {
                     t
                 } else {
-                    return Err(CompilerError::CodeGenError(
+                    return Err(CompilerError::code_gen_error(
                         statement_pos,
-                        "Cannot use the void type as a variable.".to_owned(),
+                        "Cannot use the void type as a variable.",
                     ));
                 };
                 let variable = self
@@ -163,11 +163,11 @@ impl<'ctx> CodeGen<'ctx> {
             .builder
             .get_insert_block()
             .ok_or_else(|| {
-                CompilerError::CodeGenError(statement_pos, "Cannot find insert block".to_string())
+                CompilerError::code_gen_error(statement_pos, "Cannot find insert block")
             })?
             .get_parent()
             .ok_or_else(|| {
-                CompilerError::CodeGenError(statement_pos, "Cannot get parent".to_string())
+                CompilerError::code_gen_error(statement_pos, "Cannot get parent")
             })?;
 
         let then_bb = self.context.append_basic_block(current_function, "then");

@@ -118,21 +118,21 @@ impl Parser {
                 if self.peek_forward(1).is_some_and(|x| x.is_compound()) =>
             {
                 let Some(TokenKind::Symbol(lhs)) = self.next() else {
-                    return Err(CompilerError::SyntaxError(
+                    return Err(CompilerError::syntax_error(
                         expression_pos,
-                        "This should not happen... Invalid state".to_string(),
+                        "This should not happen... Invalid state",
                     ));
                 };
                 let Some(compound) = self.next() else {
-                    return Err(CompilerError::SyntaxError(
+                    return Err(CompilerError::syntax_error(
                         expression_pos,
-                        "This should not happen... Invalid state".to_string(),
+                        "This should not happen... Invalid state",
                     ));
                 };
                 let Some(operation) = compound.operation_compound() else {
-                    return Err(CompilerError::SyntaxError(
+                    return Err(CompilerError::syntax_error(
                         expression_pos,
-                        "This should not happen... Invalid state".to_string(),
+                        "This should not happen... Invalid state",
                     ));
                 };
                 let rhs = self.parse_expression()?;
@@ -193,15 +193,15 @@ impl Parser {
                     ExpressionKind::LiteralValue(str),
                     self.current_pos(),
                 )),
-                tkn => Err(CompilerError::SyntaxError(
+                tkn => Err(CompilerError::syntax_error(
                     self.previous_pos(),
                     format!("Expected value, found {:?}", tkn),
                 )),
             };
         }
-        Err(CompilerError::SyntaxError(
+        Err(CompilerError::syntax_error(
             self.current_pos(),
-            "Expected value, found none".to_string(),
+            "Expected value, found none",
         ))
     }
 
@@ -456,9 +456,9 @@ impl Parser {
         self.expect(TokenKind::Function)?;
 
         let Some(TokenKind::Symbol(function_name)) = self.next() else {
-            return Err(CompilerError::SyntaxError(
+            return Err(CompilerError::syntax_error(
                 self.previous_pos(),
-                "Invalid state: expected to parse prototype, but did not find name, report this error".to_string(),
+                "Invalid state: expected to parse prototype, but did not find name, report this error",
             ));
         };
 
@@ -471,20 +471,11 @@ impl Parser {
                     self.next();
                     // FIXME: this should be a seperate expect function, that works
                     // with pattern matching
-                    return match self.next() {
-                        Some(TokenKind::Symbol(t)) => Ok(Prototype {
-                            name: function_name,
-                            arguments,
-                            return_type: Type::parse(&t),
-                        }),
-                        tkn => Err(CompilerError::SyntaxError(
-                            self.previous_pos(),
-                            format!(
-                                "Expected type, found {:?}",
-                                tkn.map_or("none".to_string(), |f| format!("{:?}", f))
-                            ),
-                        )),
-                    };
+                    return Ok(Prototype {
+                        name: function_name,
+                        arguments,
+                        return_type: self.parse_type()?,
+                    });
                 }
                 TokenKind::ClosePar => {
                     return Ok(Prototype {
@@ -495,24 +486,11 @@ impl Parser {
                 }
                 TokenKind::Symbol(arg) => {
                     self.expect(TokenKind::Colon)?;
-                    match self.next() {
-                        Some(TokenKind::Symbol(t)) => {
-                            arguments.push((arg, Type::parse(&t)));
-                            if self.check(TokenKind::ClosePar) {
-                                continue;
-                            } else {
-                                self.expect(TokenKind::Comma)?;
-                            }
-                        }
-                        tkn => {
-                            return Err(CompilerError::SyntaxError(
-                                self.previous_pos(),
-                                format!(
-                                    "Expected type, found {:?}",
-                                    tkn.map_or("none".to_string(), |f| format!("{:?}", f))
-                                ),
-                            ))
-                        }
+                    arguments.push((arg, self.parse_type()?));
+                    if self.check(TokenKind::ClosePar) {
+                        continue;
+                    } else {
+                        self.expect(TokenKind::Comma)?;
                     }
                 }
                 t => {
@@ -524,9 +502,9 @@ impl Parser {
             }
         }
 
-        Err(CompilerError::SyntaxError(
+        Err(CompilerError::syntax_error(
             self.previous_pos(),
-            "Unexpected end of file".to_string(),
+            "Unexpected end of file",
         ))
     }
 
@@ -595,15 +573,7 @@ impl Parser {
 
         let t = if let Some(TokenKind::Colon) = self.peek() {
             self.next();
-            let type_expr = self.next();
-            if let Some(TokenKind::Symbol(type_str)) = type_expr {
-                Some(Type::parse(&type_str))
-            } else {
-                return Err(CompilerError::SyntaxError(
-                    symbol_pos,
-                    format!("Expected type, found {:?} in declaration", type_expr),
-                ));
-            }
+            Some(self.parse_type()?)
         } else {
             None
         };
@@ -666,5 +636,33 @@ impl Parser {
             ExpressionKind::Array(values),
             self.current_pos(),
         ))
+    }
+
+    pub fn parse_type(&mut self) -> Result<Type, CompilerError> {
+        let symb = self.next();
+        let Some(TokenKind::Symbol(t)) = symb else {
+            return Err(CompilerError::syntax_error(
+                self.previous_pos(),
+                format!("Expected a type, found {:?}", symb),
+            ));
+        };
+        let mut t = match t.as_str() {
+            "int" => Type::Int,
+            "short" => Type::Short,
+            "long" => Type::Long,
+            "byte" => Type::Byte,
+            "float" => Type::Float,
+            "double" => Type::Double,
+            "void" => Type::Void,
+            _ => panic!("Type {t} not implemented!"),
+        };
+        match self.peek() {
+            Some(TokenKind::Star) => {
+                self.next();
+                t = Type::Pointer(Box::new(t));
+            }
+            _ => {}
+        }
+        Ok(t)
     }
 }

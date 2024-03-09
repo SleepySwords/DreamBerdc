@@ -29,18 +29,18 @@ impl<'ctx> CodeGen<'ctx> {
             }
             ExpressionKind::Assignment { lhs, rhs } => {
                 let Some(var) = self.symbol_table.fetch_variable(&lhs) else {
-                    return Err(CompilerError::CodeGenError(
+                    return Err(CompilerError::code_gen_error(
                         expression_pos,
                         format!("Unknown varaible: {}", lhs),
                     ));
                 };
                 if !var.mutability.contains(Mutable::Reassignable) {
-                    return Err(CompilerError::CodeGenError(
+                    return Err(CompilerError::code_gen_error(
                         expression_pos,
-                        "Cannot reassign a constant variable".to_string(),
+                        "Cannot reassign a constant variable",
                     ));
                 }
-                let ptr = var.pointer_value();
+                let ptr = var.pointer();
                 let expression = self.build_expression(*rhs)?;
                 self.builder.build_store(ptr, expression)?;
                 Ok(self.context.i32_type().const_zero().into())
@@ -70,7 +70,7 @@ impl<'ctx> CodeGen<'ctx> {
                     )?;
                     let value = self
                         .builder
-                        .build_load(basic_type, ptr.pointer_value(), &id);
+                        .build_load(basic_type, ptr.pointer(), &id);
                     Ok(value.unwrap())
                 } else if let Some(value) = self.symbol_table.fetch_value(&id) {
                     Ok(value)
@@ -111,7 +111,7 @@ impl<'ctx> CodeGen<'ctx> {
         };
         // FIXME:, verify arguments with function arguments, and this should be an option
         // The None signifying null.
-        if function.count_params() != arguments.len() as u32 {
+        if function.count_params() != arguments.len() as u32 && !function.get_type().is_var_arg() {
             // FIXME: should be more specific with arguments
             return Err(CompilerError::CodeGenError(
                 position,
