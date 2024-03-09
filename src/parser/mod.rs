@@ -355,7 +355,7 @@ impl Parser {
             }
         }
         Ok(Expression::from_pos(
-            ExpressionKind::Unkown,
+            ExpressionKind::Unknown,
             self.current_pos(),
         ))
     }

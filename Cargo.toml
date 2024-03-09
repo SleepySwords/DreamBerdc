@@ -13,3 +13,7 @@ clap = { version = "4.4.3", features = ["derive"] }
 thiserror = "1.0.48"
 pretty_assertions = "1.4.0"
 colored = "2.0.4"
+
+[dev-dependencies]
+serde = {version = "1.0.197", features = ["derive"]}
+bitflags = {version = "2.3.3", features = ["serde"]}

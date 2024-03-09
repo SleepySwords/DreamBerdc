@@ -1,11 +1,13 @@
 use crate::{types::Type, utils::Mutable};
 
 #[derive(Debug, PartialEq, Eq, Clone)]
+#[cfg_attr(test, derive(serde::Deserialize))]
 pub struct Expression {
     pub kind: ExpressionKind,
     pub lnum: usize,
     pub col: usize,
 }
+
 impl Expression {
     pub(crate) fn from_pos(kind: ExpressionKind, (col, lnum): (usize, usize)) -> Expression {
         Expression { kind, lnum, col }
@@ -18,6 +20,7 @@ impl Expression {
 
 // Expressions return values, statements do not.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(test, derive(serde::Deserialize))]
 #[allow(dead_code)]
 pub enum ExpressionKind {
     Binary {
@@ -36,10 +39,11 @@ pub enum ExpressionKind {
     LiteralValue(String),
     Identifier(String),
     Array(Vec<Expression>),
-    Unkown,
+    Unknown,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
+#[cfg_attr(test, derive(serde::Deserialize))]
 pub enum Operation {
     Add,
     Subtract,
@@ -56,6 +60,7 @@ pub enum Operation {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(test, derive(serde::Deserialize))]
 pub struct Statement {
     pub kind: StatementKind,
     pub lnum: usize,
@@ -73,6 +78,7 @@ impl Statement {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(test, derive(serde::Deserialize))]
 pub enum StatementKind {
     Declaration(Declaration),
     If(IfStatement),
@@ -83,6 +89,7 @@ pub enum StatementKind {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(test, derive(serde::Deserialize))]
 #[allow(dead_code)]
 pub struct Declaration {
     pub mutable: Mutable,
@@ -92,6 +99,7 @@ pub struct Declaration {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(test, derive(serde::Deserialize))]
 #[allow(dead_code)]
 pub struct IfStatement {
     pub boolean_op: Expression,
@@ -100,6 +108,7 @@ pub struct IfStatement {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(test, derive(serde::Deserialize))]
 #[allow(dead_code)]
 pub struct ForStatement {
     pub initialiser: Statement,
@@ -111,6 +120,7 @@ pub struct ForStatement {
 pub type Name = String;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(test, derive(serde::Deserialize))]
 #[allow(dead_code)]
 pub struct Prototype {
     pub name: String,
@@ -119,6 +129,7 @@ pub struct Prototype {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(test, derive(serde::Deserialize))]
 pub struct Function {
     pub prototype: Prototype,
     pub body: Vec<Statement>,

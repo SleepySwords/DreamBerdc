@@ -8,6 +8,7 @@ use inkwell::{
 use crate::utils::Mutable;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[cfg_attr(test, derive(serde::Deserialize))]
 pub enum Type {
     Int,
     Short,
