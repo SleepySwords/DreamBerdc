@@ -68,9 +68,7 @@ impl<'ctx> CodeGen<'ctx> {
                     let basic_type = ptr.value_type.basic_type_enum(self.context).ok_or(
                         CompilerError::code_gen_error(expression_pos, "Invalid type"),
                     )?;
-                    let value = self
-                        .builder
-                        .build_load(basic_type, ptr.pointer(), &id);
+                    let value = self.builder.build_load(basic_type, ptr.pointer(), &id);
                     Ok(value.unwrap())
                 } else if let Some(value) = self.symbol_table.fetch_value(&id) {
                     Ok(value)

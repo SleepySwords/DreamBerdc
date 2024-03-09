@@ -654,12 +654,24 @@ impl Parser {
             "float" => Type::Float,
             "double" => Type::Double,
             "void" => Type::Void,
-            _ => panic!("Type {t} not implemented!"),
+            _ => {
+                return Err(CompilerError::syntax_error(
+                    self.previous_pos(),
+                    format!("Type not found: {}", t),
+                ))
+            }
         };
         match self.peek() {
             Some(TokenKind::Star) => {
                 self.next();
                 t = Type::Pointer(Box::new(t));
+            }
+            Some(TokenKind::OpenSqB) => {
+                self.next();
+                return Err(CompilerError::syntax_error(
+                    self.previous_pos(),
+                    "Arrays are not supported, (yet....)",
+                ));
             }
             _ => {}
         }

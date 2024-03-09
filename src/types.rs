@@ -1,7 +1,7 @@
 use inkwell::{
     context::Context,
     types::{BasicMetadataTypeEnum, BasicType, BasicTypeEnum, FunctionType},
-    values::{AnyValueEnum, FloatValue, IntValue, PointerValue},
+    values::PointerValue,
     AddressSpace,
 };
 
@@ -84,7 +84,7 @@ pub struct Variable<'ctx> {
 impl<'ctx> Variable<'ctx> {
     pub fn pointer(&self) -> PointerValue<'ctx> {
         // Should panic if not correct cast.
-        return self.pointer;
+        self.pointer
     }
 }
 

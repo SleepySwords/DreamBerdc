@@ -166,9 +166,7 @@ impl<'ctx> CodeGen<'ctx> {
                 CompilerError::code_gen_error(statement_pos, "Cannot find insert block")
             })?
             .get_parent()
-            .ok_or_else(|| {
-                CompilerError::code_gen_error(statement_pos, "Cannot get parent")
-            })?;
+            .ok_or_else(|| CompilerError::code_gen_error(statement_pos, "Cannot get parent"))?;
 
         let then_bb = self.context.append_basic_block(current_function, "then");
         let else_bb = self.context.append_basic_block(current_function, "else");
