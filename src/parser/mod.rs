@@ -163,6 +163,14 @@ impl Parser {
                     panic!("Invalid state")
                 }
             }
+            Some(&TokenKind::Star) => {
+                self.next();
+                let expression = self.parse_expression()?;
+                Ok(Expression::from_pos(
+                    ExpressionKind::Dereference(Box::new(expression)),
+                    expression_pos,
+                ))
+            }
             Some(&TokenKind::OpenSqB) => self.parse_array(),
             tkn => Err(CompilerError::SyntaxError(
                 expression_pos,

@@ -1,6 +1,6 @@
 use inkwell::{
     values::{ArrayValue, BasicMetadataValueEnum, BasicValueEnum},
-    FloatPredicate, IntPredicate,
+    AddressSpace, FloatPredicate, IntPredicate,
 };
 use itertools::Itertools;
 
@@ -23,7 +23,7 @@ impl<'ctx> CodeGen<'ctx> {
                 lhs,
                 operation,
                 rhs,
-            } => self.parse_binary(*lhs, operation, *rhs),
+            } => self.build_binary(*lhs, operation, *rhs),
             ExpressionKind::Call { callee, arguments } => {
                 self.build_call(callee, arguments, expression_pos)
             }
@@ -62,6 +62,20 @@ impl<'ctx> CodeGen<'ctx> {
                     .unwrap();
                 self.builder.build_store(ptr, value)?;
                 Ok(ptr.into())
+            }
+            ExpressionKind::Dereference(exp) => {
+                let exp = self.build_expression(*exp)?;
+                if !exp.is_pointer_value() {
+                    return Err(CompilerError::code_gen_error(
+                        expression_pos,
+                        "The value attempted to dereference is not an pointer.",
+                    ));
+                }
+                // FIXME: Opaque types have taken over it seems...
+                // Need to refactor to also include the type..
+                Ok(self
+                    .builder
+                    .build_load(self.context.i32_type(), exp.into_pointer_value(), "dereference")?)
             }
             ExpressionKind::Identifier(id) => {
                 if let Some(ptr) = self.symbol_table.fetch_variable(&id) {
@@ -129,7 +143,7 @@ impl<'ctx> CodeGen<'ctx> {
             .left_or(self.context.i32_type().const_int(0, false).into()))
     }
 
-    fn parse_binary(
+    fn build_binary(
         &mut self,
         lhs_expression: Expression,
         operation: Operation,
@@ -140,6 +154,7 @@ impl<'ctx> CodeGen<'ctx> {
         let rhs = self.build_expression(rhs_expression)?;
         Ok(if lhs.is_int_value() && rhs.is_int_value() {
             // Need to abstract this!
+            // FIXME: pointers need to be converted before being added
             let mut lhs = lhs.into_int_value();
             let mut rhs = rhs.into_int_value();
             match lhs

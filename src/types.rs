@@ -51,7 +51,11 @@ impl Type {
             Type::Float => Some(context.f32_type().as_basic_type_enum()),
             Type::Double => Some(context.f64_type().as_basic_type_enum()),
             Type::Void => None,
-            Type::Pointer(_) => Some(context.i64_type().as_basic_type_enum()),
+            Type::Pointer(t) => Some(
+                t.basic_type_enum(context)?
+                    .ptr_type(AddressSpace::default())
+                    .as_basic_type_enum(),
+            ),
         }
     }
 

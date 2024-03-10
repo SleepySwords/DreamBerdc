@@ -11,7 +11,7 @@ use std::{error::Error, fs};
 use pretty_assertions::assert_eq;
 
 #[test]
-fn test_parse_addtokenize() -> Result<(), Box<dyn Error>> {
+fn test_parse_add() -> Result<(), Box<dyn Error>> {
     let contents = fs::read_to_string("./test_files_play/add.db")?;
     let mut lexer = Lexer::new(contents.chars().collect_vec());
     let tokens = lexer.tokenise();

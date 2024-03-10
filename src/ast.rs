@@ -36,6 +36,7 @@ pub enum ExpressionKind {
         lhs: String,
         rhs: Box<Expression>,
     },
+    Dereference(Box<Expression>),
     LiteralValue(String),
     Identifier(String),
     Array(Vec<Expression>),
