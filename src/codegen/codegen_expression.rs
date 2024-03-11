@@ -1,6 +1,6 @@
 use inkwell::{
     values::{ArrayValue, BasicMetadataValueEnum, BasicValueEnum},
-    AddressSpace, FloatPredicate, IntPredicate,
+    FloatPredicate, IntPredicate,
 };
 use itertools::Itertools;
 
@@ -73,9 +73,11 @@ impl<'ctx> CodeGen<'ctx> {
                 }
                 // FIXME: Opaque types have taken over it seems...
                 // Need to refactor to also include the type..
-                Ok(self
-                    .builder
-                    .build_load(self.context.i32_type(), exp.into_pointer_value(), "dereference")?)
+                Ok(self.builder.build_load(
+                    self.context.i32_type(),
+                    exp.into_pointer_value(),
+                    "dereference",
+                )?)
             }
             ExpressionKind::Identifier(id) => {
                 if let Some(ptr) = self.symbol_table.fetch_variable(&id) {

@@ -1,7 +1,7 @@
 use inkwell::{
     context::Context,
     types::{BasicMetadataTypeEnum, BasicType, BasicTypeEnum, FunctionType},
-    values::PointerValue,
+    values::{AnyValueEnum, BasicValueEnum, PointerValue},
     AddressSpace,
 };
 
@@ -88,9 +88,13 @@ pub struct Variable<'ctx> {
 
 impl<'ctx> Variable<'ctx> {
     pub fn pointer(&self) -> PointerValue<'ctx> {
-        // Should panic if not correct cast.
         self.pointer
     }
+}
+
+pub struct Value<'ctx> {
+    pub value_type: Type,
+    pub value: BasicValueEnum<'ctx>,
 }
 
 // pub struct Value<'ctx> {

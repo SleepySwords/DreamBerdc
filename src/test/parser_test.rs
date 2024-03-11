@@ -1,10 +1,6 @@
 use itertools::Itertools;
 
-use crate::{
-    lexer::Lexer,
-    parser::Parser,
-    TokenKind,
-};
+use crate::{lexer::Lexer, parser::Parser, TokenKind};
 use std::{error::Error, fs};
 
 #[cfg(test)]

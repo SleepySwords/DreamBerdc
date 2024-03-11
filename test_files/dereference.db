@@ -1,0 +1,8 @@
+function main(): int => {
+	var var hi: byte* = "Hello there!"!
+	printf("Test: %#x", hi)!
+	puts("")!
+	var var test: int = *hi!
+	putchar(test)!
+	return 0!
+}
