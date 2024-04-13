@@ -5,7 +5,7 @@ use inkwell::{
 use itertools::Itertools;
 
 use crate::{
-    ast::{Expression, ExpressionKind, Operation},
+    ast::{Expression, ExpressionKind, Operation, SourcePosition},
     compile_error::CompilerError,
     utils::Mutable,
 };
@@ -115,7 +115,7 @@ impl<'ctx> CodeGen<'ctx> {
         &mut self,
         callee: String,
         arguments: Vec<Expression>,
-        position: (usize, usize),
+        position: SourcePosition,
     ) -> Result<BasicValueEnum<'ctx>, CompilerError> {
         let Some(function) = self.module.get_function(&callee) else {
             return Err(CompilerError::CodeGenError(

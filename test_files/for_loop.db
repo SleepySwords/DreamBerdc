@@ -1,8 +1,18 @@
 function max(a: int, b: int, c: int): int => {
-    var var d: long = 0!
+    var var d: long = 20.1!
 	var var a: int = 10!
+	var var hi: float = 0.4!
+	var var test: byte* = "YAYYY BYTE POINTER!!!"!
 	d = d + a!
-    return d!
+	var var hi2: int = *test!
+	putchar(hi2)!
+	for (var var x = 0; x < 5; x += 1) {
+		printf("ok budd... %d", x)!
+		putchar(10)!
+	}
+	printf("hi there! %.2f %s %d", hi, test, d)!
+	putchar(10)!
+    return a!
 }
 
 function add(a: int, b: int): int => {

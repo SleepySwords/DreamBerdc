@@ -3,7 +3,7 @@ use core::panic;
 use crate::{
     ast::{
         Declaration, Expression, ExpressionKind, ForStatement, Function, IfStatement, Operation,
-        Prototype, Statement, StatementKind,
+        Prototype, SourcePosition, Statement, StatementKind,
     },
     compile_error::CompilerError,
     lexer::{Token, TokenKind},
@@ -32,12 +32,12 @@ impl Parser {
         return self.tokens.get(self.pos + index).map(|f| &f.kind);
     }
 
-    pub fn current_pos(&self) -> (usize, usize) {
+    pub fn current_pos(&self) -> SourcePosition {
         let token = self.tokens.get(self.pos).unwrap();
         (token.col, token.lnum)
     }
 
-    pub fn previous_pos(&self) -> (usize, usize) {
+    pub fn previous_pos(&self) -> SourcePosition {
         let token = self.tokens.get(self.pos - 1).unwrap();
         (token.col, token.lnum)
     }
@@ -329,7 +329,7 @@ impl Parser {
     fn parse_call(
         &mut self,
         callee: String,
-        value_pos: (usize, usize),
+        value_pos: SourcePosition,
     ) -> Result<Expression, CompilerError> {
         let mut args = Vec::new();
         while let Some(token) = self.peek() {

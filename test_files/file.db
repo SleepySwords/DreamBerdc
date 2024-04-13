@@ -4,10 +4,10 @@ fun max(a: int, b: int, c: int) => {
     } else {
         putchar(67)
     }
-    return 0!
+    return!
 }
 
 
-function main(a: int, b: int) => {
+function main(a: int, b: int): int => {
     return max(5, 13, 3)
 }

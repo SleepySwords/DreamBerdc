@@ -2,7 +2,7 @@ use colored::Colorize;
 use inkwell::{types::BasicMetadataTypeEnum, values::FunctionValue, IntPredicate};
 
 use crate::{
-    ast::{Declaration, ForStatement, Function, IfStatement, Statement, StatementKind},
+    ast::{Declaration, ForStatement, Function, IfStatement, SourcePosition, Statement, StatementKind},
     compile_error::CompilerError,
     types::Type,
 };
@@ -52,7 +52,7 @@ impl<'ctx> CodeGen<'ctx> {
                 });
             }
             StatementKind::Function(function) => {
-                self.build_function(function)?;
+                self.build_function(function, statement_pos)?;
             }
             StatementKind::Expression(expr) => {
                 self.build_expression(expr)?;
@@ -88,7 +88,11 @@ impl<'ctx> CodeGen<'ctx> {
     }
 
     /// Builds a function
-    pub fn build_function(&mut self, function: Function) -> Result<(), CompilerError> {
+    pub fn build_function(
+        &mut self,
+        function: Function,
+        position: SourcePosition,
+    ) -> Result<(), CompilerError> {
         let fn_val = if let Some(fn_val) = self.module.get_function(&function.prototype.name) {
             fn_val
         } else if let Some(fun) = self.build_function_declaration(&function) {
@@ -104,6 +108,8 @@ impl<'ctx> CodeGen<'ctx> {
 
         self.builder.position_at_end(entry_basic_box);
         self.symbol_table.push_scope();
+
+        self.add_function_debug_info(&function, &fn_val, position);
 
         for (index, (name, _)) in function.prototype.arguments.into_iter().enumerate() {
             self.symbol_table
@@ -143,7 +149,7 @@ impl<'ctx> CodeGen<'ctx> {
     pub fn build_if(
         &mut self,
         if_statement: IfStatement,
-        statement_pos: (usize, usize),
+        statement_pos: SourcePosition,
     ) -> Result<(), CompilerError> {
         self.symbol_table.push_scope();
 

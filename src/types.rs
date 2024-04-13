@@ -1,7 +1,7 @@
 use inkwell::{
     context::Context,
     types::{BasicMetadataTypeEnum, BasicType, BasicTypeEnum, FunctionType},
-    values::{AnyValueEnum, BasicValueEnum, PointerValue},
+    values::{BasicValueEnum, PointerValue},
     AddressSpace,
 };
 

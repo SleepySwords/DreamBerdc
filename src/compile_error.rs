@@ -4,20 +4,22 @@ use colored::Colorize;
 use inkwell::builder::BuilderError;
 use thiserror::Error;
 
+use crate::ast::SourcePosition;
+
 // FIXME: maybe use an &str
 #[derive(Debug, Error)]
 pub enum CompilerError {
-    SyntaxError((usize, usize), String),
+    SyntaxError(SourcePosition, String),
     BuilderError(String),
-    CodeGenError((usize, usize), String),
+    CodeGenError(SourcePosition, String),
 }
 
 impl CompilerError {
-    pub fn code_gen_error<T: Into<String>>(pos: (usize, usize), str: T) -> Self {
+    pub fn code_gen_error<T: Into<String>>(pos: SourcePosition, str: T) -> Self {
         Self::CodeGenError(pos, str.into())
     }
 
-    pub fn syntax_error<T: Into<String>>(pos: (usize, usize), str: T) -> Self {
+    pub fn syntax_error<T: Into<String>>(pos: SourcePosition, str: T) -> Self {
         Self::CodeGenError(pos, str.into())
     }
 }

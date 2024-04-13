@@ -1,5 +1,8 @@
 use crate::{types::Type, utils::Mutable};
 
+/// (Column, Line number)
+pub type SourcePosition = (usize, usize);
+
 #[derive(Debug, PartialEq, Eq, Clone)]
 #[cfg_attr(test, derive(serde::Deserialize))]
 pub struct Expression {
@@ -9,11 +12,10 @@ pub struct Expression {
 }
 
 impl Expression {
-    pub(crate) fn from_pos(kind: ExpressionKind, (col, lnum): (usize, usize)) -> Expression {
+    pub(crate) fn from_pos(kind: ExpressionKind, (col, lnum): SourcePosition) -> Expression {
         Expression { kind, lnum, col }
     }
-
-    pub(crate) fn pos(&self) -> (usize, usize) {
+    pub(crate) fn pos(&self) -> SourcePosition {
         (self.col, self.lnum)
     }
 }
@@ -69,11 +71,11 @@ pub struct Statement {
 }
 
 impl Statement {
-    pub(crate) fn from_pos(kind: StatementKind, (col, lnum): (usize, usize)) -> Statement {
+    pub(crate) fn from_pos(kind: StatementKind, (col, lnum): SourcePosition) -> Statement {
         Statement { kind, lnum, col }
     }
 
-    pub fn pos(&self) -> (usize, usize) {
+    pub fn pos(&self) -> SourcePosition {
         (self.col, self.lnum)
     }
 }

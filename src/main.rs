@@ -38,7 +38,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         args::Optimisation::Default => OptimizationLevel::Default,
         args::Optimisation::Aggresive => OptimizationLevel::Aggressive,
     };
-    let file = read_to_string(args.input)?;
+    let file = read_to_string(&args.input)?;
     let data = file.chars().collect_vec();
 
     // Step 1: Tokenise
@@ -128,7 +128,9 @@ fn main() -> Result<(), Box<dyn Error>> {
         module,
         builder,
         symbol_table: SymbolTable::new(),
+        debug_info: None,
     };
+    compiler.create_debug_symbols(Path::new(&args.input));
 
     // Add the function declarations first
     for statement in &statements {
@@ -147,17 +149,19 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
     }
 
-    // if let Err(str) = compiler.module.verify() {
-    //     println!(
-    //         "{}:\n{}",
-    //         "Errors from LLVM while verifying".red(),
-    //         str.to_string().replace("\\n", "\n")
-    //     );
-    //     if args.mode == args::Mode::LLVMIR {
-    //         compiler.write_llvm_ir(Path::new(&args.output.unwrap_or(String::from("output.ir"))));
-    //     }
-    //     exit(1);
-    // }
+    compiler.finalise();
+
+    if let Err(str) = compiler.module.verify() {
+        println!(
+            "{}:\n{}",
+            "Errors from LLVM while verifying".red(),
+            str.to_string().replace("\\n", "\n")
+        );
+        if args.mode == args::Mode::LLVMIR {
+            compiler.write_llvm_ir(Path::new(&args.output.unwrap_or(String::from("output.ir"))));
+        }
+        exit(1);
+    }
 
     println!("{}", "Compiled succesfully".green().bold());
 
