@@ -2,7 +2,9 @@ use colored::Colorize;
 use inkwell::{types::BasicMetadataTypeEnum, values::FunctionValue, IntPredicate};
 
 use crate::{
-    ast::{Declaration, ForStatement, Function, IfStatement, SourcePosition, Statement, StatementKind},
+    ast::{
+        Declaration, ForStatement, Function, IfStatement, SourcePosition, Statement, StatementKind,
+    },
     compile_error::CompilerError,
     types::Type,
 };
@@ -57,7 +59,7 @@ impl<'ctx> CodeGen<'ctx> {
             StatementKind::Expression(expr) => {
                 self.build_expression(expr)?;
             }
-            StatementKind::If(if_statement) => self.build_if(if_statement, statement_pos)?,
+            StatementKind::If(if_statement) => return self.build_if(if_statement, statement_pos),
             StatementKind::For(for_statement) => self.build_for(*for_statement)?,
         }
         Ok(CompileInfo {
@@ -109,7 +111,7 @@ impl<'ctx> CodeGen<'ctx> {
         self.builder.position_at_end(entry_basic_box);
         self.symbol_table.push_scope();
 
-        self.add_function_debug_info(&function, &fn_val, position);
+        self.emit_function_debug_info(&function, &fn_val, position);
 
         for (index, (name, _)) in function.prototype.arguments.into_iter().enumerate() {
             self.symbol_table
@@ -121,7 +123,7 @@ impl<'ctx> CodeGen<'ctx> {
         for statement in function.body {
             if self.build_statement(statement)?.terminator_instruction {
                 build_ret = false;
-                continue;
+                break;
             }
         }
 
@@ -132,6 +134,7 @@ impl<'ctx> CodeGen<'ctx> {
             self.builder.build_return(None)?;
         }
 
+        self.finalise_function_debug_info();
         self.symbol_table.pop_scope();
 
         println!(
@@ -150,7 +153,7 @@ impl<'ctx> CodeGen<'ctx> {
         &mut self,
         if_statement: IfStatement,
         statement_pos: SourcePosition,
-    ) -> Result<(), CompilerError> {
+    ) -> Result<CompileInfo, CompilerError> {
         self.symbol_table.push_scope();
 
         let value = self
@@ -176,22 +179,17 @@ impl<'ctx> CodeGen<'ctx> {
 
         let then_bb = self.context.append_basic_block(current_function, "then");
         let else_bb = self.context.append_basic_block(current_function, "else");
-        let merge_bb = self.context.append_basic_block(current_function, "ifcont");
 
         self.builder
             .build_conditional_branch(condition, then_bb, else_bb)?;
 
-        self.builder.position_at_end(then_bb);
-
         let mut then_terminated = false;
+        self.builder.position_at_end(then_bb);
         for statement in if_statement.then_statements {
             if self.build_statement(statement)?.terminator_instruction {
                 then_terminated = true;
-                continue;
+                break;
             }
-        }
-        if !then_terminated {
-            self.builder.build_unconditional_branch(merge_bb)?;
         }
 
         let mut else_terminated = false;
@@ -200,21 +198,28 @@ impl<'ctx> CodeGen<'ctx> {
             for statement in else_st {
                 if self.build_statement(statement)?.terminator_instruction {
                     else_terminated = true;
+                    break;
                 }
             }
         }
-        if !else_terminated {
-            self.builder.build_unconditional_branch(merge_bb)?;
+
+        if !then_terminated || !else_terminated {
+            let merge_bb = self.context.append_basic_block(current_function, "ifcont");
+            if !then_terminated {
+                self.builder.position_at_end(then_bb);
+                self.builder.build_unconditional_branch(merge_bb)?;
+            }
+            if !else_terminated {
+                self.builder.position_at_end(else_bb);
+                self.builder.build_unconditional_branch(merge_bb)?;
+            }
+            self.builder.position_at_end(merge_bb);
         }
 
-        // FIXME: if both `then_terminated` and `else_terminated` is true
-        // don't have to generate the merge branch
-        // Relies on the function not generating the return in this case.
-
-        self.builder.position_at_end(merge_bb);
         self.symbol_table.pop_scope();
-
-        Ok(())
+        Ok(CompileInfo {
+            terminator_instruction: then_terminated && else_terminated,
+        })
     }
 
     pub fn build_for(&mut self, for_statement: ForStatement) -> Result<(), CompilerError> {

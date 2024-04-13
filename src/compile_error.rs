@@ -6,7 +6,6 @@ use thiserror::Error;
 
 use crate::ast::SourcePosition;
 
-// FIXME: maybe use an &str
 #[derive(Debug, Error)]
 pub enum CompilerError {
     SyntaxError(SourcePosition, String),
@@ -32,12 +31,13 @@ impl Display for CompilerError {
                     f,
                     "{} {}",
                     format!(
-                        "error({}, {}):",
-                        (lnum + 1).to_string().white(),
-                        (col + 1).to_string().white()
-                    )
-                    .bold()
-                    .red(),
+                        "{}{}{}{}{}",
+                        "error(".red().bold(),
+                        (lnum + 1).to_string(),
+                        ", ".red().bold(),
+                        (col + 1).to_string(),
+                        "):".red().bold()
+                    ),
                     format!("Syntax Error: {}", msg).bold(),
                 )
             }
@@ -54,12 +54,12 @@ impl Display for CompilerError {
                     f,
                     "{} {}",
                     format!(
-                        "error({}, {}):",
-                        (lnum + 1).to_string().white(),
-                        (col + 1).to_string().white()
-                    )
-                    .bold()
-                    .red(),
+                        "{}{}, {}{}",
+                        "error(".red().bold(),
+                        (lnum + 1).to_string(),
+                        (col + 1).to_string(),
+                        "):".red().bold()
+                    ),
                     format!("Compile Error: {}", msg).bold(),
                 )
             }

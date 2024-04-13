@@ -2,14 +2,11 @@ mod codegen_expression;
 mod codegen_statement;
 mod debug_info;
 
-use std::{path::Path};
+use std::path::Path;
 
 use inkwell::{
     builder::Builder,
     context::Context,
-    debug_info::{
-        DICompileUnit, DebugInfoBuilder,
-    },
     execution_engine::JitFunction,
     module::Module,
     targets::{InitializationConfig, Target, TargetMachine},
@@ -18,13 +15,15 @@ use inkwell::{
 
 use crate::symboltable::SymbolTable;
 
+use self::debug_info::DebugInfo;
+
 pub struct CodeGen<'ctx> {
     pub context: &'ctx Context,
     pub module: Module<'ctx>,
     pub builder: Builder<'ctx>,
     pub symbol_table: SymbolTable<'ctx>,
 
-    pub debug_info: Option<(DebugInfoBuilder<'ctx>, DICompileUnit<'ctx>)>,
+    pub debug_info: Option<DebugInfo<'ctx>>,
 }
 
 impl<'ctx> CodeGen<'ctx> {
@@ -66,36 +65,6 @@ impl<'ctx> CodeGen<'ctx> {
         target_machine
             .write_to_file(&self.module, inkwell::targets::FileType::Object, path)
             .expect("Error");
-    }
-
-    // FIXME: need to implement ast locations
-    pub fn create_debug_symbols(&mut self, path: &Path) -> Option<()> {
-        let path_buff = path.to_path_buf();
-        let debug = self.module.create_debug_info_builder(
-            false,
-            inkwell::debug_info::DWARFSourceLanguage::C,
-            path_buff.file_name()?.to_str()?,
-            path_buff.parent()?.to_str()?,
-            "DreamberdC",
-            false,
-            "",
-            0,
-            "",
-            inkwell::debug_info::DWARFEmissionKind::Full,
-            0,
-            false,
-            false,
-            "",
-            "",
-        );
-        self.debug_info = Some(debug);
-        Some(())
-    }
-
-    pub fn finalise(&self) {
-        if let Some((dibuilder, _)) = &self.debug_info {
-            dibuilder.finalize();
-        }
     }
 }
 
