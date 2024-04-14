@@ -9,7 +9,7 @@ use inkwell::{
 
 use crate::ast::{Function, SourcePosition};
 
-use super::{CodeGen, CompileInfo};
+use super::CodeGen;
 
 pub struct DebugInfo<'ctx> {
     dibuilder: DebugInfoBuilder<'ctx>,
@@ -66,7 +66,7 @@ impl<'ctx> CodeGen<'ctx> {
             //     col as u32,
             // );
 
-            self.emit_scope_debug_info((col, lnum));
+            self.emit_location_debug_info((col, lnum));
         }
     }
 
@@ -76,7 +76,7 @@ impl<'ctx> CodeGen<'ctx> {
         }
     }
 
-    pub fn emit_scope_debug_info(&self, (col, lnum): SourcePosition) -> Option<()> {
+    pub fn emit_location_debug_info(&self, (col, lnum): SourcePosition) -> Option<()> {
         if let Some(DebugInfo {
             dibuilder, scopes, ..
         }) = &self.debug_info
@@ -93,7 +93,7 @@ impl<'ctx> CodeGen<'ctx> {
         Some(())
     }
 
-    pub fn emit_location_debug_info(&self, (col, lnum): SourcePosition) {
+    pub fn emit_scope_debug_info(&self, (col, lnum): SourcePosition) {
         // if let Some((dibuilder, compile_unit)) = &self.debug_info {
         //     let loc = dibuilder.create_debug_location(
         //         self.context,

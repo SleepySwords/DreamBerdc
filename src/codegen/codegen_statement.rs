@@ -14,6 +14,7 @@ use super::{CodeGen, CompileInfo};
 impl<'ctx> CodeGen<'ctx> {
     pub fn build_statement(&mut self, statement: Statement) -> Result<CompileInfo, CompilerError> {
         let statement_pos = statement.pos();
+        self.emit_location_debug_info(statement_pos);
         match statement.kind {
             StatementKind::Declaration(declaration) => {
                 let var_type = if let Some(t) = declaration.var_type {
@@ -43,6 +44,7 @@ impl<'ctx> CodeGen<'ctx> {
                 )
             }
             StatementKind::Return { return_value } => {
+                println!("{:?}", statement_pos);
                 if let Some(return_expression) = return_value {
                     let value = self.build_expression(return_expression)?;
                     self.builder.build_return(Some(&value))?;

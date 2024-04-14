@@ -18,7 +18,7 @@ impl<'ctx> CodeGen<'ctx> {
         expression: Expression,
     ) -> Result<BasicValueEnum<'ctx>, CompilerError> {
         let expression_pos = expression.pos();
-        self.emit_scope_debug_info(expression_pos);
+        self.emit_location_debug_info(expression_pos);
         match expression.kind {
             ExpressionKind::Binary {
                 lhs,
