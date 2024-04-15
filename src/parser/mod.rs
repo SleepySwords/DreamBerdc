@@ -432,7 +432,7 @@ impl Parser {
                 initialiser,
                 condition,
                 accumalator,
-                body: Some(body),
+                body,
             })),
             for_pos,
         ))

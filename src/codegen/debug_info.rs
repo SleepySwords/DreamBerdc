@@ -93,17 +93,24 @@ impl<'ctx> CodeGen<'ctx> {
         Some(())
     }
 
-    pub fn emit_scope_debug_info(&self, (col, lnum): SourcePosition) {
-        // if let Some((dibuilder, compile_unit)) = &self.debug_info {
-        //     let loc = dibuilder.create_debug_location(
-        //         self.context,
-        //         lnum as u32 + 1,
-        //         col as u32,
-        //         lexical_block.as_debug_info_scope(),
-        //         None,
-        //     );
-        //     self.builder.set_current_debug_location(loc);
-        // }
+    pub fn emit_scope_debug_info(&mut self, (col, lnum): SourcePosition) {
+        if let Some(DebugInfo {
+            dibuilder,
+            scopes,
+            compile_unit,
+            ..
+        }) = &mut self.debug_info
+        {
+            if let Some(scope) = scopes.last() {
+                let lexical_block = dibuilder.create_lexical_block(
+                    *scope,
+                    compile_unit.get_file(),
+                    lnum as u32 + 1,
+                    col as u32,
+                );
+                scopes.push(lexical_block.as_debug_info_scope());
+            }
+        }
     }
 
     // FIXME: need to implement ast locations

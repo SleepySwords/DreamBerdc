@@ -117,7 +117,7 @@ pub struct ForStatement {
     pub initialiser: Statement,
     pub condition: Expression,
     pub accumalator: Expression,
-    pub body: Option<Vec<Statement>>,
+    pub body: Vec<Statement>,
 }
 
 pub type Name = String;

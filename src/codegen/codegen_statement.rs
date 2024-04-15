@@ -185,25 +185,17 @@ impl<'ctx> CodeGen<'ctx> {
         self.builder
             .build_conditional_branch(condition, then_bb, else_bb)?;
 
-        let mut then_terminated = false;
         self.builder.position_at_end(then_bb);
-        for statement in if_statement.then_statements {
-            if self.build_statement(statement)?.terminator_instruction {
-                then_terminated = true;
-                break;
-            }
-        }
+        let then_terminated = self
+            .build_block(if_statement.then_statements)?
+            .terminator_instruction;
 
-        let mut else_terminated = false;
         self.builder.position_at_end(else_bb);
-        if let Some(else_st) = if_statement.else_statements {
-            for statement in else_st {
-                if self.build_statement(statement)?.terminator_instruction {
-                    else_terminated = true;
-                    break;
-                }
-            }
-        }
+        let else_terminated = if let Some(else_st) = if_statement.else_statements {
+            self.build_block(else_st)?.terminator_instruction
+        } else {
+            false
+        };
 
         if !then_terminated || !else_terminated {
             let merge_bb = self.context.append_basic_block(current_function, "ifcont");
@@ -260,9 +252,7 @@ impl<'ctx> CodeGen<'ctx> {
 
         // May shadow, but too lazy
 
-        for statement in for_statement.body.unwrap() {
-            self.build_statement(statement)?;
-        }
+        self.build_block(for_statement.body)?;
 
         self.build_expression(for_statement.accumalator)?;
 
@@ -288,5 +278,23 @@ impl<'ctx> CodeGen<'ctx> {
         self.symbol_table.pop_scope();
 
         Ok(())
+    }
+
+    pub fn build_block(
+        &mut self,
+        statements: Vec<Statement>,
+    ) -> Result<CompileInfo, CompilerError> {
+        self.symbol_table.push_scope();
+        let mut terminator_instruction = false;
+        for statement in statements {
+            if self.build_statement(statement)?.terminator_instruction {
+                terminator_instruction = true;
+                break;
+            }
+        }
+        self.symbol_table.pop_scope();
+        return Ok(CompileInfo {
+            terminator_instruction,
+        });
     }
 }
