@@ -1,10 +1,10 @@
-use std::{collections::HashMap, path::Path};
+use std::path::Path;
 
 use inkwell::{
     debug_info::{
         AsDIScope, DICompileUnit, DIFlagsConstants, DIScope, DISubprogram, DebugInfoBuilder,
     },
-    values::FunctionValue,
+    values::{FunctionValue, PointerValue},
 };
 
 use crate::ast::{Function, SourcePosition};
@@ -15,6 +15,7 @@ pub struct DebugInfo<'ctx> {
     dibuilder: DebugInfoBuilder<'ctx>,
     compile_unit: DICompileUnit<'ctx>,
     scopes: Vec<DIScope<'ctx>>,
+    arg_no: u32,
 }
 
 // Should be in a dedicated struct...
@@ -29,6 +30,7 @@ impl<'ctx> CodeGen<'ctx> {
             dibuilder,
             compile_unit,
             scopes,
+            ..
         }) = &mut self.debug_info
         {
             let ditype = dibuilder
@@ -93,6 +95,7 @@ impl<'ctx> CodeGen<'ctx> {
         Some(())
     }
 
+    // FIXME: actually emit this
     pub fn emit_scope_debug_info(&mut self, (col, lnum): SourcePosition) {
         if let Some(DebugInfo {
             dibuilder,
@@ -137,7 +140,50 @@ impl<'ctx> CodeGen<'ctx> {
             dibuilder,
             compile_unit,
             scopes: vec![],
+            arg_no: 1,
         });
+        Some(())
+    }
+
+    pub fn create_debug_variable(
+        &mut self,
+        value: PointerValue<'ctx>,
+        name: String,
+        (col, lnum): SourcePosition,
+    ) -> Option<()> {
+        if let Some(debug) = &mut self.debug_info {
+            if let Some(scope) = debug.scopes.last() {
+                let ditype = debug
+                    .dibuilder
+                    .create_basic_type("int", 32_u64, 0x05, DIFlagsConstants::PUBLIC)
+                    .unwrap();
+                let variable = debug.dibuilder.create_parameter_variable(
+                    *scope,
+                    &name,
+                    debug.arg_no,
+                    debug.compile_unit.get_file(),
+                    lnum as u32,
+                    ditype.as_type(),
+                    true,
+                    DIFlagsConstants::ZERO,
+                );
+                let loc = debug.dibuilder.create_debug_location(
+                    self.context,
+                    lnum as u32 + 1,
+                    col as u32,
+                    *scope,
+                    None,
+                );
+                debug.dibuilder.insert_declare_at_end(
+                    value,
+                    Some(variable),
+                    None, // Some(debug.dibuilder.create_expression(vec![])),
+                    loc,
+                    self.builder.get_insert_block()?,
+                );
+                debug.arg_no += 1;
+            }
+        }
         Some(())
     }
 

@@ -35,6 +35,9 @@ impl<'ctx> CodeGen<'ctx> {
                     .builder
                     .build_alloca(basic_type_enum, &declaration.lhs)?;
                 let rhs = self.build_expression(declaration.rhs)?;
+
+                self.create_debug_variable(variable, declaration.lhs.clone(), statement_pos);
+
                 self.builder.build_store(variable, rhs)?;
                 self.symbol_table.store_variable_ptr(
                     declaration.lhs,
