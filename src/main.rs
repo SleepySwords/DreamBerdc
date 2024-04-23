@@ -150,6 +150,16 @@ fn main() -> Result<(), Box<dyn Error>> {
     }
 
     compiler.finalise();
+    for fun in compiler.module.get_functions() {
+        println!(
+            "{}: {}",
+            "Verifying the function".bright_yellow(),
+            fun.get_name().to_str()?
+        );
+        if !fun.verify(true) {
+            println!();
+        }
+    }
 
     if let Err(str) = compiler.module.verify() {
         println!(
