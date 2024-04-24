@@ -1,6 +1,7 @@
 use inkwell::{
+    types::{BasicType, BasicTypeEnum},
     values::{ArrayValue, BasicMetadataValueEnum, BasicValueEnum},
-    FloatPredicate, IntPredicate,
+    AddressSpace, FloatPredicate, IntPredicate,
 };
 use itertools::Itertools;
 
@@ -106,6 +107,31 @@ impl<'ctx> CodeGen<'ctx> {
                             ))
                         }
                     }
+                }
+            }
+            ExpressionKind::IndexOperator { expression, index } => {
+                let index = self.build_expression(*index)?;
+                let value = self.build_expression(*expression)?;
+                // FIXME: this would required pointer types of some kind...
+                let t: BasicTypeEnum =
+                    self.context.i8_type().array_type(7).as_basic_type_enum();
+                let element_t: BasicTypeEnum = self.context.i8_type().as_basic_type_enum();
+                unsafe {
+                    // let reference = self.builder.build_in_bounds_gep(
+                    //     self.context.i8_type(),
+                    //     value.into_pointer_value(),
+                    //     &[index.into_int_value()],
+                    //     "build store",
+                    // )?;
+                    let array_ptr = self.builder.build_in_bounds_gep(
+                        t,
+                        value.into_pointer_value(),
+                        &[self.context.i64_type().const_zero(), index.into_int_value()],
+                        "build store",
+                    )?;
+                    return Ok(self
+                        .builder
+                        .build_load(element_t, array_ptr, "dereference")?);
                 }
             }
             _ => todo!(),

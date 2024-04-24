@@ -39,6 +39,10 @@ pub enum ExpressionKind {
         rhs: Box<Expression>,
     },
     Dereference(Box<Expression>),
+    IndexOperator {
+        expression: Box<Expression>,
+        index: Box<Expression>,
+    },
     LiteralValue(String),
     Identifier(String),
     Array(Vec<Expression>),

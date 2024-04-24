@@ -1,3 +1,5 @@
+// FIXME: create a take if match macro
+// To clean all the peek and next.
 use core::panic;
 
 use crate::{
@@ -213,6 +215,24 @@ impl Parser {
         ))
     }
 
+    pub fn parse_operators(&mut self) -> Result<Expression, CompilerError> {
+        let pos = self.current_pos();
+        let expr = self.parse_value()?;
+        if let Some(TokenKind::OpenSqB) = self.peek() {
+            self.next();
+            let index = self.parse_expression()?;
+            self.expect(TokenKind::CloseSqB)?;
+            return Ok(Expression::from_pos(
+                ExpressionKind::IndexOperator {
+                    expression: Box::new(expr),
+                    index: Box::new(index),
+                },
+                pos,
+            ));
+        }
+        return Ok(expr);
+    }
+
     pub fn parse_equality(&mut self) -> Result<Expression, CompilerError> {
         let mut expr = self.parse_term()?;
 
@@ -287,7 +307,7 @@ impl Parser {
                 TokenKind::Slash => Operation::Divide,
                 _ => panic!("Invalid operation"),
             };
-            let rhs = self.parse_value();
+            let rhs = self.parse_operators();
 
             expr = Expression::from_pos(
                 ExpressionKind::Binary {
@@ -304,14 +324,14 @@ impl Parser {
 
     pub fn parse_remainder(&mut self) -> Result<Expression, CompilerError> {
         let remainder_pos = self.current_pos();
-        let mut expr = self.parse_value()?;
+        let mut expr = self.parse_operators()?;
 
         while let Some(TokenKind::Percent) = self.peek() {
             let operation = match self.next().unwrap() {
                 TokenKind::Percent => Operation::Remainder,
                 _ => panic!("Invalid operation"),
             };
-            let rhs = self.parse_value();
+            let rhs = self.parse_operators();
 
             expr = Expression::from_pos(
                 ExpressionKind::Binary {
@@ -676,10 +696,19 @@ impl Parser {
             }
             Some(TokenKind::OpenSqB) => {
                 self.next();
-                return Err(CompilerError::syntax_error(
-                    self.previous_pos(),
-                    "Arrays are not supported, (yet....)",
-                ));
+                let token = self.next();
+                if let Some(TokenKind::Symbol(size)) = token {
+                    println!("a?");
+                    let size: u32 = size.parse().map_err(|_| {
+                        CompilerError::syntax_error(self.previous_pos(), "Expected size")
+                    })?;
+                    self.expect(TokenKind::CloseSqB)?;
+                    t = Type::Array(Box::new(t), size);
+                } else if let Some(TokenKind::CloseSqB) = token {
+                    // FIXME: Is this an actually good idea?
+                    // Semantically byte[] == byte*
+                    t = Type::Pointer(Box::new(t));
+                }
             }
             _ => {}
         }

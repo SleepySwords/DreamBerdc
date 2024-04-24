@@ -1,4 +1,3 @@
-use colored::Colorize;
 use inkwell::{types::BasicMetadataTypeEnum, values::FunctionValue, IntPredicate};
 
 use crate::{
@@ -47,7 +46,6 @@ impl<'ctx> CodeGen<'ctx> {
                 )
             }
             StatementKind::Return { return_value } => {
-                println!("{:?}", statement_pos);
                 if let Some(return_expression) = return_value {
                     let value = self.build_expression(return_expression)?;
                     self.builder.build_return(Some(&value))?;
@@ -132,13 +130,20 @@ impl<'ctx> CodeGen<'ctx> {
             }
         }
 
-        // FIX: catch all return...
-        // Should actually check if it returns something in all branches.
-
         if build_ret {
-            self.builder.build_return(None)?;
+            if function.prototype.return_type == Type::Void {
+                self.builder.build_return(None)?;
+            } else {
+                return Err(CompilerError::code_gen_error(
+                    position,
+                    format!(
+                        "Expected return type {:?} for {}, void was found",
+                        function.prototype.return_type, function.prototype.name
+                    )
+                    .as_str(),
+                ));
+            }
         }
-
         self.finalise_function_debug_info();
         self.symbol_table.pop_scope();
 

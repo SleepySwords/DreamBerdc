@@ -10,7 +10,7 @@ use inkwell::types::BasicType;
 use inkwell::{AddressSpace, OptimizationLevel};
 use itertools::Itertools;
 
-use crate::args::Args;
+use crate::args::{Args, Mode};
 use crate::ast::StatementKind;
 use crate::lexer::Lexer;
 use crate::symboltable::SymbolTable;
@@ -130,7 +130,9 @@ fn main() -> Result<(), Box<dyn Error>> {
         symbol_table: SymbolTable::new(),
         debug_info: None,
     };
-    compiler.create_debug_symbols(Path::new(&args.input));
+    if args.mode == Mode::Object {
+        compiler.create_debug_symbols(Path::new(&args.input));
+    }
 
     // Add the function declarations first
     for statement in &statements {
@@ -153,7 +155,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     for fun in compiler.module.get_functions() {
         println!(
             "{}: {}",
-            "Verifying the function".bright_yellow(),
+            "Verifying the function".bright_purple(),
             fun.get_name().to_str()?
         );
         if !fun.verify(true) {

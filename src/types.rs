@@ -18,6 +18,7 @@ pub enum Type {
     Double,
     Void,
     Pointer(Box<Type>),
+    Array(Box<Type>, u32),
 }
 
 impl Type {
@@ -39,6 +40,10 @@ impl Type {
                 .basic_type_enum(context)?
                 .ptr_type(AddressSpace::default())
                 .fn_type(param_types, is_var_args),
+            Type::Array(t, s) => t
+                .basic_type_enum(context)?
+                .array_type(*s)
+                .fn_type(param_types, is_var_args),
         })
     }
 
@@ -53,6 +58,12 @@ impl Type {
             Type::Void => None,
             Type::Pointer(t) => Some(
                 t.basic_type_enum(context)?
+                    .ptr_type(AddressSpace::default())
+                    .as_basic_type_enum(),
+            ),
+            Type::Array(t, s) => Some(
+                t.basic_type_enum(context)?
+                    .array_type(*s)
                     .ptr_type(AddressSpace::default())
                     .as_basic_type_enum(),
             ),
@@ -74,6 +85,7 @@ impl Type {
                 .basic_type_enum(context)?
                 .ptr_type(AddressSpace::default())
                 .into(),
+            Type::Array(t, s) => t.basic_type_enum(context)?.array_type(*s).into(),
             Type::Void => return None,
         })
     }
