@@ -154,7 +154,8 @@ impl Parser {
                     expression_pos,
                 ))
             }
-            Some(&TokenKind::Symbol(_)) => Ok(self.parse_equality()?),
+            Some(&TokenKind::Symbol(_)) => self.parse_equality(),
+            Some(&TokenKind::OpenPar) => self.parse_equality(),
             Some(&TokenKind::String(_)) => {
                 if let Some(TokenKind::String(str)) = self.next() {
                     Ok(Expression::from_pos(
@@ -203,6 +204,11 @@ impl Parser {
                     ExpressionKind::LiteralValue(str),
                     self.current_pos(),
                 )),
+                TokenKind::OpenPar => {
+                    let exp = self.parse_expression()?;
+                    self.expect(TokenKind::ClosePar)?;
+                    return Ok(exp);
+                }
                 tkn => Err(CompilerError::syntax_error(
                     self.previous_pos(),
                     format!("Expected value, found {:?}", tkn),
