@@ -96,84 +96,55 @@ impl Parser {
 
     pub fn parse_expression(&mut self) -> Result<Expression, CompilerError> {
         let expression_pos = self.current_pos();
-        // FIXME: Perhaps make this next and then implement backtracking?
-        // This is really ugly right now
-        match self.peek() {
-            Some(&TokenKind::Symbol(_)) if self.check_forward(TokenKind::Eq, 1) => {
-                let Some(TokenKind::Symbol(lhs)) = self.next() else {
-                    panic!("Invalid state")
-                };
-                self.expect(TokenKind::Eq)?;
+
+        parse_sequence!(self,
+            (TokenKind::Symbol(lhs), TokenKind::Eq) => {
                 let rhs = self.parse_expression()?;
-                Ok(Expression::from_pos(
+                return Ok(Expression::from_pos(
                     ExpressionKind::Assignment {
                         lhs,
                         rhs: Box::new(rhs),
                     },
                     expression_pos,
-                ))
-            }
-            // FIXME: technically speaking, this should probably be in codegene
-            // To allow for operator overrides, rather than making it
-            // syntax sugar.
-            Some(&TokenKind::Symbol(_))
-                if self.peek_forward(1).is_some_and(|x| x.is_compound()) =>
-            {
-                let Some(TokenKind::Symbol(lhs)) = self.next() else {
-                    return Err(CompilerError::syntax_error(
-                        expression_pos,
-                        "This should not happen... Invalid state",
-                    ));
-                };
-                let Some(compound) = self.next() else {
-                    return Err(CompilerError::syntax_error(
-                        expression_pos,
-                        "This should not happen... Invalid state",
-                    ));
-                };
-                let Some(operation) = compound.operation_compound() else {
-                    return Err(CompilerError::syntax_error(
-                        expression_pos,
-                        "This should not happen... Invalid state",
-                    ));
-                };
+                ));
+            },
+            (TokenKind::Symbol(lhs), operation if operation.is_compound()) => {
                 let rhs = self.parse_expression()?;
                 let binary = ExpressionKind::Binary {
                     lhs: Box::new(Expression::from_pos(
                         ExpressionKind::Identifier(lhs.clone()),
                         expression_pos,
                     )),
-                    operation,
+                    operation: operation.operation_compound().unwrap(),
                     rhs: Box::new(rhs),
                 };
-                Ok(Expression::from_pos(
+                return Ok(Expression::from_pos(
                     ExpressionKind::Assignment {
                         lhs,
                         rhs: Box::new(Expression::from_pos(binary, expression_pos)),
                     },
                     expression_pos,
                 ))
-            }
-            Some(&TokenKind::Symbol(_)) => self.parse_equality(),
-            Some(&TokenKind::OpenPar) => self.parse_equality(),
-            Some(&TokenKind::String(_)) => {
-                if let Some(TokenKind::String(str)) = self.next() {
-                    Ok(Expression::from_pos(
-                        ExpressionKind::LiteralValue(str),
-                        expression_pos,
-                    ))
-                } else {
-                    panic!("Invalid state")
-                }
-            }
-            Some(&TokenKind::Star) => {
-                self.next();
+            },
+            (TokenKind::String(str)) => {
+                return Ok(Expression::from_pos(
+                    ExpressionKind::LiteralValue(str),
+                    expression_pos,
+                ));
+            },
+            (TokenKind::Star) => {
                 let expression = self.parse_expression()?;
-                Ok(Expression::from_pos(
+                return Ok(Expression::from_pos(
                     ExpressionKind::Dereference(Box::new(expression)),
                     expression_pos,
-                ))
+                ));
             }
+        );
+
+        // NOTE: the method called consumes the tokens, so they cannot be used as above.
+        match self.peek() {
+            Some(&TokenKind::Symbol(_)) => self.parse_equality(),
+            Some(&TokenKind::OpenPar) => self.parse_equality(),
             Some(&TokenKind::OpenSqB) => self.parse_array(),
             tkn => Err(CompilerError::SyntaxError(
                 expression_pos,
@@ -183,60 +154,6 @@ impl Parser {
                 ),
             )),
         }
-    }
-
-    pub fn parse_value(&mut self) -> Result<Expression, CompilerError> {
-        let value_pos = self.current_pos();
-        if let Some(token) = self.next() {
-            return match token {
-                TokenKind::Symbol(sym) => {
-                    if let Some(TokenKind::OpenPar) = self.peek() {
-                        self.next();
-                        self.parse_call(sym, value_pos)
-                    } else {
-                        Ok(Expression::from_pos(
-                            ExpressionKind::Identifier(sym),
-                            value_pos,
-                        ))
-                    }
-                }
-                TokenKind::String(str) => Ok(Expression::from_pos(
-                    ExpressionKind::LiteralValue(str),
-                    self.current_pos(),
-                )),
-                TokenKind::OpenPar => {
-                    let exp = self.parse_expression()?;
-                    self.expect(TokenKind::ClosePar)?;
-                    return Ok(exp);
-                }
-                tkn => Err(CompilerError::syntax_error(
-                    self.previous_pos(),
-                    format!("Expected value, found {:?}", tkn),
-                )),
-            };
-        }
-        Err(CompilerError::syntax_error(
-            self.current_pos(),
-            "Expected value, found none",
-        ))
-    }
-
-    pub fn parse_operators(&mut self) -> Result<Expression, CompilerError> {
-        let pos = self.current_pos();
-        let expr = self.parse_value()?;
-        if let Some(TokenKind::OpenSqB) = self.peek() {
-            self.next();
-            let index = self.parse_expression()?;
-            self.expect(TokenKind::CloseSqB)?;
-            return Ok(Expression::from_pos(
-                ExpressionKind::IndexOperator {
-                    expression: Box::new(expr),
-                    index: Box::new(index),
-                },
-                pos,
-            ));
-        }
-        return Ok(expr);
     }
 
     pub fn parse_equality(&mut self) -> Result<Expression, CompilerError> {
@@ -350,6 +267,59 @@ impl Parser {
         }
 
         Ok(expr)
+    }
+
+    pub fn parse_operators(&mut self) -> Result<Expression, CompilerError> {
+        let pos = self.current_pos();
+        let expr = self.parse_value()?;
+
+        parse_or!(self, TokenKind::OpenSqB, return Ok(expr));
+
+        let index = self.parse_expression()?;
+        self.expect(TokenKind::CloseSqB)?;
+        Ok(Expression::from_pos(
+            ExpressionKind::IndexOperator {
+                expression: Box::new(expr),
+                index: Box::new(index),
+            },
+            pos,
+        ))
+    }
+
+    pub fn parse_value(&mut self) -> Result<Expression, CompilerError> {
+        let value_pos = self.current_pos();
+        if let Some(token) = self.next() {
+            return match token {
+                TokenKind::Symbol(sym) => {
+                    parse_or!(
+                        self,
+                        TokenKind::OpenPar,
+                        return Ok(Expression::from_pos(
+                            ExpressionKind::Identifier(sym),
+                            value_pos,
+                        ))
+                    );
+                    return self.parse_call(sym, value_pos);
+                }
+                TokenKind::String(str) => Ok(Expression::from_pos(
+                    ExpressionKind::LiteralValue(str),
+                    self.current_pos(),
+                )),
+                TokenKind::OpenPar => {
+                    let exp = self.parse_expression()?;
+                    self.expect(TokenKind::ClosePar)?;
+                    return Ok(exp);
+                }
+                tkn => Err(CompilerError::syntax_error(
+                    self.previous_pos(),
+                    format!("Expected value, found {:?}", tkn),
+                )),
+            };
+        }
+        Err(CompilerError::syntax_error(
+            self.current_pos(),
+            "Expected value, found none",
+        ))
     }
 
     fn parse_call(

@@ -21,6 +21,8 @@ mod ast;
 mod codegen;
 pub mod compile_error;
 mod lexer;
+#[macro_use]
+pub mod macros;
 mod parser;
 mod symboltable;
 mod types;

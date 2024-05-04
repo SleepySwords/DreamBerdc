@@ -292,8 +292,8 @@ impl<'ctx> CodeGen<'ctx> {
             }
         }
         self.symbol_table.pop_scope();
-        return Ok(CompileInfo {
+        Ok(CompileInfo {
             terminator_instruction,
-        });
+        })
     }
 }
