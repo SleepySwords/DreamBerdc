@@ -27,8 +27,12 @@ impl Expression {
 pub enum ExpressionKind {
     Binary {
         lhs: Box<Expression>,
-        operation: Operation,
+        operation: BinOperation,
         rhs: Box<Expression>,
+    },
+    Unary {
+        operation: UnaryOperation,
+        expression: Box<Expression>,
     },
     Call {
         callee: String,
@@ -51,7 +55,7 @@ pub enum ExpressionKind {
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 #[cfg_attr(test, derive(serde::Deserialize))]
-pub enum Operation {
+pub enum BinOperation {
     Add,
     Subtract,
     Multiply,
@@ -64,6 +68,13 @@ pub enum Operation {
     GreaterThanOrEqual,
     Less,
     LessThanOrEqual,
+}
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+#[cfg_attr(test, derive(serde::Deserialize))]
+pub enum UnaryOperation {
+    Negation,
+    Not,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

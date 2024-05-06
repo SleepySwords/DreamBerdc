@@ -1,7 +1,7 @@
 use std::fmt::Debug;
 use std::fmt::Display;
 
-use crate::ast::Operation;
+use crate::ast::BinOperation;
 
 #[derive(PartialEq, Clone)]
 pub struct Token {
@@ -94,13 +94,13 @@ impl TokenKind {
         .contains(self)
     }
 
-    pub fn operation_compound(&self) -> Option<Operation> {
+    pub fn operation_compound(&self) -> Option<BinOperation> {
         match self {
-            Self::PlusEq => Some(Operation::Add),
-            Self::StarEq => Some(Operation::Multiply),
-            Self::DashEq => Some(Operation::Subtract),
-            Self::SlashEq => Some(Operation::Divide),
-            Self::PercentEq => Some(Operation::Remainder),
+            Self::PlusEq => Some(BinOperation::Add),
+            Self::StarEq => Some(BinOperation::Multiply),
+            Self::DashEq => Some(BinOperation::Subtract),
+            Self::SlashEq => Some(BinOperation::Divide),
+            Self::PercentEq => Some(BinOperation::Remainder),
             _ => None,
         }
     }

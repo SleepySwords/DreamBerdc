@@ -29,15 +29,12 @@ impl Display for CompilerError {
             CompilerError::SyntaxError((col, lnum), msg) => {
                 write!(
                     f,
-                    "{} {}",
-                    format!(
-                        "{}{}{}{}{}",
-                        "error(".red().bold(),
-                        (lnum + 1).to_string(),
-                        ", ".red().bold(),
-                        (col + 1).to_string(),
-                        "):".red().bold()
-                    ),
+                    "{}{}{}{}{} {}",
+                    "error(".red().bold(),
+                    (lnum + 1),
+                    ", ".red().bold(),
+                    (col + 1),
+                    "):".red().bold(),
                     format!("Syntax Error: {}", msg).bold(),
                 )
             }
@@ -52,14 +49,11 @@ impl Display for CompilerError {
             CompilerError::CodeGenError((col, lnum), msg) => {
                 write!(
                     f,
-                    "{} {}",
-                    format!(
-                        "{}{}, {}{}",
-                        "error(".red().bold(),
-                        (lnum + 1).to_string(),
-                        (col + 1).to_string(),
-                        "):".red().bold()
-                    ),
+                    "{}{}, {}{} {}",
+                    "error(".red().bold(),
+                    (lnum + 1),
+                    (col + 1),
+                    "):".red().bold(),
                     format!("Compile Error: {}", msg).bold(),
                 )
             }

@@ -119,33 +119,3 @@ impl<'ctx> Value<'ctx> {
         })
     }
 }
-
-// pub struct Value<'ctx> {
-//     // value could also act as value_type
-//     pub value_type: Type,
-//     pub value: AnyValueEnum<'ctx>,
-// }
-
-// impl<'ctx> Value<'ctx> {
-//     pub fn new(value_type: Type, value: AnyValueEnum<'ctx>) -> Self {
-//         Self {
-//             value_type,
-//             value,
-//         }
-//     }
-
-//     pub fn int_value(&self) -> IntValue<'ctx> {
-//         // Should panic if not correct type.
-//         return self.value.into_int_value();
-//     }
-
-//     pub fn float_value(&self) -> FloatValue<'ctx> {
-//         // Should panic if not correct cast.
-//         return self.value.into_float_value();
-//     }
-
-//     pub fn pointer_value(&self) -> PointerValue<'ctx> {
-//         // Should panic if not correct cast.
-//         return self.value.into_pointer_value();
-//     }
-// }

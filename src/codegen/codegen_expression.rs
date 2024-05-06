@@ -1,10 +1,14 @@
+use std::cmp::Ordering;
+
 use inkwell::{
-    types::{ArrayType, BasicType, BasicTypeEnum}, values::{ArrayValue, BasicMetadataValueEnum, BasicValueEnum}, AddressSpace, FloatPredicate, IntPredicate
+    types::{BasicType, BasicTypeEnum},
+    values::{ArrayValue, BasicMetadataValueEnum, BasicValueEnum},
+    FloatPredicate, IntPredicate,
 };
 use itertools::Itertools;
 
 use crate::{
-    ast::{Expression, ExpressionKind, Operation, SourcePosition},
+    ast::{BinOperation, Expression, ExpressionKind, SourcePosition, UnaryOperation},
     compile_error::CompilerError,
     types::{Type, Value},
     utils::Mutable,
@@ -29,6 +33,10 @@ impl<'ctx> CodeGen<'ctx> {
                 Value::from_none(self.build_call(callee, arguments, expression_pos))
             }
             ExpressionKind::Assignment { lhs, rhs } => {
+                // FIXME: LHS assignments could also be arrays, or pointers
+                // (that are dereferenced) must implement a concept which are l-values
+                // This also included actually storing the value
+                // rather than loading the ptr
                 let Some(var) = self.symbol_table.fetch_variable(&lhs) else {
                     return Err(CompilerError::code_gen_error(
                         expression_pos,
@@ -65,6 +73,13 @@ impl<'ctx> CodeGen<'ctx> {
                         "pointer",
                     )
                     .unwrap();
+                // FIXME: it seems like c skips an extra step.
+                // Varaibels pointing to array are not mutable.
+                // So we could just store the ptr instead of
+                // allocating another ptr for a variable.
+                //
+                // I'm literally not going to understand this
+                // next time i read this...
                 self.builder.build_store(ptr, value)?;
                 Ok(Value {
                     value_type: Some(crate::types::Type::Array(
@@ -123,8 +138,13 @@ impl<'ctx> CodeGen<'ctx> {
                 }
             }
             ExpressionKind::IndexOperator { expression, index } => {
-                let index = self.build_expression(*index)?;
+                let index = self.build_expression(*index)?.value.into_int_value();
                 let value = self.build_expression(*expression)?;
+                let updated_index = self.builder.build_int_add(
+                    index,
+                    self.context.i32_type().const_int(1, false),
+                    "addIndex",
+                )?;
                 if value.value.is_pointer_value() {
                     if let Some(Type::Array(element_t, size)) = &value.value_type {
                         let t: BasicTypeEnum = element_t
@@ -138,10 +158,7 @@ impl<'ctx> CodeGen<'ctx> {
                             let array_ptr = self.builder.build_in_bounds_gep(
                                 t,
                                 value.value.into_pointer_value(),
-                                &[
-                                    self.context.i64_type().const_zero(),
-                                    index.value.into_int_value(),
-                                ],
+                                &[self.context.i64_type().const_zero(), updated_index],
                                 "build store",
                             )?;
                             Value::from_none(Ok(self.builder.build_load(
@@ -151,21 +168,19 @@ impl<'ctx> CodeGen<'ctx> {
                             )?))
                         }
                     } else if let Some(Type::Pointer(element_t)) = &value.value_type {
-                        let t: BasicTypeEnum = element_t
-                            .basic_type_enum(self.context)
-                            .unwrap();
+                        let t: BasicTypeEnum = element_t.basic_type_enum(self.context).unwrap();
                         let element_t: BasicTypeEnum =
                             element_t.basic_type_enum(self.context).unwrap();
                         unsafe {
-                            let ptr_ptr = self.builder.build_in_bounds_gep(
+                            let reference = self.builder.build_in_bounds_gep(
                                 t,
                                 value.value.into_pointer_value(),
-                                &[index.value.into_int_value()],
+                                &[updated_index],
                                 "build store",
                             )?;
                             Value::from_none(Ok(self.builder.build_load(
                                 element_t,
-                                ptr_ptr,
+                                reference,
                                 "dereference",
                             )?))
                         }
@@ -176,8 +191,6 @@ impl<'ctx> CodeGen<'ctx> {
                         ))
                     }
                 } else {
-                    // FIXME: this would required pointer types of some kind...
-                    // FIXME: For pointer support....
                     Err(CompilerError::CodeGenError(
                         expression_pos,
                         format!(
@@ -187,6 +200,37 @@ impl<'ctx> CodeGen<'ctx> {
                     ))
                 }
             }
+            ExpressionKind::Unary {
+                operation,
+                expression,
+            } => match operation {
+                UnaryOperation::Negation => {
+                    let expression = self.build_expression(*expression)?;
+                    let negative_value = if expression.value.is_float_value() {
+                        self.builder
+                            .build_float_neg(expression.value.into_float_value(), "negation")?
+                            .into()
+                    } else if expression.value.is_int_value() {
+                        self.builder
+                            .build_int_neg(expression.value.into_int_value(), "negation")?
+                            .into()
+                    } else {
+                        return Err(CompilerError::CodeGenError(
+                            expression_pos,
+                            format!(
+                                "Attempted to index a type other than an array, found value {}",
+                                expression.value.get_type()
+                            ),
+                        ));
+                    };
+
+                    Ok(Value {
+                        value_type: expression.value_type,
+                        value: negative_value,
+                    })
+                }
+                UnaryOperation::Not => todo!(),
+            },
             _ => todo!(),
         }
     }
@@ -228,7 +272,7 @@ impl<'ctx> CodeGen<'ctx> {
     fn build_binary(
         &mut self,
         lhs_expression: Expression,
-        operation: Operation,
+        operation: BinOperation,
         rhs_expression: Expression,
     ) -> Result<BasicValueEnum<'ctx>, CompilerError> {
         let position = (lhs_expression.col, lhs_expression.lnum);
@@ -244,37 +288,37 @@ impl<'ctx> CodeGen<'ctx> {
                 .get_bit_width()
                 .cmp(&rhs.get_type().get_bit_width())
             {
-                std::cmp::Ordering::Less => {
+                Ordering::Less => {
                     lhs = self.builder.build_int_cast(lhs, rhs.get_type(), "cast")?;
                 }
-                std::cmp::Ordering::Greater => {
+                Ordering::Greater => {
                     rhs = self.builder.build_int_cast(rhs, lhs.get_type(), "cast")?;
                 }
-                std::cmp::Ordering::Equal => {}
+                Ordering::Equal => {}
             }
             match operation {
-                Operation::Add => self.builder.build_int_add(lhs, rhs, "add")?,
-                Operation::Subtract => self.builder.build_int_sub(lhs, rhs, "sub")?,
-                Operation::Multiply => self.builder.build_int_mul(lhs, rhs, "mul")?,
-                Operation::Divide => self.builder.build_int_signed_div(lhs, rhs, "div")?,
-                Operation::Remainder => self.builder.build_int_signed_rem(lhs, rhs, "rem")?,
-                Operation::Less => {
+                BinOperation::Add => self.builder.build_int_add(lhs, rhs, "add")?,
+                BinOperation::Subtract => self.builder.build_int_sub(lhs, rhs, "sub")?,
+                BinOperation::Multiply => self.builder.build_int_mul(lhs, rhs, "mul")?,
+                BinOperation::Divide => self.builder.build_int_signed_div(lhs, rhs, "div")?,
+                BinOperation::Remainder => self.builder.build_int_signed_rem(lhs, rhs, "rem")?,
+                BinOperation::Less => {
                     self.builder
                         .build_int_compare(IntPredicate::SLT, lhs, rhs, "cond")?
                 }
-                Operation::Greater => {
+                BinOperation::Greater => {
                     self.builder
                         .build_int_compare(IntPredicate::SGT, lhs, rhs, "cond")?
                 }
-                Operation::Equal => {
+                BinOperation::Equal => {
                     self.builder
                         .build_int_compare(IntPredicate::EQ, lhs, rhs, "cond")?
                 }
-                Operation::LessThanOrEqual => {
+                BinOperation::LessThanOrEqual => {
                     self.builder
                         .build_int_compare(IntPredicate::SLE, lhs, rhs, "cond")?
                 }
-                Operation::GreaterThanOrEqual => {
+                BinOperation::GreaterThanOrEqual => {
                     self.builder
                         .build_int_compare(IntPredicate::SGE, lhs, rhs, "cond")?
                 }
@@ -291,19 +335,19 @@ impl<'ctx> CodeGen<'ctx> {
             let lhs = lhs.value.into_float_value();
             let rhs = rhs.value.into_float_value();
             match operation {
-                Operation::Add => self.builder.build_float_add(lhs, rhs, "add")?.into(),
-                Operation::Subtract => self.builder.build_float_sub(lhs, rhs, "sub")?.into(),
-                Operation::Multiply => self.builder.build_float_mul(lhs, rhs, "mul")?.into(),
-                Operation::Divide => self.builder.build_float_div(lhs, rhs, "div")?.into(),
-                Operation::Less => self
+                BinOperation::Add => self.builder.build_float_add(lhs, rhs, "add")?.into(),
+                BinOperation::Subtract => self.builder.build_float_sub(lhs, rhs, "sub")?.into(),
+                BinOperation::Multiply => self.builder.build_float_mul(lhs, rhs, "mul")?.into(),
+                BinOperation::Divide => self.builder.build_float_div(lhs, rhs, "div")?.into(),
+                BinOperation::Less => self
                     .builder
                     .build_float_compare(FloatPredicate::OLT, lhs, rhs, "cond")?
                     .into(),
-                Operation::Greater => self
+                BinOperation::Greater => self
                     .builder
                     .build_float_compare(FloatPredicate::OGT, lhs, rhs, "cond")?
                     .into(),
-                Operation::Equal => self
+                BinOperation::Equal => self
                     .builder
                     .build_float_compare(FloatPredicate::OEQ, lhs, rhs, "cond")?
                     .into(),

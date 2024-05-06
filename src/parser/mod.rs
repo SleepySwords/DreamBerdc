@@ -4,8 +4,8 @@ use core::panic;
 
 use crate::{
     ast::{
-        Declaration, Expression, ExpressionKind, ForStatement, Function, IfStatement, Operation,
-        Prototype, SourcePosition, Statement, StatementKind,
+        BinOperation, Declaration, Expression, ExpressionKind, ForStatement, Function, IfStatement,
+        Prototype, SourcePosition, Statement, StatementKind, UnaryOperation,
     },
     compile_error::CompilerError,
     lexer::{Token, TokenKind},
@@ -71,6 +71,7 @@ impl Parser {
         false
     }
 
+    #[allow(dead_code)]
     pub fn check_forward(&self, token: TokenKind, index: usize) -> bool {
         if let Some(t) = self.peek_forward(index) {
             if *t == token {
@@ -143,8 +144,9 @@ impl Parser {
 
         // NOTE: the method called consumes the tokens, so they cannot be used as above.
         match self.peek() {
-            Some(&TokenKind::Symbol(_)) => self.parse_equality(),
-            Some(&TokenKind::OpenPar) => self.parse_equality(),
+            Some(&TokenKind::Symbol(_) | &TokenKind::OpenPar | &TokenKind::Dash) => {
+                self.parse_equality()
+            }
             Some(&TokenKind::OpenSqB) => self.parse_array(),
             tkn => Err(CompilerError::SyntaxError(
                 expression_pos,
@@ -171,13 +173,13 @@ impl Parser {
         ) = self.peek()
         {
             let operation = match self.next().unwrap() {
-                TokenKind::EqEq => Operation::Equal,
-                TokenKind::EqEqEq => Operation::StrictEqual,
-                TokenKind::EqEqEqEq => Operation::VeryStrictEqual,
-                TokenKind::Lt => Operation::Less,
-                TokenKind::Gt => Operation::Greater,
-                TokenKind::LtEq => Operation::LessThanOrEqual,
-                TokenKind::GtEq => Operation::GreaterThanOrEqual,
+                TokenKind::EqEq => BinOperation::Equal,
+                TokenKind::EqEqEq => BinOperation::StrictEqual,
+                TokenKind::EqEqEqEq => BinOperation::VeryStrictEqual,
+                TokenKind::Lt => BinOperation::Less,
+                TokenKind::Gt => BinOperation::Greater,
+                TokenKind::LtEq => BinOperation::LessThanOrEqual,
+                TokenKind::GtEq => BinOperation::GreaterThanOrEqual,
                 _ => panic!("Invalid operation (the compiler should not do this)"),
             };
             let binary_pos = self.current_pos();
@@ -200,8 +202,8 @@ impl Parser {
 
         while let Some(TokenKind::Plus | TokenKind::Dash) = self.peek() {
             let operation = match self.next().unwrap() {
-                TokenKind::Plus => Operation::Add,
-                TokenKind::Dash => Operation::Subtract,
+                TokenKind::Plus => BinOperation::Add,
+                TokenKind::Dash => BinOperation::Subtract,
                 _ => panic!("Invalid operation (the compiler should not do this)"),
             };
             let term_pos = self.current_pos();
@@ -226,11 +228,11 @@ impl Parser {
 
         while let Some(TokenKind::Star | TokenKind::Slash) = self.peek() {
             let operation = match self.next().unwrap() {
-                TokenKind::Star => Operation::Multiply,
-                TokenKind::Slash => Operation::Divide,
+                TokenKind::Star => BinOperation::Multiply,
+                TokenKind::Slash => BinOperation::Divide,
                 _ => panic!("Invalid operation"),
             };
-            let rhs = self.parse_operators();
+            let rhs = self.parse_remainder();
 
             expr = Expression::from_pos(
                 ExpressionKind::Binary {
@@ -247,14 +249,14 @@ impl Parser {
 
     pub fn parse_remainder(&mut self) -> Result<Expression, CompilerError> {
         let remainder_pos = self.current_pos();
-        let mut expr = self.parse_operators()?;
+        let mut expr = self.parse_unary()?;
 
         while let Some(TokenKind::Percent) = self.peek() {
             let operation = match self.next().unwrap() {
-                TokenKind::Percent => Operation::Remainder,
+                TokenKind::Percent => BinOperation::Remainder,
                 _ => panic!("Invalid operation"),
             };
-            let rhs = self.parse_operators();
+            let rhs = self.parse_unary();
 
             expr = Expression::from_pos(
                 ExpressionKind::Binary {
@@ -269,11 +271,25 @@ impl Parser {
         Ok(expr)
     }
 
+    pub fn parse_unary(&mut self) -> Result<Expression, CompilerError> {
+        let pos = self.current_pos();
+        parse_or!(self, TokenKind::Dash, return self.parse_operators());
+
+        let expr = self.parse_operators()?;
+        Ok(Expression::from_pos(
+            ExpressionKind::Unary {
+                expression: Box::new(expr),
+                operation: UnaryOperation::Negation,
+            },
+            pos,
+        ))
+    }
+
     pub fn parse_operators(&mut self) -> Result<Expression, CompilerError> {
         let pos = self.current_pos();
         let expr = self.parse_value()?;
 
-        parse_expect_or!(self, TokenKind::OpenSqB, return Ok(expr));
+        parse_or!(self, TokenKind::OpenSqB, return Ok(expr));
 
         let index = self.parse_expression()?;
         self.expect(TokenKind::CloseSqB)?;
@@ -291,7 +307,7 @@ impl Parser {
         if let Some(token) = self.next() {
             return match token {
                 TokenKind::Symbol(sym) => {
-                    parse_expect_or!(
+                    parse_or!(
                         self,
                         TokenKind::OpenPar,
                         return Ok(Expression::from_pos(
@@ -341,12 +357,14 @@ impl Parser {
             }
 
             args.push(self.parse_expression()?);
-            
+
             if Some(&TokenKind::ClosePar) == self.peek() {
                 continue;
             }
 
-            parse_expect_or!(self, TokenKind::Comma, 
+            parse_or!(
+                self,
+                TokenKind::Comma,
                 return Err(CompilerError::SyntaxError(
                     self.current_pos(),
                     format!(
@@ -673,7 +691,6 @@ impl Parser {
                 self.next();
                 let token = self.next();
                 if let Some(TokenKind::Symbol(size)) = token {
-                    println!("a?");
                     let size: u32 = size.parse().map_err(|_| {
                         CompilerError::syntax_error(self.previous_pos(), "Expected size")
                     })?;
