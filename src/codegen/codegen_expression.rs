@@ -1,13 +1,12 @@
 use inkwell::{
-    types::{BasicType, BasicTypeEnum},
-    values::{ArrayValue, BasicMetadataValueEnum, BasicValueEnum},
-    AddressSpace, FloatPredicate, IntPredicate,
+    types::{ArrayType, BasicType, BasicTypeEnum}, values::{ArrayValue, BasicMetadataValueEnum, BasicValueEnum}, AddressSpace, FloatPredicate, IntPredicate
 };
 use itertools::Itertools;
 
 use crate::{
     ast::{Expression, ExpressionKind, Operation, SourcePosition},
     compile_error::CompilerError,
+    types::{Type, Value},
     utils::Mutable,
 };
 
@@ -17,7 +16,7 @@ impl<'ctx> CodeGen<'ctx> {
     pub fn build_expression(
         &mut self,
         expression: Expression,
-    ) -> Result<BasicValueEnum<'ctx>, CompilerError> {
+    ) -> Result<Value<'ctx>, CompilerError> {
         let expression_pos = expression.pos();
         self.emit_location_debug_info(expression_pos);
         match expression.kind {
@@ -25,9 +24,9 @@ impl<'ctx> CodeGen<'ctx> {
                 lhs,
                 operation,
                 rhs,
-            } => self.build_binary(*lhs, operation, *rhs),
+            } => Value::from_none(self.build_binary(*lhs, operation, *rhs)),
             ExpressionKind::Call { callee, arguments } => {
-                self.build_call(callee, arguments, expression_pos)
+                Value::from_none(self.build_call(callee, arguments, expression_pos))
             }
             ExpressionKind::Assignment { lhs, rhs } => {
                 let Some(var) = self.symbol_table.fetch_variable(&lhs) else {
@@ -36,6 +35,7 @@ impl<'ctx> CodeGen<'ctx> {
                         format!("Unknown varaible: {}", lhs),
                     ));
                 };
+                let t = var.value_type.clone();
                 if !var.mutability.contains(Mutable::Reassignable) {
                     return Err(CompilerError::code_gen_error(
                         expression_pos,
@@ -44,8 +44,11 @@ impl<'ctx> CodeGen<'ctx> {
                 }
                 let ptr = var.pointer();
                 let expression = self.build_expression(*rhs)?;
-                self.builder.build_store(ptr, expression)?;
-                Ok(self.context.i32_type().const_zero().into())
+                self.builder.build_store(ptr, expression.value)?;
+                Ok(Value {
+                    value_type: Some(t),
+                    value: self.context.i32_type().const_zero().into(),
+                })
             }
             ExpressionKind::LiteralValue(strs) => {
                 let mut string = strs
@@ -63,11 +66,17 @@ impl<'ctx> CodeGen<'ctx> {
                     )
                     .unwrap();
                 self.builder.build_store(ptr, value)?;
-                Ok(ptr.into())
+                Ok(Value {
+                    value_type: Some(crate::types::Type::Array(
+                        Box::new(Type::Short),
+                        string.len() as u32,
+                    )),
+                    value: ptr.into(),
+                })
             }
             ExpressionKind::Dereference(exp) => {
                 let exp = self.build_expression(*exp)?;
-                if !exp.is_pointer_value() {
+                if !exp.value.is_pointer_value() {
                     return Err(CompilerError::code_gen_error(
                         expression_pos,
                         "The value attempted to dereference is not an pointer.",
@@ -75,31 +84,35 @@ impl<'ctx> CodeGen<'ctx> {
                 }
                 // FIXME: Opaque types have taken over it seems...
                 // Need to refactor to also include the type..
-                Ok(self.builder.build_load(
+                Value::from_none(Ok(self.builder.build_load(
                     self.context.i32_type(),
-                    exp.into_pointer_value(),
+                    exp.value.into_pointer_value(),
                     "dereference",
-                )?)
+                )?))
             }
             ExpressionKind::Identifier(id) => {
                 if let Some(ptr) = self.symbol_table.fetch_variable(&id) {
                     let basic_type = ptr.value_type.basic_type_enum(self.context).ok_or(
                         CompilerError::code_gen_error(expression_pos, "Invalid type"),
                     )?;
+                    let t = ptr.value_type.clone();
                     let value = self.builder.build_load(basic_type, ptr.pointer(), &id);
-                    Ok(value.unwrap())
+                    Ok(Value {
+                        value: (value.unwrap()),
+                        value_type: Some(t),
+                    })
                 } else if let Some(value) = self.symbol_table.fetch_value(&id) {
-                    Ok(value)
+                    Value::from_none(Ok(value))
                 } else {
                     let var_i32 = id.parse::<i32>();
                     if let Ok(var) = var_i32 {
                         let i32_type = self.context.i32_type();
-                        Ok(i32_type.const_int(var as u64, false).into())
+                        Value::from_none(Ok(i32_type.const_int(var as u64, false).into()))
                     } else {
                         let var_f32 = id.parse::<f32>();
                         if let Ok(var) = var_f32 {
                             let f32_type = self.context.f32_type();
-                            Ok(f32_type.const_float(var as f64).into())
+                            Value::from_none(Ok(f32_type.const_float(var as f64).into()))
                         } else {
                             Err(CompilerError::CodeGenError(
                                 expression_pos,
@@ -112,26 +125,66 @@ impl<'ctx> CodeGen<'ctx> {
             ExpressionKind::IndexOperator { expression, index } => {
                 let index = self.build_expression(*index)?;
                 let value = self.build_expression(*expression)?;
-                // FIXME: this would required pointer types of some kind...
-                let t: BasicTypeEnum =
-                    self.context.i8_type().array_type(7).as_basic_type_enum();
-                let element_t: BasicTypeEnum = self.context.i8_type().as_basic_type_enum();
-                unsafe {
-                    // let reference = self.builder.build_in_bounds_gep(
-                    //     self.context.i8_type(),
-                    //     value.into_pointer_value(),
-                    //     &[index.into_int_value()],
-                    //     "build store",
-                    // )?;
-                    let array_ptr = self.builder.build_in_bounds_gep(
-                        t,
-                        value.into_pointer_value(),
-                        &[self.context.i64_type().const_zero(), index.into_int_value()],
-                        "build store",
-                    )?;
-                    return Ok(self
-                        .builder
-                        .build_load(element_t, array_ptr, "dereference")?);
+                if value.value.is_pointer_value() {
+                    if let Some(Type::Array(element_t, size)) = &value.value_type {
+                        let t: BasicTypeEnum = element_t
+                            .basic_type_enum(self.context)
+                            .unwrap()
+                            .array_type(*size)
+                            .into();
+                        let element_t: BasicTypeEnum =
+                            element_t.basic_type_enum(self.context).unwrap();
+                        unsafe {
+                            let array_ptr = self.builder.build_in_bounds_gep(
+                                t,
+                                value.value.into_pointer_value(),
+                                &[
+                                    self.context.i64_type().const_zero(),
+                                    index.value.into_int_value(),
+                                ],
+                                "build store",
+                            )?;
+                            Value::from_none(Ok(self.builder.build_load(
+                                element_t,
+                                array_ptr,
+                                "dereference",
+                            )?))
+                        }
+                    } else if let Some(Type::Pointer(element_t)) = &value.value_type {
+                        let t: BasicTypeEnum = element_t
+                            .basic_type_enum(self.context)
+                            .unwrap();
+                        let element_t: BasicTypeEnum =
+                            element_t.basic_type_enum(self.context).unwrap();
+                        unsafe {
+                            let ptr_ptr = self.builder.build_in_bounds_gep(
+                                t,
+                                value.value.into_pointer_value(),
+                                &[index.value.into_int_value()],
+                                "build store",
+                            )?;
+                            Value::from_none(Ok(self.builder.build_load(
+                                element_t,
+                                ptr_ptr,
+                                "dereference",
+                            )?))
+                        }
+                    } else {
+                        Err(CompilerError::CodeGenError(
+                            expression_pos,
+                            format!("Array type expected, found {:?}", value.value_type),
+                        ))
+                    }
+                } else {
+                    // FIXME: this would required pointer types of some kind...
+                    // FIXME: For pointer support....
+                    Err(CompilerError::CodeGenError(
+                        expression_pos,
+                        format!(
+                            "Attempted to index a type other than an array, found value {}",
+                            value.value.get_type()
+                        ),
+                    ))
                 }
             }
             _ => todo!(),
@@ -162,7 +215,7 @@ impl<'ctx> CodeGen<'ctx> {
 
         let args = arguments
             .iter()
-            .map(|f| self.build_expression(f.clone()).map(|f| f.into()))
+            .map(|f| self.build_expression(f.clone()).map(|f| f.value.into()))
             .collect::<Result<Vec<BasicMetadataValueEnum<'ctx>>, CompilerError>>()?;
         let value = self
             .builder
@@ -181,11 +234,11 @@ impl<'ctx> CodeGen<'ctx> {
         let position = (lhs_expression.col, lhs_expression.lnum);
         let lhs = self.build_expression(lhs_expression)?;
         let rhs = self.build_expression(rhs_expression)?;
-        Ok(if lhs.is_int_value() && rhs.is_int_value() {
+        Ok(if lhs.value.is_int_value() && rhs.value.is_int_value() {
             // Need to abstract this!
             // FIXME: pointers need to be converted before being added
-            let mut lhs = lhs.into_int_value();
-            let mut rhs = rhs.into_int_value();
+            let mut lhs = lhs.value.into_int_value();
+            let mut rhs = rhs.value.into_int_value();
             match lhs
                 .get_type()
                 .get_bit_width()
@@ -233,10 +286,10 @@ impl<'ctx> CodeGen<'ctx> {
                 }
             }
             .into()
-        } else if lhs.is_float_value() && rhs.is_float_value() {
+        } else if lhs.value.is_float_value() && rhs.value.is_float_value() {
             // Need to abstract this!
-            let lhs = lhs.into_float_value();
-            let rhs = rhs.into_float_value();
+            let lhs = lhs.value.into_float_value();
+            let rhs = rhs.value.into_float_value();
             match operation {
                 Operation::Add => self.builder.build_float_add(lhs, rhs, "add")?.into(),
                 Operation::Subtract => self.builder.build_float_sub(lhs, rhs, "sub")?.into(),
@@ -267,8 +320,8 @@ impl<'ctx> CodeGen<'ctx> {
                 format!(
                     "Cannot use the operation {:?} with incompatible types of: {} and {}",
                     operation,
-                    lhs.get_type(),
-                    rhs.get_type(),
+                    lhs.value.get_type(),
+                    rhs.value.get_type(),
                 ),
             ));
         })

@@ -273,7 +273,7 @@ impl Parser {
         let pos = self.current_pos();
         let expr = self.parse_value()?;
 
-        parse_or!(self, TokenKind::OpenSqB, return Ok(expr));
+        parse_expect_or!(self, TokenKind::OpenSqB, return Ok(expr));
 
         let index = self.parse_expression()?;
         self.expect(TokenKind::CloseSqB)?;
@@ -291,7 +291,7 @@ impl Parser {
         if let Some(token) = self.next() {
             return match token {
                 TokenKind::Symbol(sym) => {
-                    parse_or!(
+                    parse_expect_or!(
                         self,
                         TokenKind::OpenPar,
                         return Ok(Expression::from_pos(
@@ -341,22 +341,22 @@ impl Parser {
             }
 
             args.push(self.parse_expression()?);
-
-            if Some(&TokenKind::ClosePar) != self.peek() {
-                if let Some(TokenKind::Comma) = self.peek() {
-                    self.next();
-                } else {
-                    return Err(CompilerError::SyntaxError(
-                        self.current_pos(),
-                        format!(
-                            "Expected comma or closing bracked, found {:?}",
-                            self.peek()
-                                .map(|f| format!("{:?}", f))
-                                .unwrap_or("none".to_string())
-                        ),
-                    ));
-                }
+            
+            if Some(&TokenKind::ClosePar) == self.peek() {
+                continue;
             }
+
+            parse_expect_or!(self, TokenKind::Comma, 
+                return Err(CompilerError::SyntaxError(
+                    self.current_pos(),
+                    format!(
+                        "Expected comma or closing bracked, found {:?}",
+                        self.peek()
+                            .map(|f| format!("{:?}", f))
+                            .unwrap_or("none".to_string())
+                    ),
+                ))
+            );
         }
         Ok(Expression::from_pos(
             ExpressionKind::Unknown,
@@ -372,13 +372,14 @@ impl Parser {
         self.expect(TokenKind::ClosePar)?;
         let (body, else_body) = if let Some(TokenKind::OpenCurB) = self.peek() {
             let body = self.parse_body()?;
-            if self.check(TokenKind::Else) {
+            let else_body = if self.check(TokenKind::Else) {
                 self.expect(TokenKind::Else)?;
-                let else_body = self.parse_body()?;
-                (body, Some(else_body))
+                Some(self.parse_body()?)
             } else {
-                (body, None)
-            }
+                None
+            };
+
+            (body, else_body)
         } else {
             let expression_pos = self.current_pos();
             (
@@ -473,8 +474,6 @@ impl Parser {
             match t {
                 TokenKind::ClosePar if self.check(TokenKind::Colon) => {
                     self.next();
-                    // FIXME: this should be a seperate expect function, that works
-                    // with pattern matching
                     return Ok(Prototype {
                         name: function_name,
                         arguments,

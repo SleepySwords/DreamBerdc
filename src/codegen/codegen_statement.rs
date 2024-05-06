@@ -37,7 +37,7 @@ impl<'ctx> CodeGen<'ctx> {
 
                 self.create_debug_variable(variable, declaration.lhs.clone(), statement_pos);
 
-                self.builder.build_store(variable, rhs)?;
+                self.builder.build_store(variable, rhs.value)?;
                 self.symbol_table.store_variable_ptr(
                     declaration.lhs,
                     variable,
@@ -48,7 +48,7 @@ impl<'ctx> CodeGen<'ctx> {
             StatementKind::Return { return_value } => {
                 if let Some(return_expression) = return_value {
                     let value = self.build_expression(return_expression)?;
-                    self.builder.build_return(Some(&value))?;
+                    self.builder.build_return(Some(&value.value))?;
                 } else {
                     self.builder.build_return(None)?;
                 }
@@ -159,6 +159,7 @@ impl<'ctx> CodeGen<'ctx> {
 
         let value = self
             .build_expression(if_statement.boolean_op)?
+            .value
             .into_int_value();
 
         // FIXME: need to not rely on int stuff
@@ -243,7 +244,8 @@ impl<'ctx> CodeGen<'ctx> {
             .store_variable_ptr(lhs, variable, Type::Int, mutable);
 
         let initial_expression = self.build_expression(rhs)?;
-        self.builder.build_store(variable, initial_expression)?;
+        self.builder
+            .build_store(variable, initial_expression.value)?;
 
         let loop_bb = self.context.append_basic_block(current_function, "loop");
         self.builder.build_unconditional_branch(loop_bb)?;
@@ -257,6 +259,7 @@ impl<'ctx> CodeGen<'ctx> {
 
         let value = self
             .build_expression(for_statement.condition)?
+            .value
             .into_int_value();
 
         // FIXME: need to not rely on int stuff

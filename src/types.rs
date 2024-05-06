@@ -5,7 +5,7 @@ use inkwell::{
     AddressSpace,
 };
 
-use crate::utils::Mutable;
+use crate::{compile_error::CompilerError, utils::Mutable};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(test, derive(serde::Deserialize))]
@@ -105,8 +105,19 @@ impl<'ctx> Variable<'ctx> {
 }
 
 pub struct Value<'ctx> {
-    pub value_type: Type,
+    pub value_type: Option<Type>,
     pub value: BasicValueEnum<'ctx>,
+}
+
+impl<'ctx> Value<'ctx> {
+    pub fn from_none(
+        value: Result<BasicValueEnum<'ctx>, CompilerError>,
+    ) -> Result<Self, CompilerError> {
+        value.map(|f| Value {
+            value_type: None,
+            value: f,
+        })
+    }
 }
 
 // pub struct Value<'ctx> {

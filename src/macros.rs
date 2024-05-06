@@ -1,7 +1,7 @@
 /// If this match consumer the tokens
 /// If it does not match, do not consume the tokens,
 /// and exeucte the statement.
-macro_rules! parse_or {
+macro_rules! parse_expect_or {
     ($self:ident, $x:pat, $y: stmt) => {
         let Some($x) = $self.peek() else { $y };
         $self.next();
