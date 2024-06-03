@@ -34,7 +34,7 @@ impl<'ctx> CodeGen<'ctx> {
             }
             ExpressionKind::Assignment { lhs, rhs } => {
                 // FIXME: LHS assignments could also be arrays, or pointers
-                // (that are dereferenced) must implement a concept which are l-values
+                // (that are dereferenced) must implement the concept of l-values
                 // This also included actually storing the value
                 // rather than loading the ptr
                 let Some(var) = self.symbol_table.fetch_variable(&lhs) else {
@@ -74,7 +74,7 @@ impl<'ctx> CodeGen<'ctx> {
                     )
                     .unwrap();
                 // FIXME: it seems like c skips an extra step.
-                // Varaibels pointing to array are not mutable.
+                // Varaibles pointing to array are not mutable.
                 // So we could just store the ptr instead of
                 // allocating another ptr for a variable.
                 //
@@ -97,13 +97,25 @@ impl<'ctx> CodeGen<'ctx> {
                         "The value attempted to dereference is not an pointer.",
                     ));
                 }
-                // FIXME: Opaque types have taken over it seems...
-                // Need to refactor to also include the type..
-                Value::from_none(Ok(self.builder.build_load(
-                    self.context.i32_type(),
-                    exp.value.into_pointer_value(),
-                    "dereference",
-                )?))
+                let Some(Type::Pointer(t)) = exp.value_type else {
+                    return Err(CompilerError::code_gen_error(
+                        expression_pos,
+                        "This is not a pointer type",
+                    ));
+                };
+
+                Ok(Value {
+                    value_type: Some(*t.clone()),
+                    value: (self.builder.build_load(
+                        t.basic_type_enum(self.context)
+                            .ok_or(CompilerError::code_gen_error(
+                                expression_pos,
+                                "This value is not a valid type",
+                            ))?,
+                        exp.value.into_pointer_value(),
+                        "dereference",
+                    )?),
+                })
             }
             ExpressionKind::Identifier(id) => {
                 if let Some(ptr) = self.symbol_table.fetch_variable(&id) {
