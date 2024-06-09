@@ -16,11 +16,11 @@ impl<'ctx> CodeGen<'ctx> {
         self.emit_location_debug_info(statement_pos);
         match statement.kind {
             StatementKind::Declaration(declaration) => {
+                let rhs_exp = self.build_expression(declaration.rhs)?;
                 let var_type = if let Some(t) = declaration.var_type {
                     t
                 } else {
-                    // FIXME: need declaration inference...
-                    Type::Int
+                    rhs_exp.value_type.unwrap_or(Type::Int)
                 };
                 let basic_type_enum = if let Some(t) = var_type.basic_type_enum(self.context) {
                     t
@@ -33,11 +33,10 @@ impl<'ctx> CodeGen<'ctx> {
                 let variable = self
                     .builder
                     .build_alloca(basic_type_enum, &declaration.lhs)?;
-                let rhs = self.build_expression(declaration.rhs)?;
 
                 self.create_debug_variable(variable, declaration.lhs.clone(), statement_pos);
 
-                self.builder.build_store(variable, rhs.value)?;
+                self.builder.build_store(variable, rhs_exp.value)?;
                 self.symbol_table.store_variable_ptr(
                     declaration.lhs,
                     variable,

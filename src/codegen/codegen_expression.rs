@@ -83,7 +83,7 @@ impl<'ctx> CodeGen<'ctx> {
                 self.builder.build_store(ptr, value)?;
                 Ok(Value {
                     value_type: Some(crate::types::Type::Array(
-                        Box::new(Type::Short),
+                        Box::new(Type::Byte),
                         string.len() as u32,
                     )),
                     value: ptr.into(),
@@ -134,12 +134,18 @@ impl<'ctx> CodeGen<'ctx> {
                     let var_i32 = id.parse::<i32>();
                     if let Ok(var) = var_i32 {
                         let i32_type = self.context.i32_type();
-                        Value::from_none(Ok(i32_type.const_int(var as u64, false).into()))
+                        Ok(Value {
+                            value_type: Some(Type::Int),
+                            value: i32_type.const_int(var as u64, false).into(),
+                        })
                     } else {
                         let var_f32 = id.parse::<f32>();
                         if let Ok(var) = var_f32 {
                             let f32_type = self.context.f32_type();
-                            Value::from_none(Ok(f32_type.const_float(var as f64).into()))
+                            Ok(Value {
+                                value_type: Some(Type::Float),
+                                value: f32_type.const_float(var as f64).into(),
+                            })
                         } else {
                             Err(CompilerError::CodeGenError(
                                 expression_pos,
