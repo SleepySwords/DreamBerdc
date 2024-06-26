@@ -1,0 +1,332 @@
+[
+    Statement {
+        kind: Function(
+            Function {
+                prototype: Prototype {
+                    name: "add",
+                    arguments: [
+                        (
+                            "a",
+                            Int,
+                        ),
+                        (
+                            "b",
+                            Int,
+                        ),
+                    ],
+                    return_type: Int,
+                },
+                body: [
+                    Statement {
+                        kind: If(
+                            IfStatement {
+                                boolean_op: Expression {
+                                    kind: Binary {
+                                        lhs: Expression {
+                                            kind: Identifier(
+                                                "a",
+                                            ),
+                                            lnum: 1,
+                                            col: 8,
+                                        },
+                                        operation: Greater,
+                                        rhs: Expression {
+                                            kind: Identifier(
+                                                "1",
+                                            ),
+                                            lnum: 1,
+                                            col: 12,
+                                        },
+                                    },
+                                    lnum: 1,
+                                    col: 12,
+                                },
+                                then_statements: [
+                                    Statement {
+                                        kind: Expression(
+                                            Expression {
+                                                kind: Call {
+                                                    callee: "puts",
+                                                    arguments: [
+                                                        Expression {
+                                                            kind: LiteralValue(
+                                                                "first",
+                                                            ),
+                                                            lnum: 2,
+                                                            col: 13,
+                                                        },
+                                                    ],
+                                                },
+                                                lnum: 2,
+                                                col: 8,
+                                            },
+                                        ),
+                                        lnum: 2,
+                                        col: 8,
+                                    },
+                                ],
+                                else_statements: Some(
+                                    [
+                                        Statement {
+                                            kind: Expression(
+                                                Expression {
+                                                    kind: Call {
+                                                        callee: "puts",
+                                                        arguments: [
+                                                            Expression {
+                                                                kind: LiteralValue(
+                                                                    "second",
+                                                                ),
+                                                                lnum: 4,
+                                                                col: 13,
+                                                            },
+                                                        ],
+                                                    },
+                                                    lnum: 4,
+                                                    col: 8,
+                                                },
+                                            ),
+                                            lnum: 4,
+                                            col: 8,
+                                        },
+                                    ],
+                                ),
+                            },
+                        ),
+                        lnum: 1,
+                        col: 4,
+                    },
+                    Statement {
+                        kind: Return {
+                            return_value: Some(
+                                Expression {
+                                    kind: Binary {
+                                        lhs: Expression {
+                                            kind: Identifier(
+                                                "a",
+                                            ),
+                                            lnum: 6,
+                                            col: 11,
+                                        },
+                                        operation: Add,
+                                        rhs: Expression {
+                                            kind: Identifier(
+                                                "b",
+                                            ),
+                                            lnum: 6,
+                                            col: 15,
+                                        },
+                                    },
+                                    lnum: 6,
+                                    col: 15,
+                                },
+                            ),
+                        },
+                        lnum: 6,
+                        col: 4,
+                    },
+                ],
+            },
+        ),
+        lnum: 0,
+        col: 0,
+    },
+    Statement {
+        kind: Function(
+            Function {
+                prototype: Prototype {
+                    name: "main",
+                    arguments: [],
+                    return_type: Void,
+                },
+                body: [
+                    Statement {
+                        kind: Declaration(
+                            Declaration {
+                                mutable: Mutable(
+                                    Reassignable,
+                                ),
+                                var_type: None,
+                                lhs: "test",
+                                rhs: Expression {
+                                    kind: Call {
+                                        callee: "add",
+                                        arguments: [
+                                            Expression {
+                                                kind: Identifier(
+                                                    "6",
+                                                ),
+                                                lnum: 10,
+                                                col: 25,
+                                            },
+                                            Expression {
+                                                kind: Identifier(
+                                                    "59",
+                                                ),
+                                                lnum: 10,
+                                                col: 28,
+                                            },
+                                        ],
+                                    },
+                                    lnum: 10,
+                                    col: 21,
+                                },
+                            },
+                        ),
+                        lnum: 10,
+                        col: 4,
+                    },
+                    Statement {
+                        kind: Expression(
+                            Expression {
+                                kind: Assignment {
+                                    lhs: "test",
+                                    rhs: Expression {
+                                        kind: Call {
+                                            callee: "add",
+                                            arguments: [
+                                                Expression {
+                                                    kind: Identifier(
+                                                        "1",
+                                                    ),
+                                                    lnum: 11,
+                                                    col: 15,
+                                                },
+                                                Expression {
+                                                    kind: Identifier(
+                                                        "64",
+                                                    ),
+                                                    lnum: 11,
+                                                    col: 18,
+                                                },
+                                            ],
+                                        },
+                                        lnum: 11,
+                                        col: 11,
+                                    },
+                                },
+                                lnum: 11,
+                                col: 4,
+                            },
+                        ),
+                        lnum: 11,
+                        col: 4,
+                    },
+                    Statement {
+                        kind: Expression(
+                            Expression {
+                                kind: Call {
+                                    callee: "putchar",
+                                    arguments: [
+                                        Expression {
+                                            kind: Identifier(
+                                                "test",
+                                            ),
+                                            lnum: 12,
+                                            col: 12,
+                                        },
+                                    ],
+                                },
+                                lnum: 12,
+                                col: 4,
+                            },
+                        ),
+                        lnum: 12,
+                        col: 4,
+                    },
+                    Statement {
+                        kind: Expression(
+                            Expression {
+                                kind: Call {
+                                    callee: "putchar",
+                                    arguments: [
+                                        Expression {
+                                            kind: Call {
+                                                callee: "add",
+                                                arguments: [
+                                                    Expression {
+                                                        kind: Identifier(
+                                                            "1",
+                                                        ),
+                                                        lnum: 13,
+                                                        col: 16,
+                                                    },
+                                                    Expression {
+                                                        kind: Binary {
+                                                            lhs: Expression {
+                                                                kind: Identifier(
+                                                                    "2",
+                                                                ),
+                                                                lnum: 13,
+                                                                col: 19,
+                                                            },
+                                                            operation: Add,
+                                                            rhs: Expression {
+                                                                kind: Identifier(
+                                                                    "7",
+                                                                ),
+                                                                lnum: 13,
+                                                                col: 23,
+                                                            },
+                                                        },
+                                                        lnum: 13,
+                                                        col: 23,
+                                                    },
+                                                ],
+                                            },
+                                            lnum: 13,
+                                            col: 12,
+                                        },
+                                    ],
+                                },
+                                lnum: 13,
+                                col: 4,
+                            },
+                        ),
+                        lnum: 13,
+                        col: 4,
+                    },
+                    Statement {
+                        kind: Expression(
+                            Expression {
+                                kind: Call {
+                                    callee: "puts",
+                                    arguments: [
+                                        Expression {
+                                            kind: LiteralValue(
+                                                "Hello world",
+                                            ),
+                                            lnum: 14,
+                                            col: 9,
+                                        },
+                                    ],
+                                },
+                                lnum: 14,
+                                col: 4,
+                            },
+                        ),
+                        lnum: 14,
+                        col: 4,
+                    },
+                    Statement {
+                        kind: Return {
+                            return_value: Some(
+                                Expression {
+                                    kind: Identifier(
+                                        "0",
+                                    ),
+                                    lnum: 15,
+                                    col: 11,
+                                },
+                            ),
+                        },
+                        lnum: 15,
+                        col: 4,
+                    },
+                ],
+            },
+        ),
+        lnum: 9,
+        col: 0,
+    },
+]

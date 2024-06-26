@@ -1,0 +1,138 @@
+[
+    Statement {
+        kind: Function(
+            Function {
+                prototype: Prototype {
+                    name: "add",
+                    arguments: [
+                        (
+                            "a",
+                            Int,
+                        ),
+                        (
+                            "b",
+                            Int,
+                        ),
+                    ],
+                    return_type: Float,
+                },
+                body: [
+                    Statement {
+                        kind: Return {
+                            return_value: Some(
+                                Expression {
+                                    kind: Binary {
+                                        lhs: Expression {
+                                            kind: Identifier(
+                                                "a",
+                                            ),
+                                            lnum: 1,
+                                            col: 11,
+                                        },
+                                        operation: Add,
+                                        rhs: Expression {
+                                            kind: Identifier(
+                                                "b",
+                                            ),
+                                            lnum: 1,
+                                            col: 15,
+                                        },
+                                    },
+                                    lnum: 1,
+                                    col: 15,
+                                },
+                            ),
+                        },
+                        lnum: 1,
+                        col: 4,
+                    },
+                ],
+            },
+        ),
+        lnum: 0,
+        col: 0,
+    },
+    Statement {
+        kind: Function(
+            Function {
+                prototype: Prototype {
+                    name: "main",
+                    arguments: [],
+                    return_type: Void,
+                },
+                body: [
+                    Statement {
+                        kind: Expression(
+                            Expression {
+                                kind: Call {
+                                    callee: "puts",
+                                    arguments: [
+                                        Expression {
+                                            kind: LiteralValue(
+                                                "aekeifjaiojeioffj\\n",
+                                            ),
+                                            lnum: 5,
+                                            col: 9,
+                                        },
+                                    ],
+                                },
+                                lnum: 5,
+                                col: 4,
+                            },
+                        ),
+                        lnum: 5,
+                        col: 4,
+                    },
+                    Statement {
+                        kind: Expression(
+                            Expression {
+                                kind: Call {
+                                    callee: "puts",
+                                    arguments: [
+                                        Expression {
+                                            kind: Call {
+                                                callee: "gets",
+                                                arguments: [
+                                                    Expression {
+                                                        kind: LiteralValue(
+                                                            "aekeifjaiojeioffj",
+                                                        ),
+                                                        lnum: 6,
+                                                        col: 14,
+                                                    },
+                                                ],
+                                            },
+                                            lnum: 6,
+                                            col: 9,
+                                        },
+                                    ],
+                                },
+                                lnum: 6,
+                                col: 4,
+                            },
+                        ),
+                        lnum: 6,
+                        col: 4,
+                    },
+                    Statement {
+                        kind: Return {
+                            return_value: Some(
+                                Expression {
+                                    kind: Identifier(
+                                        "0",
+                                    ),
+                                    lnum: 7,
+                                    col: 11,
+                                },
+                            ),
+                        },
+                        lnum: 7,
+                        col: 4,
+                    },
+                ],
+            },
+        ),
+        lnum: 4,
+        col: 0,
+    },
+]

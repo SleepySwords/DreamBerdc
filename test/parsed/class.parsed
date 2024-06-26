@@ -1,0 +1,271 @@
+[
+    Statement {
+        kind: Class(
+            Class {
+                fields: [
+                    FieldDeclaration {
+                        name: "sName",
+                        mutable: Mutable(
+                            0x0,
+                        ),
+                        field_type: Some(
+                            Array(
+                                Byte,
+                                10,
+                            ),
+                        ),
+                        initialiser: Some(
+                            Expression {
+                                kind: LiteralValue(
+                                    "Lu",
+                                ),
+                                lnum: 1,
+                                col: 34,
+                            },
+                        ),
+                        visibility: Public,
+                    },
+                    FieldDeclaration {
+                        name: "ok",
+                        mutable: Mutable(
+                            Reassignable | Modifiable,
+                        ),
+                        field_type: Some(
+                            Int,
+                        ),
+                        initialiser: Some(
+                            Expression {
+                                kind: Identifier(
+                                    "20",
+                                ),
+                                lnum: 2,
+                                col: 22,
+                            },
+                        ),
+                        visibility: Public,
+                    },
+                    FieldDeclaration {
+                        name: "allal",
+                        mutable: Mutable(
+                            Reassignable,
+                        ),
+                        field_type: Some(
+                            Long,
+                        ),
+                        initialiser: None,
+                        visibility: Public,
+                    },
+                ],
+                name: "Test",
+            },
+        ),
+        lnum: 0,
+        col: 0,
+    },
+    Statement {
+        kind: Function(
+            Function {
+                prototype: Prototype {
+                    name: "main",
+                    arguments: [],
+                    return_type: Void,
+                },
+                body: [
+                    Statement {
+                        kind: Declaration(
+                            Declaration {
+                                mutable: Mutable(
+                                    0x0,
+                                ),
+                                var_type: None,
+                                lhs: "sName",
+                                rhs: Expression {
+                                    kind: LiteralValue(
+                                        "Lu",
+                                    ),
+                                    lnum: 7,
+                                    col: 24,
+                                },
+                            },
+                        ),
+                        lnum: 7,
+                        col: 4,
+                    },
+                    Statement {
+                        kind: Declaration(
+                            Declaration {
+                                mutable: Mutable(
+                                    0x0,
+                                ),
+                                var_type: None,
+                                lhs: "iAge",
+                                rhs: Expression {
+                                    kind: Identifier(
+                                        "29",
+                                    ),
+                                    lnum: 8,
+                                    col: 23,
+                                },
+                            },
+                        ),
+                        lnum: 8,
+                        col: 4,
+                    },
+                    Statement {
+                        kind: Declaration(
+                            Declaration {
+                                mutable: Mutable(
+                                    0x0,
+                                ),
+                                var_type: None,
+                                lhs: "gfScore",
+                                rhs: Expression {
+                                    kind: Identifier(
+                                        "4.5",
+                                    ),
+                                    lnum: 10,
+                                    col: 26,
+                                },
+                            },
+                        ),
+                        lnum: 10,
+                        col: 4,
+                    },
+                    Statement {
+                        kind: Expression(
+                            Expression {
+                                kind: Call {
+                                    callee: "printf",
+                                    arguments: [
+                                        Expression {
+                                            kind: LiteralValue(
+                                                "%s",
+                                            ),
+                                            lnum: 12,
+                                            col: 11,
+                                        },
+                                        Expression {
+                                            kind: Identifier(
+                                                "sName",
+                                            ),
+                                            lnum: 12,
+                                            col: 17,
+                                        },
+                                    ],
+                                },
+                                lnum: 12,
+                                col: 4,
+                            },
+                        ),
+                        lnum: 12,
+                        col: 4,
+                    },
+                    Statement {
+                        kind: Expression(
+                            Expression {
+                                kind: Call {
+                                    callee: "putchar",
+                                    arguments: [
+                                        Expression {
+                                            kind: Identifier(
+                                                "10",
+                                            ),
+                                            lnum: 13,
+                                            col: 12,
+                                        },
+                                    ],
+                                },
+                                lnum: 13,
+                                col: 4,
+                            },
+                        ),
+                        lnum: 13,
+                        col: 4,
+                    },
+                    Statement {
+                        kind: Expression(
+                            Expression {
+                                kind: Call {
+                                    callee: "printf",
+                                    arguments: [
+                                        Expression {
+                                            kind: LiteralValue(
+                                                "%d",
+                                            ),
+                                            lnum: 14,
+                                            col: 11,
+                                        },
+                                        Expression {
+                                            kind: Identifier(
+                                                "iAge",
+                                            ),
+                                            lnum: 14,
+                                            col: 17,
+                                        },
+                                    ],
+                                },
+                                lnum: 14,
+                                col: 4,
+                            },
+                        ),
+                        lnum: 14,
+                        col: 4,
+                    },
+                    Statement {
+                        kind: Expression(
+                            Expression {
+                                kind: Call {
+                                    callee: "putchar",
+                                    arguments: [
+                                        Expression {
+                                            kind: Identifier(
+                                                "10",
+                                            ),
+                                            lnum: 15,
+                                            col: 12,
+                                        },
+                                    ],
+                                },
+                                lnum: 15,
+                                col: 4,
+                            },
+                        ),
+                        lnum: 15,
+                        col: 4,
+                    },
+                    Statement {
+                        kind: Expression(
+                            Expression {
+                                kind: Call {
+                                    callee: "printf",
+                                    arguments: [
+                                        Expression {
+                                            kind: LiteralValue(
+                                                "%.2f",
+                                            ),
+                                            lnum: 16,
+                                            col: 11,
+                                        },
+                                        Expression {
+                                            kind: Identifier(
+                                                "gfScore",
+                                            ),
+                                            lnum: 16,
+                                            col: 19,
+                                        },
+                                    ],
+                                },
+                                lnum: 16,
+                                col: 4,
+                            },
+                        ),
+                        lnum: 16,
+                        col: 4,
+                    },
+                ],
+            },
+        ),
+        lnum: 6,
+        col: 0,
+    },
+]

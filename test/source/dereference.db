@@ -1,0 +1,6 @@
+function main(): int => {
+	var var hi: long* = "Hello thereeoijfaoje!"!
+	puts("")!
+	printf("Test: %d", *hi)!
+	return 0!
+}

@@ -156,12 +156,14 @@ pub struct Function {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(test, derive(serde::Deserialize))]
 pub struct Class {
     pub fields: Vec<FieldDeclaration>,
     pub(crate) name: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(test, derive(serde::Deserialize))]
 pub struct FieldDeclaration {
     pub name: String,
     pub mutable: Mutable,
@@ -171,6 +173,7 @@ pub struct FieldDeclaration {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(test, derive(serde::Deserialize))]
 pub enum Visibility {
     Public,
     Private,

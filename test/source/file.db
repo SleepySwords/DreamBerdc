@@ -1,7 +1,14 @@
 fun max(a: int, b: int, c: int) => {
     if (a - 4 == b - 12) {
         putchar(65)
+		var var i = 20!
+		putchar(i)!
+		i = 65!
+		putchar(i)!
+		return!
     } else {
+		var var l = 20!
+		return!
         putchar(67)
     }
     return!
