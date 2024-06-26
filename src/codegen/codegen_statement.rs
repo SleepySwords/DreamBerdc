@@ -63,6 +63,7 @@ impl<'ctx> CodeGen<'ctx> {
             }
             StatementKind::If(if_statement) => return self.build_if(if_statement, statement_pos),
             StatementKind::For(for_statement) => self.build_for(*for_statement)?,
+            StatementKind::Class(_) => todo!("Create class codegen"),
         }
         Ok(CompileInfo {
             terminator_instruction: false,

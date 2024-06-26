@@ -102,6 +102,8 @@ pub enum StatementKind {
     If(IfStatement),
     For(Box<ForStatement>),
     Function(Function),
+    Class(Class), // FIXME: while this is supported in JS, there is debate whether this is actually
+                  // valid.
     Return { return_value: Option<Expression> },
     Expression(Expression),
 }
@@ -151,4 +153,26 @@ pub struct Prototype {
 pub struct Function {
     pub prototype: Prototype,
     pub body: Vec<Statement>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Class {
+    pub fields: Vec<FieldDeclaration>,
+    pub(crate) name: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FieldDeclaration {
+    pub name: String,
+    pub mutable: Mutable,
+    pub field_type: Option<Type>,
+    pub initialiser: Option<Expression>,
+    pub visibility: Visibility
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Visibility {
+    Public,
+    Private,
+    Protected,
 }

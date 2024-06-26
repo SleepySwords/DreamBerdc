@@ -79,6 +79,7 @@ pub enum TokenKind {
     If,
     Else,
     For,
+    Class,
     //     Unkown,
 }
 
@@ -237,6 +238,7 @@ impl Lexer {
                         "if" => TokenKind::If,
                         "else" => TokenKind::Else,
                         "for" => TokenKind::For,
+                        "class" => TokenKind::Class,
                         i => {
                             if "function".contains(i) {
                                 // NOTE: this should work with current functionality, however

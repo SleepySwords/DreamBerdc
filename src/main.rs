@@ -56,7 +56,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let mut statements = Vec::new();
     while !parser.peek().is_some_and(|f| *f == TokenKind::Eof) {
-        let function = match parser.parse_function() {
+        let function = match parser.parse_top_level_declaration() {
             Ok(func) => func,
             Err(e) => {
                 println!("{}", e);

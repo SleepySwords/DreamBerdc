@@ -4,8 +4,9 @@ use core::panic;
 
 use crate::{
     ast::{
-        BinOperation, Declaration, Expression, ExpressionKind, ForStatement, Function, IfStatement,
-        Prototype, SourcePosition, Statement, StatementKind, UnaryOperation,
+        BinOperation, Class, Declaration, Expression, ExpressionKind, FieldDeclaration,
+        ForStatement, Function, IfStatement, Prototype, SourcePosition, Statement, StatementKind,
+        UnaryOperation,
     },
     compile_error::CompilerError,
     lexer::{Token, TokenKind},
@@ -453,6 +454,75 @@ impl Parser {
         ))
     }
 
+    pub fn parse_top_level_declaration(&mut self) -> Result<Statement, CompilerError> {
+        let pos = self.current_pos();
+        match self.peek() {
+            Some(&TokenKind::Function) => self.parse_function(),
+            Some(&TokenKind::Class) => self.parse_class(),
+            _ => {
+                return Err(CompilerError::syntax_error(
+                    pos,
+                    "Expected top-level declaration here.",
+                ))
+            }
+        }
+    }
+
+    pub fn parse_class(&mut self) -> Result<Statement, CompilerError> {
+        let pos = self.current_pos();
+        let mut fields = vec![];
+        self.expect(TokenKind::Class)?;
+        let Some(TokenKind::Symbol(name)) = self.next() else {
+            return Err(CompilerError::syntax_error(pos, "Invalid name"));
+        };
+        self.expect(TokenKind::OpenCurB)?;
+        while !self.check(TokenKind::CloseCurB) {
+            fields.push(self.parse_field_declaration()?);
+        }
+        self.expect(TokenKind::CloseCurB)?;
+        return Ok(Statement::from_pos(
+            StatementKind::Class(Class { name, fields }),
+            pos,
+        ));
+    }
+
+    pub fn parse_field_declaration(&mut self) -> Result<FieldDeclaration, CompilerError> {
+        // FIXME: add visibility stuff as well...
+        let decl_pos = self.current_pos();
+        let flags = self.parse_mutable()?;
+        let Some(TokenKind::Symbol(name)) = self.next() else {
+            return Err(CompilerError::syntax_error(
+                decl_pos,
+                "Expected declaration name",
+            ));
+        };
+
+        let field_type = if self.check(TokenKind::Colon) {
+            self.expect(TokenKind::Colon)?;
+            Some(self.parse_type()?)
+        } else {
+            None
+        };
+
+        let initialiser = if self.check(TokenKind::Eq) {
+            self.expect(TokenKind::Eq)?;
+            Some(self.parse_expression()?)
+        } else {
+            None
+        };
+
+        self.consume_bang();
+
+        return Ok(FieldDeclaration {
+            name,
+            field_type,
+            initialiser,
+            mutable: flags,
+            visibility: crate::ast::Visibility::Public,
+        });
+    }
+
+    // FIXME: higher level declarations first?
     pub fn parse_function(&mut self) -> Result<Statement, CompilerError> {
         let function_pos = self.current_pos();
         let prototype = self.parse_prototype()?;
@@ -555,8 +625,7 @@ impl Parser {
         Ok(statements)
     }
 
-    pub fn parse_declaration(&mut self) -> Result<Statement, CompilerError> {
-        let declaration_pos = self.current_pos();
+    pub fn parse_mutable(&mut self) -> Result<Mutable, CompilerError> {
         let mut flags = Mutable::NONE;
         let pos = self.current_pos();
         let first_op = self.next().ok_or_else(|| {
@@ -581,6 +650,12 @@ impl Parser {
         if second_op == TokenKind::Var {
             flags |= Mutable::Modifiable;
         }
+        return Ok(flags);
+    }
+
+    pub fn parse_declaration(&mut self) -> Result<Statement, CompilerError> {
+        let declaration_pos = self.current_pos();
+        let flags = self.parse_mutable()?;
 
         let symbol_pos = self.current_pos();
         let expression = self.next();
