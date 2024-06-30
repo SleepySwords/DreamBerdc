@@ -2,8 +2,6 @@
 // To clean all the peek and next.
 use core::panic;
 
-use clap::ValueEnum;
-
 use crate::{
     ast::{
         BinOperation, Class, Declaration, Expression, ExpressionKind, FieldDeclaration,

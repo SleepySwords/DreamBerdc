@@ -249,6 +249,25 @@ impl<'ctx> CodeGen<'ctx> {
                 }
                 UnaryOperation::Not => todo!(),
             },
+            ExpressionKind::Instantiation(inst_type) => {
+                if let Type::Array(arr_type, size) = inst_type {
+                    // (0..size).into_iter().map(|f| arr_type.basic_type_enum(inst))
+                    let ptr = self
+                        .builder
+                        .build_array_alloca(
+                            arr_type.basic_type_enum(self.context).unwrap(),
+                            self.context.i8_type().const_int(size as u64, false),
+                            "array_init",
+                        )
+                        .unwrap();
+                    Ok(Value {
+                        value_type: Some(crate::types::Type::Array(Box::new(Type::Byte), size)),
+                        value: ptr.into(),
+                    })
+                } else {
+                    todo!("Currently not supporting instantiation of other types.")
+                }
+            }
             _ => todo!(),
         }
     }
