@@ -145,19 +145,11 @@ impl Parser {
             }
         );
 
-        // NOTE: the method called consumes the tokens, so they cannot be used as above.
+        // NOTE: Methods here consume their tokens by themselves, so they cannot
+        // be used as above, because the above consumes the tokens.
         match self.peek() {
             Some(&TokenKind::OpenSqB) => self.parse_array(),
-            Some(&TokenKind::Symbol(_) | &TokenKind::OpenPar | &TokenKind::Dash) => {
-                self.parse_equality()
-            }
-            tkn => Err(CompilerError::SyntaxError(
-                expression_pos,
-                format!(
-                    "Expected expression, found {}",
-                    tkn.map_or("none".to_string(), |f| format!("{:?}", f))
-                ),
-            )),
+            _ => self.parse_equality(),
         }
     }
 
@@ -338,13 +330,13 @@ impl Parser {
                 }
                 tkn => Err(CompilerError::syntax_error(
                     self.previous_pos(),
-                    format!("Expected value, found {:?}", tkn),
+                    format!("Expected expression, found {:?}", tkn),
                 )),
             };
         }
         Err(CompilerError::syntax_error(
             self.current_pos(),
-            "Expected value, found none",
+            "Expected expression, found none",
         ))
     }
 
