@@ -1,8 +1,10 @@
 use inkwell::{types::BasicMetadataTypeEnum, values::FunctionValue, IntPredicate};
+use itertools::Itertools;
 
 use crate::{
     ast::{
-        Declaration, ForStatement, Function, IfStatement, SourcePosition, Statement, StatementKind,
+        Class, Declaration, ForStatement, Function, IfStatement, SourcePosition, Statement,
+        StatementKind,
     },
     compile_error::CompilerError,
     types::Type,
@@ -63,11 +65,27 @@ impl<'ctx> CodeGen<'ctx> {
             }
             StatementKind::If(if_statement) => return self.build_if(if_statement, statement_pos),
             StatementKind::For(for_statement) => self.build_for(*for_statement)?,
-            StatementKind::Class(_) => todo!("Create class codegen"),
+            StatementKind::Class(c) => self.build_class(c),
         }
         Ok(CompileInfo {
             terminator_instruction: false,
         })
+    }
+
+    pub fn build_class(&mut self, class: Class) {
+        let class_type = self.context.opaque_struct_type(&class.name);
+        class_type.set_body(
+            &class
+                .fields
+                .iter()
+                .map(|f| f.field_type.basic_type_enum(self.context).unwrap())
+                .collect_vec(),
+            false,
+        );
+
+        self.symbol_table
+            .class_table
+            .insert(class.name.clone(), class);
     }
 
     pub fn build_function_declaration(

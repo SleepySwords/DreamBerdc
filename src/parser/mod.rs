@@ -2,6 +2,8 @@
 // To clean all the peek and next.
 use core::panic;
 
+use clap::ValueEnum;
+
 use crate::{
     ast::{
         BinOperation, Class, Declaration, Expression, ExpressionKind, FieldDeclaration,
@@ -145,10 +147,10 @@ impl Parser {
 
         // NOTE: the method called consumes the tokens, so they cannot be used as above.
         match self.peek() {
+            Some(&TokenKind::OpenSqB) => self.parse_array(),
             Some(&TokenKind::Symbol(_) | &TokenKind::OpenPar | &TokenKind::Dash) => {
                 self.parse_equality()
             }
-            Some(&TokenKind::OpenSqB) => self.parse_array(),
             tkn => Err(CompilerError::SyntaxError(
                 expression_pos,
                 format!(
@@ -322,6 +324,13 @@ impl Parser {
                     ExpressionKind::LiteralValue(str),
                     self.current_pos(),
                 )),
+                TokenKind::New => {
+                    let instance_type = self.parse_type()?;
+                    return Ok(Expression::from_pos(
+                        ExpressionKind::Instantiation(instance_type),
+                        value_pos,
+                    ));
+                }
                 TokenKind::OpenPar => {
                     let exp = self.parse_expression()?;
                     self.expect(TokenKind::ClosePar)?;
@@ -497,12 +506,8 @@ impl Parser {
             ));
         };
 
-        let field_type = if self.check(TokenKind::Colon) {
-            self.expect(TokenKind::Colon)?;
-            Some(self.parse_type()?)
-        } else {
-            None
-        };
+        self.expect(TokenKind::Colon)?;
+        let field_type = self.parse_type()?;
 
         let initialiser = if self.check(TokenKind::Eq) {
             self.expect(TokenKind::Eq)?;

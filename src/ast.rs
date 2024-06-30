@@ -50,6 +50,7 @@ pub enum ExpressionKind {
     LiteralValue(String),
     Identifier(String),
     Array(Vec<Expression>),
+    Instantiation(Type),
     Unknown,
 }
 
@@ -167,7 +168,7 @@ pub struct Class {
 pub struct FieldDeclaration {
     pub name: String,
     pub mutable: Mutable,
-    pub field_type: Option<Type>,
+    pub field_type: Type,
     pub initialiser: Option<Expression>,
     pub visibility: Visibility
 }

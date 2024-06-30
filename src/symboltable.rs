@@ -3,13 +3,13 @@ use std::collections::{HashMap, VecDeque};
 use inkwell::values::{BasicValueEnum, PointerValue};
 
 use crate::{
-    types::{Type, Variable},
-    utils::Mutable,
+    ast::Class, types::{Type, Variable}, utils::Mutable
 };
 
 pub struct SymbolTable<'ctx> {
     symbol_table: VecDeque<HashMap<String, BasicValueEnum<'ctx>>>,
     ptr_symbol_table: VecDeque<HashMap<String, Variable<'ctx>>>,
+    pub class_table: HashMap<String, Class>,
 }
 
 impl<'a> SymbolTable<'a> {
@@ -23,6 +23,7 @@ impl<'a> SymbolTable<'a> {
         SymbolTable {
             symbol_table,
             ptr_symbol_table,
+            class_table: HashMap::new(),
         }
     }
 
