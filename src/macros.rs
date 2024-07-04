@@ -39,3 +39,31 @@ macro_rules! parse_sequence {
         )*
     };
 }
+
+macro_rules! if_parsable {
+    ($self:ident, ($($x:pat $(if $opt_ex:expr)?),*) $y: expr; else $e: expr) => {
+        'block: {
+            let mut count = 0;
+            $(
+              #[allow(unused_assignments, unused_variables)]
+                if let Some($x) = $self.peek_forward(count) {
+                    $(
+                        if !$opt_ex {
+                            break 'block ($e);
+                        }
+                    )?
+                    count += 1;
+                } else {
+                    break 'block ($e);
+                }
+
+            )*
+            $(
+                let Some($x) = $self.next() else {
+                     panic!("This should not happen")
+                };
+            )*
+            $y
+        }
+    };
+}

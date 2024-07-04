@@ -1,12 +1,13 @@
 // FIXME: create a take if match macro
 // To clean all the peek and next.
 mod parser_class;
+mod parser_function;
 mod parser_ops;
 
 use crate::{
     ast::{
-        Declaration, Expression, ExpressionKind, ForStatement, Function, IfStatement, Prototype,
-        SourcePosition, Statement, StatementKind,
+        Declaration, Expression, ExpressionKind, ForStatement, IfStatement, SourcePosition,
+        Statement, StatementKind,
     },
     compile_error::CompilerError,
     lexer::{Token, TokenKind},
@@ -96,38 +97,40 @@ impl Parser {
         }
     }
 
+    pub fn parse_assignment(&mut self) -> Result<Expression, CompilerError> {
+        let expression_pos = self.current_pos();
+        let expr = self.parse_equality()?;
+
+        if self.check(TokenKind::Eq) || self.peek().is_some_and(|f| f.is_compound()) {
+            let token = self.next().unwrap();
+            let rhs = self.parse_expression()?;
+
+            let rhs = if token.is_compound() {
+                let binary = ExpressionKind::Binary {
+                    lhs: Box::new(expr.clone()),
+                    operation: token.operation_compound().unwrap(),
+                    rhs: Box::new(rhs.clone()),
+                };
+                Expression::from_pos(binary, expression_pos)
+            } else {
+                expr.clone()
+            };
+
+            return Ok(Expression::from_pos(
+                ExpressionKind::Assignment {
+                    lhs: Box::new(expr),
+                    rhs: Box::new(rhs),
+                },
+                expression_pos,
+            ));
+        }
+        return Ok(expr);
+    }
+
     pub fn parse_expression(&mut self) -> Result<Expression, CompilerError> {
         let expression_pos = self.current_pos();
 
         parse_sequence!(self,
-            (TokenKind::Symbol(lhs), TokenKind::Eq) => {
-                let rhs = self.parse_expression()?;
-                return Ok(Expression::from_pos(
-                    ExpressionKind::Assignment {
-                        lhs,
-                        rhs: Box::new(rhs),
-                    },
-                    expression_pos,
-                ));
-            },
-            (TokenKind::Symbol(lhs), operation if operation.is_compound()) => {
-                let rhs = self.parse_expression()?;
-                let binary = ExpressionKind::Binary {
-                    lhs: Box::new(Expression::from_pos(
-                        ExpressionKind::Identifier(lhs.clone()),
-                        expression_pos,
-                    )),
-                    operation: operation.operation_compound().unwrap(),
-                    rhs: Box::new(rhs),
-                };
-                return Ok(Expression::from_pos(
-                    ExpressionKind::Assignment {
-                        lhs,
-                        rhs: Box::new(Expression::from_pos(binary, expression_pos)),
-                    },
-                    expression_pos,
-                ))
-            },
             (TokenKind::String(str)) => {
                 return Ok(Expression::from_pos(
                     ExpressionKind::LiteralValue(str),
@@ -147,10 +150,9 @@ impl Parser {
         // be used as above, because the above consumes the tokens.
         match self.peek() {
             Some(&TokenKind::OpenSqB) => self.parse_array(),
-            _ => self.parse_equality(),
+            _ => self.parse_assignment(),
         }
     }
-
 
     pub fn parse_if(&mut self) -> Result<Statement, CompilerError> {
         let if_pos = self.current_pos();
@@ -233,83 +235,6 @@ impl Parser {
                 "Expected top-level declaration here.",
             )),
         }
-    }
-
-    // FIXME: higher level declarations first?
-    pub fn parse_function(&mut self) -> Result<Statement, CompilerError> {
-        let function_pos = self.current_pos();
-        let prototype = self.parse_prototype()?;
-        self.expect(TokenKind::Arrow)?;
-        let body = if let Some(TokenKind::OpenCurB) = self.peek() {
-            self.parse_body()?
-        } else {
-            // TODO: Should this be a parse_statement?
-            // Is `function main() => function hi() => {}`
-            // valid?
-            let expression_pos = self.current_pos();
-            vec![Statement::from_pos(
-                StatementKind::Expression(self.parse_expression()?),
-                expression_pos,
-            )]
-        };
-        Ok(Statement::from_pos(
-            StatementKind::Function(Function { prototype, body }),
-            function_pos,
-        ))
-    }
-
-    pub fn parse_prototype(&mut self) -> Result<Prototype, CompilerError> {
-        self.expect(TokenKind::Function)?;
-
-        let Some(TokenKind::Symbol(function_name)) = self.next() else {
-            return Err(CompilerError::syntax_error(
-                self.previous_pos(),
-                "Invalid state: expected to parse prototype, but did not find name, report this error",
-            ));
-        };
-
-        self.expect(TokenKind::OpenPar)?;
-
-        let mut arguments = Vec::new();
-        while let Some(t) = self.next() {
-            match t {
-                TokenKind::ClosePar if self.check(TokenKind::Colon) => {
-                    self.next();
-                    return Ok(Prototype {
-                        name: function_name,
-                        arguments,
-                        return_type: self.parse_type()?,
-                    });
-                }
-                TokenKind::ClosePar => {
-                    return Ok(Prototype {
-                        name: function_name,
-                        arguments,
-                        return_type: Type::Void,
-                    })
-                }
-                TokenKind::Symbol(arg) => {
-                    self.expect(TokenKind::Colon)?;
-                    arguments.push((arg, self.parse_type()?));
-                    if self.check(TokenKind::ClosePar) {
-                        continue;
-                    } else {
-                        self.expect(TokenKind::Comma)?;
-                    }
-                }
-                t => {
-                    return Err(CompilerError::SyntaxError(
-                        self.previous_pos(),
-                        format!("Expected symbol, found {:?}", t),
-                    ));
-                }
-            }
-        }
-
-        Err(CompilerError::syntax_error(
-            self.previous_pos(),
-            "Unexpected end of file",
-        ))
     }
 
     pub fn parse_body(&mut self) -> Result<Vec<Statement>, CompilerError> {
@@ -406,18 +331,6 @@ impl Parser {
                 String::from("Expected '=' in the declaration."),
             ))
         }
-    }
-
-    fn parse_return(&mut self) -> Result<Statement, CompilerError> {
-        let return_pos = self.current_pos();
-        self.expect(TokenKind::Return)?;
-        let return_value = self.parse_expression().ok();
-        // Should probably be in statement
-        self.optional(TokenKind::Bang);
-        Ok(Statement::from_pos(
-            StatementKind::Return { return_value },
-            return_pos,
-        ))
     }
 
     fn parse_array(&mut self) -> Result<Expression, CompilerError> {

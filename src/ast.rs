@@ -39,7 +39,7 @@ pub enum ExpressionKind {
         arguments: Vec<Expression>,
     },
     Assignment {
-        lhs: String,
+        lhs: Box<Expression>,
         rhs: Box<Expression>,
     },
     Dereference(Box<Expression>),

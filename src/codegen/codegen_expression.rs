@@ -37,10 +37,21 @@ impl<'ctx> CodeGen<'ctx> {
                 // (that are dereferenced) must implement the concept of l-values
                 // This also included actually storing the value
                 // rather than loading the ptr
-                let Some(var) = self.symbol_table.fetch_variable(&lhs) else {
+                //
+                // NOTE: it's debatable whether we throw the l-value error in
+                // code generation or in parsing. We might also want to use a
+                // different operation for assigning struct values (eg: set)
+                let ExpressionKind::Identifier(lhs_id) = &lhs.kind else {
                     return Err(CompilerError::code_gen_error(
                         expression_pos,
-                        format!("Unknown varaible: {}", lhs),
+                        format!("Expected an l-value, found {:?}.", lhs),
+                    ));
+                };
+
+                let Some(var) = self.symbol_table.fetch_variable(&lhs_id) else {
+                    return Err(CompilerError::code_gen_error(
+                        expression_pos,
+                        format!("Unknown varaible: {}", lhs_id),
                     ));
                 };
                 let t = var.value_type.clone();
