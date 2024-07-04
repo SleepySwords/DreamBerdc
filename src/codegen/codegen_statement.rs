@@ -1,9 +1,5 @@
-
 use crate::{
-    ast::{
-        Statement,
-        StatementKind,
-    },
+    ast::{Statement, StatementKind},
     compile_error::CompilerError,
     types::Type,
 };
@@ -32,7 +28,7 @@ impl<'ctx> CodeGen<'ctx> {
                 };
                 let variable = self
                     .builder
-                    .build_alloca(basic_type_enum, &declaration.lhs)?;
+                    .build_alloca(basic_type_enum, &(declaration.lhs.clone() + "_var"))?;
 
                 self.create_debug_variable(variable, declaration.lhs.clone(), statement_pos);
 

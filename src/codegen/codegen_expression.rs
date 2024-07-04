@@ -2,7 +2,7 @@ use std::cmp::Ordering;
 
 use inkwell::{
     types::{BasicType, BasicTypeEnum},
-    values::{ArrayValue, BasicMetadataValueEnum, BasicValueEnum},
+    values::{ArrayValue, BasicMetadataValueEnum, BasicValueEnum, PointerValue},
     FloatPredicate, IntPredicate,
 };
 use itertools::Itertools;
@@ -41,27 +41,40 @@ impl<'ctx> CodeGen<'ctx> {
                 // NOTE: it's debatable whether we throw the l-value error in
                 // code generation or in parsing. We might also want to use a
                 // different operation for assigning struct values (eg: set)
-                let ExpressionKind::Identifier(lhs_id) = &lhs.kind else {
+                let (ptr, t) = if let ExpressionKind::Identifier(lhs_id) = &lhs.kind {
+                    let Some(var) = self.symbol_table.fetch_variable(&lhs_id) else {
+                        return Err(CompilerError::code_gen_error(
+                            expression_pos,
+                            format!("Unknown varaible: {}", lhs_id),
+                        ));
+                    };
+                    let t = var.value_type.clone();
+                    if !var.mutability.contains(Mutable::Reassignable) {
+                        return Err(CompilerError::code_gen_error(
+                            expression_pos,
+                            "Cannot reassign a constant variable",
+                        ));
+                    }
+                    (var.pointer(), t)
+                } else if let ExpressionKind::IndexOperator { expression, index } = lhs.kind {
+                    let index = self.build_expression(*index)?;
+                    let value = self.build_expression(*expression)?;
+
+                    let value_type = value.value_type.clone().unwrap();
+                    let ptr = self.get_array_ptr(value, index, expression_pos)?;
+
+                    (ptr, value_type)
+                } else {
                     return Err(CompilerError::code_gen_error(
                         expression_pos,
                         format!("Expected an l-value, found {:?}.", lhs),
                     ));
                 };
 
-                let Some(var) = self.symbol_table.fetch_variable(&lhs_id) else {
-                    return Err(CompilerError::code_gen_error(
-                        expression_pos,
-                        format!("Unknown varaible: {}", lhs_id),
-                    ));
-                };
-                let t = var.value_type.clone();
-                if !var.mutability.contains(Mutable::Reassignable) {
-                    return Err(CompilerError::code_gen_error(
-                        expression_pos,
-                        "Cannot reassign a constant variable",
-                    ));
-                }
-                let ptr = var.pointer();
+                // FIXME: Type coercion MUST be implemented here there is an
+                // issue where an array would have elements that is a different
+                // size to what is being assigned and actually
+                // override the other values in the array ...
                 let expression = self.build_expression(*rhs)?;
                 self.builder.build_store(ptr, expression.value)?;
                 Ok(Value {
@@ -167,67 +180,22 @@ impl<'ctx> CodeGen<'ctx> {
                 }
             }
             ExpressionKind::IndexOperator { expression, index } => {
-                let index = self.build_expression(*index)?.value.into_int_value();
+                let index = self.build_expression(*index)?;
                 let value = self.build_expression(*expression)?;
-                let updated_index = self.builder.build_int_add(
-                    index,
-                    self.context.i32_type().const_int(1, false),
-                    "addIndex",
-                )?;
-                if value.value.is_pointer_value() {
-                    if let Some(Type::Array(element_t, size)) = &value.value_type {
-                        let t: BasicTypeEnum = element_t
-                            .basic_type_enum(self.context)
-                            .unwrap()
-                            .array_type(*size)
-                            .into();
-                        let element_t: BasicTypeEnum =
-                            element_t.basic_type_enum(self.context).unwrap();
-                        unsafe {
-                            let array_ptr = self.builder.build_in_bounds_gep(
-                                t,
-                                value.value.into_pointer_value(),
-                                &[self.context.i64_type().const_zero(), updated_index],
-                                "build store",
-                            )?;
-                            Value::from_none(Ok(self.builder.build_load(
-                                element_t,
-                                array_ptr,
-                                "dereference",
-                            )?))
-                        }
-                    } else if let Some(Type::Pointer(element_t)) = &value.value_type {
-                        let t: BasicTypeEnum = element_t.basic_type_enum(self.context).unwrap();
-                        let element_t: BasicTypeEnum =
-                            element_t.basic_type_enum(self.context).unwrap();
-                        unsafe {
-                            let reference = self.builder.build_in_bounds_gep(
-                                t,
-                                value.value.into_pointer_value(),
-                                &[updated_index],
-                                "build store",
-                            )?;
-                            Value::from_none(Ok(self.builder.build_load(
-                                element_t,
-                                reference,
-                                "dereference",
-                            )?))
-                        }
-                    } else {
-                        Err(CompilerError::CodeGenError(
-                            expression_pos,
-                            format!("Array type expected, found {:?}", value.value_type),
-                        ))
-                    }
+
+                let typ = if let Some(Type::Array(element_t, _)) = &value.value_type {
+                    element_t.basic_type_enum(self.context).unwrap()
+                } else if let Some(Type::Pointer(element_t)) = &value.value_type {
+                    element_t.basic_type_enum(self.context).unwrap()
                 } else {
-                    Err(CompilerError::CodeGenError(
+                    return Err(CompilerError::CodeGenError(
                         expression_pos,
-                        format!(
-                            "Attempted to index a type other than an array, found value {}",
-                            value.value.get_type()
-                        ),
-                    ))
-                }
+                        format!("Array type expected, found {:?}", value.value_type),
+                    ));
+                };
+
+                let ptr = self.get_array_ptr(value, index, expression_pos)?;
+                return Value::from_none(Ok(self.builder.build_load(typ, ptr, "load_value")?));
             }
             ExpressionKind::Unary {
                 operation,
@@ -267,12 +235,12 @@ impl<'ctx> CodeGen<'ctx> {
                         .builder
                         .build_array_alloca(
                             arr_type.basic_type_enum(self.context).unwrap(),
-                            self.context.i8_type().const_int(size as u64, false),
+                            self.context.i32_type().const_int(size as u64, false),
                             "array_init",
                         )
                         .unwrap();
                     Ok(Value {
-                        value_type: Some(crate::types::Type::Array(Box::new(Type::Byte), size)),
+                        value_type: Some(Type::Array(arr_type, size)),
                         value: ptr.into(),
                     })
                 } else {
@@ -280,6 +248,62 @@ impl<'ctx> CodeGen<'ctx> {
                 }
             }
             _ => todo!(),
+        }
+    }
+
+    pub fn get_array_ptr(
+        &mut self,
+        value: Value<'ctx>,
+        index: Value<'ctx>,
+        expression_pos: SourcePosition,
+    ) -> Result<PointerValue<'ctx>, CompilerError> {
+        let index = index.value.into_int_value();
+        let updated_index = self.builder.build_int_add(
+            index,
+            self.context.i32_type().const_int(1, false),
+            "addIndex",
+        )?;
+        if value.value.is_pointer_value() {
+            if let Some(Type::Array(element_t, size)) = &value.value_type {
+                let t: BasicTypeEnum = element_t
+                    .basic_type_enum(self.context)
+                    .unwrap()
+                    .array_type(*size)
+                    .into();
+                unsafe {
+                    let array_ptr = self.builder.build_in_bounds_gep(
+                        t,
+                        value.value.into_pointer_value(),
+                        &[self.context.i64_type().const_zero(), updated_index],
+                        "build store",
+                    )?;
+                    return Ok(array_ptr);
+                }
+            } else if let Some(Type::Pointer(element_t)) = &value.value_type {
+                let t: BasicTypeEnum = element_t.basic_type_enum(self.context).unwrap();
+                unsafe {
+                    let reference = self.builder.build_in_bounds_gep(
+                        t,
+                        value.value.into_pointer_value(),
+                        &[updated_index],
+                        "build store",
+                    )?;
+                    return Ok(reference);
+                }
+            } else {
+                Err(CompilerError::CodeGenError(
+                    expression_pos,
+                    format!("Array type expected, found {:?}", value.value_type),
+                ))
+            }
+        } else {
+            Err(CompilerError::CodeGenError(
+                expression_pos,
+                format!(
+                    "Attempted to index a type other than an array, found value {}",
+                    value.value.get_type()
+                ),
+            ))
         }
     }
 

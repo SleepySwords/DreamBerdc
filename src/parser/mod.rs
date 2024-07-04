@@ -109,11 +109,11 @@ impl Parser {
                 let binary = ExpressionKind::Binary {
                     lhs: Box::new(expr.clone()),
                     operation: token.operation_compound().unwrap(),
-                    rhs: Box::new(rhs.clone()),
+                    rhs: Box::new(rhs),
                 };
                 Expression::from_pos(binary, expression_pos)
             } else {
-                expr.clone()
+                rhs
             };
 
             return Ok(Expression::from_pos(
