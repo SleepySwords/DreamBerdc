@@ -36,6 +36,34 @@ function main(): int => {
     test[-1] = 65!
     test[0] = 65!
 	printf("hi %s", test)!
+    putchar(10)!
+
+    putchar(10)!
+
+    var var hi: byte[] = ok()!
+    printf("%d", hi[-1])!
+    putchar(10)!
+    printf("%d", hi[0])!
+    putchar(10)!
+    printf("%d", hi[1])!
+    putchar(10)!
 
     return 0!
+}
+
+
+function ok(): byte[] => {
+    var var hi = new byte[3]!
+    hi[-1] = 0!
+    hi[0] = 1!
+    hi[1] = 2!
+
+    printf("%d", hi[-1])!
+    putchar(10)!
+    printf("%d", hi[0])!
+    putchar(10)!
+    printf("%d", hi[1])!
+    putchar(10)!
+
+    return hi!
 }
