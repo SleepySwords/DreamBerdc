@@ -41,7 +41,7 @@ impl<'ctx> CodeGen<'ctx> {
                 // NOTE: it's debatable whether we throw the l-value error in
                 // code generation or in parsing. We might also want to use a
                 // different operation for assigning struct values (eg: set)
-                let (ptr, t) = if let ExpressionKind::Identifier(lhs_id) = &lhs.kind {
+                let (lhs_ptr, lhs_type) = if let ExpressionKind::Identifier(lhs_id) = &lhs.kind {
                     let Some(var) = self.symbol_table.fetch_variable(&lhs_id) else {
                         return Err(CompilerError::code_gen_error(
                             expression_pos,
@@ -60,10 +60,7 @@ impl<'ctx> CodeGen<'ctx> {
                     let index = self.build_expression(*index)?;
                     let value = self.build_expression(*expression)?;
 
-                    let value_type = value.value_type.clone().unwrap();
-                    let ptr = self.get_array_ptr(value, index, expression_pos)?;
-
-                    (ptr, value_type)
+                    self.get_array_ptr(value, index, expression_pos)?
                 } else {
                     return Err(CompilerError::code_gen_error(
                         expression_pos,
@@ -71,15 +68,42 @@ impl<'ctx> CodeGen<'ctx> {
                     ));
                 };
 
-                // FIXME: Type coercion MUST be implemented here there is an
-                // issue where an array would have elements that is a different
-                // size to what is being assigned and actually
-                // override the other values in the array ...
-                let expression = self.build_expression(*rhs)?;
-                self.builder.build_store(ptr, expression.value)?;
+                // FIXME: The way type conversion was implemented here is
+                // heavily reliant on llvm, ideally implementation details are
+                // abstracted in the type, rather than here. As it will get
+                // convoluted when considering other type conversion rules (ie:
+                // floating point values, ints to floats, address arithemtic
+                // (adding an integer to a pointer), etc...)
+                let rhs_expression = self.build_expression(*rhs)?;
+
+                let mut rhs_value = rhs_expression.value;
+
+                if let Some(rhs_basic_type) = rhs_expression
+                    .value_type
+                    .and_then(|f| f.basic_type_enum(self.context))
+                {
+                    if let Some(lhs_basic_type) = lhs_type.basic_type_enum(self.context) {
+                        if rhs_basic_type.is_int_type()
+                            && lhs_basic_type.is_int_type()
+                            && rhs_basic_type.into_int_type().get_bit_width()
+                                != lhs_basic_type.into_int_type().get_bit_width()
+                        {
+                            rhs_value = self
+                                .builder
+                                .build_int_cast(
+                                    rhs_expression.value.into_int_value(),
+                                    lhs_basic_type.into_int_type(),
+                                    "cast",
+                                )?
+                                .into();
+                        }
+                    }
+                }
+
+                self.builder.build_store(lhs_ptr, rhs_value)?;
                 Ok(Value {
-                    value_type: Some(t),
-                    value: self.context.i32_type().const_zero().into(),
+                    value_type: Some(lhs_type),
+                    value: rhs_value,
                 })
             }
             ExpressionKind::LiteralValue(strs) => {
@@ -194,7 +218,7 @@ impl<'ctx> CodeGen<'ctx> {
                     ));
                 };
 
-                let ptr = self.get_array_ptr(value, index, expression_pos)?;
+                let (ptr, _) = self.get_array_ptr(value, index, expression_pos)?;
                 return Value::from_none(Ok(self.builder.build_load(typ, ptr, "load_value")?));
             }
             ExpressionKind::Unary {
@@ -256,7 +280,7 @@ impl<'ctx> CodeGen<'ctx> {
         value: Value<'ctx>,
         index: Value<'ctx>,
         expression_pos: SourcePosition,
-    ) -> Result<PointerValue<'ctx>, CompilerError> {
+    ) -> Result<(PointerValue<'ctx>, Type), CompilerError> {
         let index = index.value.into_int_value();
         let updated_index = self.builder.build_int_add(
             index,
@@ -277,7 +301,7 @@ impl<'ctx> CodeGen<'ctx> {
                         &[self.context.i64_type().const_zero(), updated_index],
                         "build store",
                     )?;
-                    return Ok(array_ptr);
+                    return Ok((array_ptr, (**element_t).clone()));
                 }
             } else if let Some(Type::Pointer(element_t)) = &value.value_type {
                 let t: BasicTypeEnum = element_t.basic_type_enum(self.context).unwrap();
@@ -288,7 +312,7 @@ impl<'ctx> CodeGen<'ctx> {
                         &[updated_index],
                         "build store",
                     )?;
-                    return Ok(reference);
+                    return Ok((reference, (**element_t).clone()));
                 }
             } else {
                 Err(CompilerError::CodeGenError(
