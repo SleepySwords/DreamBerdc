@@ -256,14 +256,11 @@ impl<'ctx> CodeGen<'ctx> {
                 if let Type::Array(arr_type, size) = inst_type {
                     // FIXME: might want to use alloca as an optimisation, also
                     // need to consider frees to prevent memory leaks...
-                    let ptr = self
-                        .builder
-                        .build_array_malloc(
-                            arr_type.basic_type_enum(self.context).unwrap(),
-                            self.context.i32_type().const_int(size as u64, false),
-                            "array_init",
-                        )
-                        .unwrap();
+                    let ptr = self.builder.build_array_malloc(
+                        arr_type.basic_type_enum(self.context).unwrap(),
+                        self.context.i32_type().const_int(size as u64, false),
+                        "array_init",
+                    )?;
                     Ok(Value {
                         value_type: Some(Type::Array(arr_type, size)),
                         value: ptr.into(),

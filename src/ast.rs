@@ -106,6 +106,7 @@ pub enum StatementKind {
     Class(Class), // FIXME: while this is supported in JS, there is debate whether this is actually
                   // valid.
     Return { return_value: Option<Expression> },
+    Free(Box<Expression>),
     Expression(Expression),
 }
 

@@ -237,27 +237,44 @@ impl Parser {
         }
     }
 
+    pub fn parse_free(&mut self) -> Result<Statement, CompilerError> {
+        self.expect(TokenKind::Free)?;
+        let current_pos = self.current_pos();
+        let expression = self.parse_expression()?;
+
+        self.consume_bang();
+
+        return Ok(Statement::from_pos(
+            StatementKind::Free(Box::new(expression)),
+            current_pos,
+        ));
+    }
+
+    pub fn parse_statement(&mut self) -> Result<Statement, CompilerError> {
+        Ok(match self.peek() {
+            Some(TokenKind::Free) => self.parse_free()?,
+            Some(TokenKind::Const | TokenKind::Var) => self.parse_declaration()?,
+            Some(TokenKind::Return) => self.parse_return()?,
+            Some(TokenKind::If) => self.parse_if()?,
+            Some(TokenKind::For) => self.parse_for()?,
+            Some(TokenKind::Function) => self.parse_function()?,
+            _ => {
+                let expression_pos = self.current_pos();
+                let statement = Statement::from_pos(
+                    StatementKind::Expression(self.parse_expression()?),
+                    expression_pos,
+                );
+                self.consume_bang();
+                statement
+            }
+        })
+    }
+
     pub fn parse_body(&mut self) -> Result<Vec<Statement>, CompilerError> {
         let mut statements = Vec::new();
         self.expect(TokenKind::OpenCurB)?;
         while !self.check(TokenKind::CloseCurB) {
-            match self.peek() {
-                Some(TokenKind::Const | TokenKind::Var) => {
-                    statements.push(self.parse_declaration()?)
-                }
-                Some(TokenKind::Return) => statements.push(self.parse_return()?),
-                Some(TokenKind::If) => statements.push(self.parse_if()?),
-                Some(TokenKind::For) => statements.push(self.parse_for()?),
-                Some(TokenKind::Function) => statements.push(self.parse_function()?),
-                _ => {
-                    let expression_pos = self.current_pos();
-                    statements.push(Statement::from_pos(
-                        StatementKind::Expression(self.parse_expression()?),
-                        expression_pos,
-                    ));
-                    self.consume_bang();
-                }
-            }
+            statements.push(self.parse_statement()?);
         }
         self.expect(TokenKind::CloseCurB)?;
         Ok(statements)

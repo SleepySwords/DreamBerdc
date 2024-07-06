@@ -48,6 +48,8 @@ function main(): int => {
     printf("%d", hi[1])!
     putchar(10)!
 
+    free hi!
+
     return 0!
 }
 

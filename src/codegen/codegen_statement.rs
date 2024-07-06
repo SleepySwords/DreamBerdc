@@ -1,5 +1,5 @@
 use crate::{
-    ast::{Statement, StatementKind},
+    ast::{Expression, Statement, StatementKind},
     compile_error::CompilerError,
     types::Type,
 };
@@ -60,6 +60,12 @@ impl<'ctx> CodeGen<'ctx> {
             StatementKind::If(if_statement) => return self.build_if(if_statement, statement_pos),
             StatementKind::For(for_statement) => self.build_for(*for_statement)?,
             StatementKind::Class(c) => self.build_class(c),
+            StatementKind::Free(expression) => {
+                let expression = self.build_expression(*expression)?;
+                if expression.value.is_pointer_value() {
+                    self.builder.build_free(expression.value.into_pointer_value())?;
+                }
+            }
         }
         Ok(CompileInfo {
             terminator_instruction: false,
