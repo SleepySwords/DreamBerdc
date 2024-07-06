@@ -2,14 +2,12 @@ function max(a: int, b: int, c: int): int => {
     var var d: long = 20.1!
 	var var a: int = 10!
 	var var hi: float = 0.4!
-	var var test: int[4] = "tYAYY BYTE POINTER!!!"!
-	var var ok = test[-1]
-	var var hi2: byte* = test!
-	printf("ok %d", ok)!
-	putchar(10)!
-	printf("ok: %d", hi2[0])!
-	putchar(10)!
-	printf("hi %d", 2 *  3 + 1)!
+	var var test: byte[100] = "tYAYY BYTE POINTER!!!"!
+	printf("hi %s", test)!
+    putchar(10)!
+    test[-1] = 65!
+    test[0] = 65!
+	printf("hi %s", test)!
     return a!
 }
 

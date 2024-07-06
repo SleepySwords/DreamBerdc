@@ -16,4 +16,16 @@ cargo run -- <input>
 dreamberdc <input>
 ```
 
-There are some files in `test_files/` to play with.
+## Options (ran by the --help command)
+
+```
+Options:
+  -o, --output <OUTPUT>              
+  -m, --mode <MODE>                  [default: jit] [possible values: jit, llvmir, object]
+  -l, --log-info                     
+  -O, --optimisation <OPTIMISATION>  [default: none] [possible values: none, less, default, aggresive]
+  -h, --help                         Print help
+  -V, --version                      Print version
+```
+
+There are some files in `test/` to play with.

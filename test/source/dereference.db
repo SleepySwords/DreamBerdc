@@ -1,6 +1,11 @@
 function main(): int => {
-	var var hi: long* = "Hello thereeoijfaoje!"!
+	var var hi: short* = "Hello thereeoijfaoje!"!
 	puts("")!
 	printf("Test: %d", *hi)!
+	putchar(10)!
+	printf("Test: %d", hi[-1])!
+	putchar(10)!
+	printf("Test: %d", hi[0])!
+	putchar(10)!
 	return 0!
 }

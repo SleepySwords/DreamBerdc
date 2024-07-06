@@ -1,4 +1,4 @@
-function main() => {
+function main(): int => {
     putchar(getchar())
     putchar(10)
     return 0!

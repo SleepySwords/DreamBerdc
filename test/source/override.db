@@ -1,4 +1,4 @@
-function main(a: int, b: int) => {
+function main(a: int, b: int): int => {
     const const 5 = 2!
     const const i = 100!
     for (var var i = 0; i < 5; i = i + 1) {

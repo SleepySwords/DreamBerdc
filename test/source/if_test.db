@@ -3,9 +3,7 @@ function test(a: int, b: int) => {
         putchar(65)!
     } else {
         putchar(66)!
-
     }
-    return 0!
 }
 
 function main(): int => {

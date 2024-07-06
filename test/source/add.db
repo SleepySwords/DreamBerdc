@@ -7,7 +7,7 @@ function add(a: int, b: int): int => {
     return a + b!
 }
 
-function main() => {
+function main(): int => {
     var const test = add(6, 59)!
     test = add(1, 64)!
     putchar(test)
