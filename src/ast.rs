@@ -107,7 +107,7 @@ pub enum StatementKind {
     For(Box<ForStatement>),
     Function(Function),
     Class(Class), // FIXME: while this is supported in JS, there is debate whether this is actually
-                  // valid.
+    // valid.
     Return { return_value: Option<Expression> },
     Free(Box<Expression>),
     Expression(Expression),
@@ -174,7 +174,7 @@ pub struct FieldDeclaration {
     pub mutable: Mutable,
     pub field_type: Type,
     pub initialiser: Option<Expression>,
-    pub visibility: Visibility
+    pub visibility: Visibility,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

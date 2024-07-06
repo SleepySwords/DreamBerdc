@@ -3,7 +3,9 @@ use std::collections::{HashMap, VecDeque};
 use inkwell::values::{BasicValueEnum, PointerValue};
 
 use crate::{
-    ast::Class, types::{Type, Variable}, utils::Mutable
+    ast::Class,
+    types::{Type, Variable},
+    utils::Mutable,
 };
 
 pub struct SymbolTable<'ctx> {

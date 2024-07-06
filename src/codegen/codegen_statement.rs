@@ -1,5 +1,5 @@
 use crate::{
-    ast::{Expression, Statement, StatementKind},
+    ast::{Statement, StatementKind},
     compile_error::CompilerError,
     types::Type,
 };
@@ -63,7 +63,8 @@ impl<'ctx> CodeGen<'ctx> {
             StatementKind::Free(expression) => {
                 let expression = self.build_expression(*expression)?;
                 if expression.value.is_pointer_value() {
-                    self.builder.build_free(expression.value.into_pointer_value())?;
+                    self.builder
+                        .build_free(expression.value.into_pointer_value())?;
                 }
             }
         }

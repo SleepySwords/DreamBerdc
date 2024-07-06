@@ -1,8 +1,8 @@
+mod codegen_class;
 mod codegen_control_flow;
 mod codegen_expression;
 mod codegen_function;
 mod codegen_statement;
-mod codegen_class;
 mod debug_info;
 
 use std::path::Path;

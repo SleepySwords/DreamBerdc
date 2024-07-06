@@ -1,9 +1,6 @@
 use super::Parser;
 use crate::{
-    ast::{
-        BinOperation, Expression, ExpressionKind,
-        UnaryOperation,
-    },
+    ast::{BinOperation, Expression, ExpressionKind, UnaryOperation},
     compile_error::CompilerError,
     lexer::TokenKind,
 };

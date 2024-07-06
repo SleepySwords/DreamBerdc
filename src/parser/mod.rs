@@ -4,8 +4,6 @@ mod parser_class;
 mod parser_function;
 mod parser_ops;
 
-use std::task::Wake;
-
 use crate::{
     ast::{
         Declaration, Expression, ExpressionKind, ForStatement, IfStatement, SourcePosition,
@@ -126,7 +124,7 @@ impl Parser {
                 expression_pos,
             ));
         }
-        return Ok(expr);
+        Ok(expr)
     }
 
     pub fn parse_member(&mut self, expression: Expression) -> Result<Expression, CompilerError> {
@@ -142,7 +140,7 @@ impl Parser {
                 return Err(CompilerError::syntax_error(current_pos, "Expected member"));
             }
         }
-        return Ok(expression);
+        Ok(expression)
     }
 
     pub fn parse_expression(&mut self) -> Result<Expression, CompilerError> {
@@ -171,7 +169,7 @@ impl Parser {
             _ => self.parse_assignment(),
         };
 
-        return self.parse_member(exp?);
+        self.parse_member(exp?)
     }
 
     pub fn parse_if(&mut self) -> Result<Statement, CompilerError> {
@@ -264,10 +262,10 @@ impl Parser {
 
         self.consume_bang();
 
-        return Ok(Statement::from_pos(
+        Ok(Statement::from_pos(
             StatementKind::Free(Box::new(expression)),
             current_pos,
-        ));
+        ))
     }
 
     pub fn parse_statement(&mut self) -> Result<Statement, CompilerError> {

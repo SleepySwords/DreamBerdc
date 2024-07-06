@@ -1,10 +1,7 @@
 use inkwell::IntPredicate;
 
 use crate::{
-    ast::{
-        Declaration, ForStatement, IfStatement, SourcePosition, Statement,
-        StatementKind,
-    },
+    ast::{Declaration, ForStatement, IfStatement, SourcePosition, Statement, StatementKind},
     compile_error::CompilerError,
     types::Type,
 };

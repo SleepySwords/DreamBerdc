@@ -1,9 +1,7 @@
 use inkwell::{types::BasicMetadataTypeEnum, values::FunctionValue};
 
 use crate::{
-    ast::{
-        Function, SourcePosition,
-    },
+    ast::{Function, SourcePosition},
     compile_error::CompilerError,
     types::Type,
 };

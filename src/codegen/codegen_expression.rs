@@ -42,7 +42,7 @@ impl<'ctx> CodeGen<'ctx> {
                 // code generation or in parsing. We might also want to use a
                 // different operation for assigning struct values (eg: set)
                 let (lhs_ptr, lhs_type) = if let ExpressionKind::Identifier(lhs_id) = &lhs.kind {
-                    let Some(var) = self.symbol_table.fetch_variable(&lhs_id) else {
+                    let Some(var) = self.symbol_table.fetch_variable(lhs_id) else {
                         return Err(CompilerError::code_gen_error(
                             expression_pos,
                             format!("Unknown varaible: {}", lhs_id),
@@ -299,7 +299,7 @@ impl<'ctx> CodeGen<'ctx> {
                         &[self.context.i64_type().const_zero(), updated_index],
                         "build store",
                     )?;
-                    return Ok((array_ptr, (**element_t).clone()));
+                    Ok((array_ptr, (**element_t).clone()))
                 }
             } else if let Some(Type::Pointer(element_t)) = &value.value_type {
                 let t: BasicTypeEnum = element_t.basic_type_enum(self.context).unwrap();
