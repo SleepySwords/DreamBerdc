@@ -4,6 +4,8 @@ mod parser_class;
 mod parser_function;
 mod parser_ops;
 
+use std::task::Wake;
+
 use crate::{
     ast::{
         Declaration, Expression, ExpressionKind, ForStatement, IfStatement, SourcePosition,
@@ -127,19 +129,35 @@ impl Parser {
         return Ok(expr);
     }
 
+    pub fn parse_member(&mut self, expression: Expression) -> Result<Expression, CompilerError> {
+        let current_pos = self.current_pos();
+        if self.check(TokenKind::Dot) {
+            self.expect(TokenKind::Dot)?;
+            if let Some(TokenKind::Symbol(sym)) = self.next() {
+                return Ok(Expression::from_pos(
+                    ExpressionKind::Member(Box::new(expression), sym),
+                    current_pos,
+                ));
+            } else {
+                return Err(CompilerError::syntax_error(current_pos, "Expected member"));
+            }
+        }
+        return Ok(expression);
+    }
+
     pub fn parse_expression(&mut self) -> Result<Expression, CompilerError> {
         let expression_pos = self.current_pos();
 
         parse_sequence!(self,
             (TokenKind::String(str)) => {
-                return Ok(Expression::from_pos(
+                return self.parse_member(Expression::from_pos(
                     ExpressionKind::LiteralValue(str),
                     expression_pos,
                 ));
             },
             (TokenKind::Star) => {
                 let expression = self.parse_expression()?;
-                return Ok(Expression::from_pos(
+                return self.parse_member(Expression::from_pos(
                     ExpressionKind::Dereference(Box::new(expression)),
                     expression_pos,
                 ));
@@ -148,10 +166,12 @@ impl Parser {
 
         // NOTE: Methods here consume their tokens by themselves, so they cannot
         // be used as above, because the above consumes the tokens.
-        match self.peek() {
+        let exp = match self.peek() {
             Some(&TokenKind::OpenSqB) => self.parse_array(),
             _ => self.parse_assignment(),
-        }
+        };
+
+        return self.parse_member(exp?);
     }
 
     pub fn parse_if(&mut self) -> Result<Statement, CompilerError> {

@@ -51,6 +51,9 @@ pub enum ExpressionKind {
     Identifier(String),
     Array(Vec<Expression>),
     Instantiation(Type),
+
+    Member(Box<Expression>, String),
+
     Unknown,
 }
 

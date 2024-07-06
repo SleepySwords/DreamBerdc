@@ -25,7 +25,7 @@ macro_rules! parse_sequence {
                         )?
                         count += 1;
                     } else {
-                        break  'block;
+                        break 'block;
                     }
 
                 )*

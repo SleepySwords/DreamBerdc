@@ -225,9 +225,11 @@ impl Lexer {
                     }
                     let mut word = String::new();
                     word.push(token);
+                    let is_number = token.is_numeric();
                     while let Some(token) = self.peek() {
-                        // FIXME: this needs to be parsed above seperately (for method calls)
-                        if (!token.is_alphanumeric() && *token != '.') || token.is_whitespace() {
+                        if (!token.is_alphanumeric() && (!is_number || *token != '.'))
+                            || token.is_whitespace()
+                        {
                             break;
                         }
                         word.push(*token);
