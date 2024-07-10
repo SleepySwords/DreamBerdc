@@ -23,9 +23,10 @@ impl<'ctx> CodeGen<'ctx> {
             .map(|(_, t)| t.basic_metadata_enum(self.context))
             .collect::<Option<Vec<BasicMetadataTypeEnum>>>();
 
-        let fn_type = prototype
-            .return_type
-            .function(self.context, types?.as_slice(), prototype.is_var_args);
+        let fn_type =
+            prototype
+                .return_type
+                .function(self.context, types?.as_slice(), prototype.is_var_args);
 
         self.symbol_table
             .store_function(prototype.name.clone(), prototype.clone());

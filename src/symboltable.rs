@@ -3,7 +3,7 @@ use std::collections::{HashMap, VecDeque};
 use inkwell::values::PointerValue;
 
 use crate::{
-    ast::{Class, Function, Prototype},
+    ast::{Class, Prototype},
     types::{Type, Value, Variable},
     utils::Mutable,
 };
@@ -13,6 +13,12 @@ pub struct SymbolTable<'ctx> {
     var_symbol_table: VecDeque<HashMap<String, Variable<'ctx>>>,
     fun_symbol_table: HashMap<String, Prototype>,
     pub class_table: HashMap<String, Class>,
+}
+
+impl<'ctx> Default for SymbolTable<'ctx> {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl<'ctx> SymbolTable<'ctx> {

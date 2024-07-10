@@ -5,7 +5,7 @@ use inkwell::{
     AddressSpace,
 };
 
-use crate::{compile_error::CompilerError, utils::Mutable};
+use crate::utils::Mutable;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(test, derive(serde::Deserialize))]

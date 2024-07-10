@@ -7,12 +7,11 @@ use ast::Statement;
 use clap::Parser;
 use colored::Colorize;
 use inkwell::context::Context;
-use inkwell::types::BasicType;
-use inkwell::{AddressSpace, OptimizationLevel};
+use inkwell::OptimizationLevel;
 use itertools::Itertools;
 
 use crate::args::{Args, Mode};
-use crate::ast::{Prototype, StatementKind};
+use crate::ast::StatementKind;
 use crate::lexer::Lexer;
 use crate::symboltable::SymbolTable;
 use crate::{codegen::CodeGen, lexer::TokenKind, parser::Parser as CodeParser};
@@ -46,7 +45,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let statements = tokenise_and_parse(data, args.log_info);
 
-    let file = read_to_string(&"std/prelude.db")?;
+    let file = read_to_string("std/prelude.db")?;
     let data = file.chars().collect_vec();
     let prelude_statements = tokenise_and_parse(data, false);
 
@@ -142,7 +141,7 @@ pub fn tokenise_and_parse(data: Vec<char>, log: bool) -> Vec<Statement> {
         println!("{:#?}", statements);
     }
 
-    return statements;
+    statements
 }
 
 pub fn build_statements(codegen: &mut CodeGen, statements: Vec<Statement>) {

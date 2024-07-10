@@ -207,14 +207,14 @@ impl<'ctx> CodeGen<'ctx> {
                 let value = self.build_expression(*expression)?;
 
                 let (ptr, element_t) = self.get_array_ptr(value, index, expression_pos)?;
-                return Ok(Value {
+                Ok(Value {
                     value: (self.builder.build_load(
                         element_t.basic_type_enum(self.context).unwrap(),
                         ptr,
                         "load_value",
                     )?),
                     value_type: element_t,
-                });
+                })
             }
             ExpressionKind::Unary {
                 operation,
