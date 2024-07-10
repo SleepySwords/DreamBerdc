@@ -1,21 +1,22 @@
 use std::collections::{HashMap, VecDeque};
 
-use inkwell::values::{BasicValueEnum, PointerValue};
+use inkwell::values::PointerValue;
 
 use crate::{
-    ast::Class,
-    types::{Type, Variable},
+    ast::{Class, Function, Prototype},
+    types::{Type, Value, Variable},
     utils::Mutable,
 };
 
 pub struct SymbolTable<'ctx> {
-    symbol_table: VecDeque<HashMap<String, BasicValueEnum<'ctx>>>,
-    ptr_symbol_table: VecDeque<HashMap<String, Variable<'ctx>>>,
+    arg_symbol_table: VecDeque<HashMap<String, Value<'ctx>>>,
+    var_symbol_table: VecDeque<HashMap<String, Variable<'ctx>>>,
+    fun_symbol_table: HashMap<String, Prototype>,
     pub class_table: HashMap<String, Class>,
 }
 
-impl<'a> SymbolTable<'a> {
-    pub fn new() -> SymbolTable<'a> {
+impl<'ctx> SymbolTable<'ctx> {
+    pub fn new() -> SymbolTable<'ctx> {
         let mut symbol_table = VecDeque::new();
         symbol_table.push_front(HashMap::new());
 
@@ -23,43 +24,52 @@ impl<'a> SymbolTable<'a> {
         ptr_symbol_table.push_front(HashMap::new());
 
         SymbolTable {
-            symbol_table,
-            ptr_symbol_table,
+            arg_symbol_table: symbol_table,
+            var_symbol_table: ptr_symbol_table,
+            fun_symbol_table: HashMap::new(),
             class_table: HashMap::new(),
         }
     }
 
     pub fn push_scope(&mut self) {
-        self.ptr_symbol_table.push_front(HashMap::new());
-        self.symbol_table.push_front(HashMap::new());
+        self.var_symbol_table.push_front(HashMap::new());
+        self.arg_symbol_table.push_front(HashMap::new());
     }
 
     pub fn pop_scope(&mut self) {
         // We don't want to destroy the global scope.
-        if self.ptr_symbol_table.len() > 1 {
-            self.ptr_symbol_table.pop_front();
-            self.symbol_table.pop_front();
+        if self.var_symbol_table.len() > 1 {
+            self.var_symbol_table.pop_front();
+            self.arg_symbol_table.pop_front();
         }
     }
 
-    pub fn fetch_value(&self, name: &str) -> Option<BasicValueEnum<'a>> {
-        for i in 0..self.symbol_table.len() {
-            if self.symbol_table[i].contains_key(name) {
-                return Some(self.symbol_table[i][name]);
+    pub fn fetch_function(&self, name: &str) -> Option<Prototype> {
+        self.fun_symbol_table.get(name).cloned()
+    }
+
+    pub fn store_function(&mut self, name: String, value: Prototype) {
+        self.fun_symbol_table.insert(name, value);
+    }
+
+    pub fn fetch_argument(&self, name: &str) -> Option<Value<'ctx>> {
+        for i in 0..self.arg_symbol_table.len() {
+            if self.arg_symbol_table[i].contains_key(name) {
+                return Some(self.arg_symbol_table[i][name].clone());
             }
         }
         None
     }
 
     // FIX: Should return a result
-    pub fn store_value(&mut self, name: String, ptr: BasicValueEnum<'a>) {
-        self.symbol_table[0].insert(name, ptr);
+    pub fn store_argument(&mut self, name: String, value: Value<'ctx>) {
+        self.arg_symbol_table[0].insert(name, value);
     }
 
-    pub fn fetch_variable(&self, name: &str) -> Option<&Variable<'a>> {
-        for i in 0..self.ptr_symbol_table.len() {
-            if self.ptr_symbol_table[i].contains_key(name) {
-                return Some(&self.ptr_symbol_table[i][name]);
+    pub fn fetch_variable(&self, name: &str) -> Option<&Variable<'ctx>> {
+        for i in 0..self.var_symbol_table.len() {
+            if self.var_symbol_table[i].contains_key(name) {
+                return Some(&self.var_symbol_table[i][name]);
             }
         }
         None
@@ -69,7 +79,7 @@ impl<'a> SymbolTable<'a> {
     pub fn store_variable_ptr(
         &mut self,
         name: String,
-        ptr: PointerValue<'a>,
+        ptr: PointerValue<'ctx>,
         value_type: Type,
         mutability: Mutable,
     ) {
@@ -78,6 +88,6 @@ impl<'a> SymbolTable<'a> {
             pointer: ptr,
             mutability,
         };
-        self.ptr_symbol_table[0].insert(name, variable);
+        self.var_symbol_table[0].insert(name, variable);
     }
 }

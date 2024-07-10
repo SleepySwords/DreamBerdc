@@ -3,7 +3,7 @@ use inkwell::{types::BasicMetadataTypeEnum, values::FunctionValue};
 use crate::{
     ast::{Function, SourcePosition},
     compile_error::CompilerError,
-    types::Type,
+    types::{Type, Value},
 };
 
 use super::CodeGen;
@@ -25,6 +25,10 @@ impl<'ctx> CodeGen<'ctx> {
                 .prototype
                 .return_type
                 .function(self.context, types?.as_slice(), false);
+
+        self.symbol_table
+            .store_function(function.prototype.name.clone(), function.prototype.clone());
+
         return Some(
             self.module
                 .add_function(&function.prototype.name, fn_type?, None),
@@ -55,9 +59,14 @@ impl<'ctx> CodeGen<'ctx> {
 
         self.emit_function_debug_info(&function, &fn_val, position);
 
-        for (index, (name, _)) in function.prototype.arguments.into_iter().enumerate() {
-            self.symbol_table
-                .store_value(name, fn_val.get_nth_param(index as u32).unwrap())
+        for (index, (name, arg_type)) in function.prototype.arguments.into_iter().enumerate() {
+            self.symbol_table.store_argument(
+                name,
+                Value {
+                    value_type: arg_type,
+                    value: fn_val.get_nth_param(index as u32).unwrap(),
+                },
+            )
         }
 
         let mut build_ret = true;

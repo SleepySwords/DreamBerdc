@@ -11,9 +11,10 @@ use inkwell::{AddressSpace, OptimizationLevel};
 use itertools::Itertools;
 
 use crate::args::{Args, Mode};
-use crate::ast::StatementKind;
+use crate::ast::{Prototype, StatementKind};
 use crate::lexer::Lexer;
 use crate::symboltable::SymbolTable;
+use crate::types::Type;
 use crate::{codegen::CodeGen, lexer::TokenKind, parser::Parser as CodeParser};
 
 pub mod args;
@@ -74,6 +75,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     let module = context.create_module("global");
     let builder = context.create_builder();
 
+    let mut symboltable = SymbolTable::new();
+
     // Add functions
     let putchar_fn_type = context
         .i32_type()
@@ -84,6 +87,11 @@ fn main() -> Result<(), Box<dyn Error>> {
         putchar_fn_type,
         Some(inkwell::module::Linkage::External),
     );
+    symboltable.store_function("putchar".to_string(), Prototype {
+        name: "putchar".to_string(),
+        arguments: vec![],
+        return_type: Type::Void,
+    });
 
     let put_fn_type = context.i32_type().as_basic_type_enum().fn_type(
         &[context.i8_type().ptr_type(AddressSpace::default()).into()],
@@ -106,6 +114,11 @@ fn main() -> Result<(), Box<dyn Error>> {
         printf_fn_type,
         Some(inkwell::module::Linkage::External),
     );
+    symboltable.store_function("printf".to_string(), Prototype {
+        name: "printf".to_string(),
+        arguments: vec![],
+        return_type: Type::Void,
+    });
 
     let getchar_fn_type = context.i32_type().fn_type(&[], false);
     module.add_function(
@@ -129,7 +142,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         context: &context,
         module,
         builder,
-        symbol_table: SymbolTable::new(),
+        symbol_table: symboltable,
         debug_info: None,
     };
     if args.mode == Mode::Object {

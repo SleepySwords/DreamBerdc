@@ -2,7 +2,7 @@ use std::cmp::Ordering;
 
 use inkwell::{
     types::{BasicType, BasicTypeEnum},
-    values::{ArrayValue, BasicMetadataValueEnum, BasicValueEnum, PointerValue},
+    values::{ArrayValue, BasicMetadataValueEnum, PointerValue},
     FloatPredicate, IntPredicate,
 };
 use itertools::Itertools;
@@ -28,9 +28,9 @@ impl<'ctx> CodeGen<'ctx> {
                 lhs,
                 operation,
                 rhs,
-            } => Value::from_none(self.build_binary(*lhs, operation, *rhs)),
+            } => self.build_binary(*lhs, operation, *rhs),
             ExpressionKind::Call { callee, arguments } => {
-                Value::from_none(self.build_call(callee, arguments, expression_pos))
+                self.build_call(callee, arguments, expression_pos)
             }
             ExpressionKind::Assignment { lhs, rhs } => {
                 // FIXME: LHS assignments could also be arrays, or pointers
@@ -78,9 +78,8 @@ impl<'ctx> CodeGen<'ctx> {
 
                 let mut rhs_value = rhs_expression.value;
 
-                if let Some(rhs_basic_type) = rhs_expression
-                    .value_type
-                    .and_then(|f| f.basic_type_enum(self.context))
+                if let Some(rhs_basic_type) =
+                    rhs_expression.value_type.basic_type_enum(self.context)
                 {
                     if let Some(lhs_basic_type) = lhs_type.basic_type_enum(self.context) {
                         if rhs_basic_type.is_int_type()
@@ -102,7 +101,7 @@ impl<'ctx> CodeGen<'ctx> {
 
                 self.builder.build_store(lhs_ptr, rhs_value)?;
                 Ok(Value {
-                    value_type: Some(lhs_type),
+                    value_type: lhs_type,
                     value: rhs_value,
                 })
             }
@@ -130,10 +129,10 @@ impl<'ctx> CodeGen<'ctx> {
                 // next time i read this...
                 self.builder.build_store(ptr, value)?;
                 Ok(Value {
-                    value_type: Some(crate::types::Type::Array(
+                    value_type: crate::types::Type::Array(
                         Box::new(Type::Byte),
                         string.len() as u32,
-                    )),
+                    ),
                     value: ptr.into(),
                 })
             }
@@ -145,7 +144,7 @@ impl<'ctx> CodeGen<'ctx> {
                         "The value attempted to dereference is not an pointer.",
                     ));
                 }
-                let Some(Type::Pointer(t)) = exp.value_type else {
+                let Type::Pointer(t) = exp.value_type else {
                     return Err(CompilerError::code_gen_error(
                         expression_pos,
                         "This is not a pointer type",
@@ -153,7 +152,7 @@ impl<'ctx> CodeGen<'ctx> {
                 };
 
                 Ok(Value {
-                    value_type: Some(*t.clone()),
+                    value_type: *t.clone(),
                     value: (self.builder.build_load(
                         t.basic_type_enum(self.context)
                             .ok_or(CompilerError::code_gen_error(
@@ -174,16 +173,16 @@ impl<'ctx> CodeGen<'ctx> {
                     let value = self.builder.build_load(basic_type, ptr.pointer(), &id);
                     Ok(Value {
                         value: (value.unwrap()),
-                        value_type: Some(t),
+                        value_type: t,
                     })
-                } else if let Some(value) = self.symbol_table.fetch_value(&id) {
-                    Value::from_none(Ok(value))
+                } else if let Some(value) = self.symbol_table.fetch_argument(&id) {
+                    Ok(value)
                 } else {
                     let var_i32 = id.parse::<i32>();
                     if let Ok(var) = var_i32 {
                         let i32_type = self.context.i32_type();
                         Ok(Value {
-                            value_type: Some(Type::Int),
+                            value_type: Type::Int,
                             value: i32_type.const_int(var as u64, false).into(),
                         })
                     } else {
@@ -191,7 +190,7 @@ impl<'ctx> CodeGen<'ctx> {
                         if let Ok(var) = var_f32 {
                             let f32_type = self.context.f32_type();
                             Ok(Value {
-                                value_type: Some(Type::Float),
+                                value_type: Type::Float,
                                 value: f32_type.const_float(var as f64).into(),
                             })
                         } else {
@@ -207,19 +206,15 @@ impl<'ctx> CodeGen<'ctx> {
                 let index = self.build_expression(*index)?;
                 let value = self.build_expression(*expression)?;
 
-                let typ = if let Some(Type::Array(element_t, _)) = &value.value_type {
-                    element_t.basic_type_enum(self.context).unwrap()
-                } else if let Some(Type::Pointer(element_t)) = &value.value_type {
-                    element_t.basic_type_enum(self.context).unwrap()
-                } else {
-                    return Err(CompilerError::CodeGenError(
-                        expression_pos,
-                        format!("Array type expected, found {:?}", value.value_type),
-                    ));
-                };
-
-                let (ptr, _) = self.get_array_ptr(value, index, expression_pos)?;
-                return Value::from_none(Ok(self.builder.build_load(typ, ptr, "load_value")?));
+                let (ptr, element_t) = self.get_array_ptr(value, index, expression_pos)?;
+                return Ok(Value {
+                    value: (self.builder.build_load(
+                        element_t.basic_type_enum(self.context).unwrap(),
+                        ptr,
+                        "load_value",
+                    )?),
+                    value_type: element_t,
+                });
             }
             ExpressionKind::Unary {
                 operation,
@@ -256,13 +251,15 @@ impl<'ctx> CodeGen<'ctx> {
                 if let Type::Array(arr_type, size) = inst_type {
                     // FIXME: might want to use alloca as an optimisation, also
                     // need to consider frees to prevent memory leaks...
+                    // Might consider using reference counting or garabge
+                    // collection like go
                     let ptr = self.builder.build_array_malloc(
                         arr_type.basic_type_enum(self.context).unwrap(),
                         self.context.i32_type().const_int(size as u64, false),
                         "array_init",
                     )?;
                     Ok(Value {
-                        value_type: Some(Type::Array(arr_type, size)),
+                        value_type: Type::Array(arr_type, size),
                         value: ptr.into(),
                     })
                 } else {
@@ -286,7 +283,7 @@ impl<'ctx> CodeGen<'ctx> {
             "addIndex",
         )?;
         if value.value.is_pointer_value() {
-            if let Some(Type::Array(element_t, size)) = &value.value_type {
+            if let Type::Array(element_t, size) = &value.value_type {
                 let t: BasicTypeEnum = element_t
                     .basic_type_enum(self.context)
                     .unwrap()
@@ -301,7 +298,7 @@ impl<'ctx> CodeGen<'ctx> {
                     )?;
                     Ok((array_ptr, (**element_t).clone()))
                 }
-            } else if let Some(Type::Pointer(element_t)) = &value.value_type {
+            } else if let Type::Pointer(element_t) = &value.value_type {
                 let t: BasicTypeEnum = element_t.basic_type_enum(self.context).unwrap();
                 unsafe {
                     let reference = self.builder.build_in_bounds_gep(
@@ -334,13 +331,17 @@ impl<'ctx> CodeGen<'ctx> {
         callee: String,
         arguments: Vec<Expression>,
         position: SourcePosition,
-    ) -> Result<BasicValueEnum<'ctx>, CompilerError> {
-        let Some(function) = self.module.get_function(&callee) else {
+    ) -> Result<Value<'ctx>, CompilerError> {
+        let (Some(function), Some(function_prototype)) = (
+            self.module.get_function(&callee),
+            self.symbol_table.fetch_function(&callee),
+        ) else {
             return Err(CompilerError::CodeGenError(
                 position,
                 format!("The function \"{}\" does not exist.", callee),
             ));
         };
+
         // FIXME:, verify arguments with function arguments, and this should be an option
         // The None signifying null.
         if function.count_params() != arguments.len() as u32 && !function.get_type().is_var_arg() {
@@ -357,10 +358,14 @@ impl<'ctx> CodeGen<'ctx> {
             .collect::<Result<Vec<BasicMetadataValueEnum<'ctx>>, CompilerError>>()?;
         let value = self
             .builder
-            .build_call(function, args.as_slice(), "calltmp")?;
-        Ok(value
+            .build_call(function, args.as_slice(), "calltmp")?
             .try_as_basic_value()
-            .left_or(self.context.i32_type().const_int(0, false).into()))
+            .left_or(self.context.i32_type().const_int(0, false).into());
+
+        Ok(Value {
+            value,
+            value_type: function_prototype.return_type,
+        })
     }
 
     fn build_binary(
@@ -368,11 +373,11 @@ impl<'ctx> CodeGen<'ctx> {
         lhs_expression: Expression,
         operation: BinOperation,
         rhs_expression: Expression,
-    ) -> Result<BasicValueEnum<'ctx>, CompilerError> {
+    ) -> Result<Value<'ctx>, CompilerError> {
         let position = (lhs_expression.col, lhs_expression.lnum);
         let lhs = self.build_expression(lhs_expression)?;
         let rhs = self.build_expression(rhs_expression)?;
-        Ok(if lhs.value.is_int_value() && rhs.value.is_int_value() {
+        let binary_value = if lhs.value.is_int_value() && rhs.value.is_int_value() {
             // Need to abstract this!
             // FIXME: pointers need to be converted before being added
             let mut lhs = lhs.value.into_int_value();
@@ -462,6 +467,13 @@ impl<'ctx> CodeGen<'ctx> {
                     rhs.value.get_type(),
                 ),
             ));
+        };
+
+        // NOTE: Giving preference to the LHS is not a good idea, we should use
+        // the whatever type that the operation has been coerced into.
+        Ok(Value {
+            value_type: lhs.value_type,
+            value: binary_value,
         })
     }
 }

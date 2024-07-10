@@ -16,7 +16,7 @@ impl<'ctx> CodeGen<'ctx> {
                 let var_type = if let Some(t) = declaration.var_type {
                     t
                 } else {
-                    rhs_exp.value_type.unwrap_or(Type::Int)
+                    rhs_exp.value_type
                 };
                 let basic_type_enum = if let Some(t) = var_type.basic_type_enum(self.context) {
                     t

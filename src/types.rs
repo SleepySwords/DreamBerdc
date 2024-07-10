@@ -104,18 +104,8 @@ impl<'ctx> Variable<'ctx> {
     }
 }
 
+#[derive(Clone)]
 pub struct Value<'ctx> {
-    pub value_type: Option<Type>,
+    pub value_type: Type,
     pub value: BasicValueEnum<'ctx>,
-}
-
-impl<'ctx> Value<'ctx> {
-    pub fn from_none(
-        value: Result<BasicValueEnum<'ctx>, CompilerError>,
-    ) -> Result<Self, CompilerError> {
-        value.map(|f| Value {
-            value_type: None,
-            value: f,
-        })
-    }
 }
