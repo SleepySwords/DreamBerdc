@@ -1,7 +1,7 @@
 use inkwell::{types::BasicMetadataTypeEnum, values::FunctionValue};
 
 use crate::{
-    ast::{Function, SourcePosition},
+    ast::{Function, Prototype, SourcePosition},
     compile_error::CompilerError,
     types::{Type, Value},
 };
@@ -9,30 +9,28 @@ use crate::{
 use super::CodeGen;
 
 impl<'ctx> CodeGen<'ctx> {
+    pub fn build_extern(&mut self, prototype: &Prototype) {
+        self.build_function_declaration(prototype);
+    }
+
     pub fn build_function_declaration(
         &mut self,
-        function: &Function,
+        prototype: &Prototype,
     ) -> Option<FunctionValue<'ctx>> {
-        let types = function
-            .prototype
+        let types = prototype
             .arguments
             .iter()
             .map(|(_, t)| t.basic_metadata_enum(self.context))
             .collect::<Option<Vec<BasicMetadataTypeEnum>>>();
 
-        let fn_type =
-            function
-                .prototype
-                .return_type
-                .function(self.context, types?.as_slice(), false);
+        let fn_type = prototype
+            .return_type
+            .function(self.context, types?.as_slice(), prototype.is_var_args);
 
         self.symbol_table
-            .store_function(function.prototype.name.clone(), function.prototype.clone());
+            .store_function(prototype.name.clone(), prototype.clone());
 
-        return Some(
-            self.module
-                .add_function(&function.prototype.name, fn_type?, None),
-        );
+        return Some(self.module.add_function(&prototype.name, fn_type?, None));
     }
 
     /// Builds a function
@@ -43,7 +41,7 @@ impl<'ctx> CodeGen<'ctx> {
     ) -> Result<(), CompilerError> {
         let fn_val = if let Some(fn_val) = self.module.get_function(&function.prototype.name) {
             fn_val
-        } else if let Some(fun) = self.build_function_declaration(&function) {
+        } else if let Some(fun) = self.build_function_declaration(&function.prototype) {
             fun
         } else {
             return Err(CompilerError::code_gen_error(

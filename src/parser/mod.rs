@@ -248,6 +248,11 @@ impl Parser {
         match self.peek() {
             Some(&TokenKind::Function) => self.parse_function(),
             Some(&TokenKind::Class) => self.parse_class(),
+            Some(&TokenKind::Extern) => {
+                self.expect(TokenKind::Extern)?;
+                let prototype = self.parse_prototype()?;
+                Ok(Statement::from_pos(StatementKind::Extern(prototype), pos))
+            }
             _ => Err(CompilerError::syntax_error(
                 pos,
                 "Expected top-level declaration here.",

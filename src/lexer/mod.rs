@@ -82,6 +82,8 @@ pub enum TokenKind {
     Class,
     New,
     Free,
+
+    Extern,
     //     Unkown,
 }
 
@@ -245,6 +247,7 @@ impl Lexer {
                         "class" => TokenKind::Class,
                         "new" => TokenKind::New,
                         "free" => TokenKind::Free,
+                        "extern" => TokenKind::Extern,
                         i => {
                             if "function".contains(i) {
                                 // NOTE: this should work with current functionality, however

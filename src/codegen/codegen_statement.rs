@@ -1,7 +1,6 @@
 use crate::{
     ast::{Statement, StatementKind},
     compile_error::CompilerError,
-    types::Type,
 };
 
 use super::{CodeGen, CompileInfo};
@@ -67,6 +66,8 @@ impl<'ctx> CodeGen<'ctx> {
                         .build_free(expression.value.into_pointer_value())?;
                 }
             }
+            StatementKind::Extern(_) => {} // NOTE: This should already be completed as an
+                                           // initialiser step
         }
         Ok(CompileInfo {
             terminator_instruction: false,

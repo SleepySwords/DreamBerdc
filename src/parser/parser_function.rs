@@ -46,20 +46,37 @@ impl Parser {
         let mut arguments = Vec::new();
         while let Some(t) = self.next() {
             match t {
-                TokenKind::ClosePar if self.check(TokenKind::Colon) => {
-                    self.next();
+                TokenKind::ClosePar => {
+                    let return_type = if self.check(TokenKind::Colon) {
+                        self.next();
+                        self.parse_type()?
+                    } else {
+                        Type::Void
+                    };
                     return Ok(Prototype {
                         name: function_name,
                         arguments,
-                        return_type: self.parse_type()?,
+                        return_type,
+                        is_var_args: false,
                     });
                 }
-                TokenKind::ClosePar => {
+                // FIXME: Needs to be a seperate operator, but oh well for now...
+                TokenKind::Dot => {
+                    self.expect(TokenKind::Dot)?;
+                    self.expect(TokenKind::Dot)?;
+                    self.expect(TokenKind::ClosePar)?;
+                    let return_type = if self.check(TokenKind::Colon) {
+                        self.next();
+                        self.parse_type()?
+                    } else {
+                        Type::Void
+                    };
                     return Ok(Prototype {
                         name: function_name,
                         arguments,
-                        return_type: Type::Void,
-                    })
+                        return_type,
+                        is_var_args: true,
+                    });
                 }
                 TokenKind::Symbol(arg) => {
                     self.expect(TokenKind::Colon)?;

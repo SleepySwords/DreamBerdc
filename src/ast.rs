@@ -111,6 +111,7 @@ pub enum StatementKind {
     Return { return_value: Option<Expression> },
     Free(Box<Expression>),
     Expression(Expression),
+    Extern(Prototype),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -151,6 +152,7 @@ pub struct Prototype {
     pub name: String,
     pub arguments: Vec<(Name, Type)>,
     pub return_type: Type,
+    pub is_var_args: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

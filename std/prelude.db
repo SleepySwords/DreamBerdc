@@ -1,0 +1,7 @@
+extern function printf(fmt: byte*, ...): void
+
+extern function putchar(fmt: byte): void
+
+extern function getchar(): byte
+
+extern function puts(value: byte*): int

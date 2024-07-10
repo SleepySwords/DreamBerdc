@@ -3,6 +3,7 @@ use std::fs::read_to_string;
 use std::path::Path;
 use std::process::exit;
 
+use ast::Statement;
 use clap::Parser;
 use colored::Colorize;
 use inkwell::context::Context;
@@ -14,7 +15,6 @@ use crate::args::{Args, Mode};
 use crate::ast::{Prototype, StatementKind};
 use crate::lexer::Lexer;
 use crate::symboltable::SymbolTable;
-use crate::types::Type;
 use crate::{codegen::CodeGen, lexer::TokenKind, parser::Parser as CodeParser};
 
 pub mod args;
@@ -44,100 +44,19 @@ fn main() -> Result<(), Box<dyn Error>> {
     let file = read_to_string(&args.input)?;
     let data = file.chars().collect_vec();
 
-    // Step 1: Tokenise
-    let mut lexer = Lexer::new(data);
-    let tokens = lexer.tokenise();
+    let statements = tokenise_and_parse(data, args.log_info);
 
-    if args.log_info {
-        println!("{:#?}", tokens);
-    }
-
-    // Step 2: Parse
-    let mut parser = CodeParser { tokens, pos: 0 };
-
-    let mut statements = Vec::new();
-    while !parser.peek().is_some_and(|f| *f == TokenKind::Eof) {
-        let function = match parser.parse_top_level_declaration() {
-            Ok(func) => func,
-            Err(e) => {
-                println!("{}", e);
-                exit(1);
-            }
-        };
-        statements.push(function);
-    }
-    if args.log_info {
-        println!("{:#?}", statements);
-    }
+    let file = read_to_string(&"std/prelude.db")?;
+    let data = file.chars().collect_vec();
+    let prelude_statements = tokenise_and_parse(data, false);
 
     // Step 3: Codegen
     let context = Context::create();
     let module = context.create_module("global");
     let builder = context.create_builder();
 
-    let mut symboltable = SymbolTable::new();
+    let symboltable = SymbolTable::new();
 
-    // Add functions
-    let putchar_fn_type = context
-        .i32_type()
-        .fn_type(&[context.i32_type().into()], false);
-
-    module.add_function(
-        "putchar",
-        putchar_fn_type,
-        Some(inkwell::module::Linkage::External),
-    );
-    symboltable.store_function("putchar".to_string(), Prototype {
-        name: "putchar".to_string(),
-        arguments: vec![],
-        return_type: Type::Void,
-    });
-
-    let put_fn_type = context.i32_type().as_basic_type_enum().fn_type(
-        &[context.i8_type().ptr_type(AddressSpace::default()).into()],
-        false,
-    );
-
-    module.add_function(
-        "puts",
-        put_fn_type,
-        Some(inkwell::module::Linkage::External),
-    );
-
-    let printf_fn_type = context.i32_type().as_basic_type_enum().fn_type(
-        &[context.i8_type().ptr_type(AddressSpace::default()).into()],
-        true,
-    );
-
-    module.add_function(
-        "printf",
-        printf_fn_type,
-        Some(inkwell::module::Linkage::External),
-    );
-    symboltable.store_function("printf".to_string(), Prototype {
-        name: "printf".to_string(),
-        arguments: vec![],
-        return_type: Type::Void,
-    });
-
-    let getchar_fn_type = context.i32_type().fn_type(&[], false);
-    module.add_function(
-        "getchar",
-        getchar_fn_type,
-        Some(inkwell::module::Linkage::External),
-    );
-
-    let getchar_fn_type = context
-        .i32_type()
-        .fn_type(&[context.i32_type().into()], false);
-    module.add_function(
-        "gets",
-        getchar_fn_type,
-        Some(inkwell::module::Linkage::External),
-    );
-
-    // FIXME: functions must be defined first before can be used.
-    // Should be able to be done by just adding the function first, and then build it later.
     let mut compiler = CodeGen {
         context: &context,
         module,
@@ -149,22 +68,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         compiler.create_debug_symbols(Path::new(&args.input));
     }
 
-    // Add the function declarations first
-    for statement in &statements {
-        if let StatementKind::Function(fun) = &statement.kind {
-            compiler.build_function_declaration(fun);
-        }
-    }
-
-    for statement in &statements {
-        match compiler.build_statement(statement.clone()) {
-            Ok(_) => {}
-            Err(e) => {
-                println!("{}", e);
-                exit(1);
-            }
-        }
-    }
+    build_statements(&mut compiler, prelude_statements);
+    build_statements(&mut compiler, statements);
 
     compiler.finalise();
     for fun in compiler.module.get_functions() {
@@ -207,4 +112,57 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
     }
     Ok(())
+}
+
+pub fn tokenise_and_parse(data: Vec<char>, log: bool) -> Vec<Statement> {
+    // Step 1: Tokenise
+    let mut lexer = Lexer::new(data);
+    let tokens = lexer.tokenise();
+
+    if log {
+        println!("{:#?}", tokens);
+    }
+
+    // Step 2: Parse
+    let mut parser = CodeParser { tokens, pos: 0 };
+
+    let mut statements = Vec::new();
+    while !parser.peek().is_some_and(|f| *f == TokenKind::Eof) {
+        let function = match parser.parse_top_level_declaration() {
+            Ok(func) => func,
+            Err(e) => {
+                println!("{}", e);
+                exit(1);
+            }
+        };
+        statements.push(function);
+    }
+
+    if log {
+        println!("{:#?}", statements);
+    }
+
+    return statements;
+}
+
+pub fn build_statements(codegen: &mut CodeGen, statements: Vec<Statement>) {
+    // Add the function declarations first
+    for statement in &statements {
+        if let StatementKind::Function(fun) = &statement.kind {
+            codegen.build_function_declaration(&fun.prototype);
+        }
+        if let StatementKind::Extern(prototype) = &statement.kind {
+            codegen.build_extern(prototype);
+        }
+    }
+
+    for statement in &statements {
+        match codegen.build_statement(statement.clone()) {
+            Ok(_) => {}
+            Err(e) => {
+                println!("{}", e);
+                exit(1);
+            }
+        }
+    }
 }
