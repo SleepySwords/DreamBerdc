@@ -57,4 +57,8 @@ pub struct Args {
     #[arg(short = 'O', long)]
     #[arg(default_value_t = Optimisation::None)]
     pub optimisation: Optimisation,
+
+    #[arg(short = 's', long)]
+    #[arg(default_value_t = String::from("std"))]
+    pub std: String,
 }

@@ -1,6 +1,6 @@
 use std::error::Error;
 use std::fs::read_to_string;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::exit;
 
 use ast::Statement;
@@ -45,7 +45,10 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let statements = tokenise_and_parse(data, args.log_info);
 
-    let file = read_to_string("std/prelude.db")?;
+    let mut prelude_path = PathBuf::from(&args.std);
+    prelude_path.push("prelude.db");
+
+    let file = read_to_string(prelude_path)?;
     let data = file.chars().collect_vec();
     let prelude_statements = tokenise_and_parse(data, false);
 

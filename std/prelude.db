@@ -1,6 +1,6 @@
 extern function printf(fmt: byte*, ...): void
 
-extern function putchar(fmt: byte): void
+extern function putchar(fmt: int): void
 
 extern function getchar(): byte
 
