@@ -416,11 +416,13 @@ impl Parser {
             "float" => Type::Float,
             "double" => Type::Double,
             "void" => Type::Void,
-            _ => {
-                return Err(CompilerError::syntax_error(
-                    self.previous_pos(),
-                    format!("Type not found: {}", t),
-                ))
+            identifier => {
+                Type::Class(identifier.to_string()) // FIXME: Debatable whether we error here or in
+                                                    // codegen.
+                // return Err(CompilerError::syntax_error(
+                //     self.previous_pos(),
+                //     format!("Type not found: {}", t),
+                // ))
             }
         };
         match self.peek() {

@@ -4,8 +4,9 @@ use inkwell::{
     values::{BasicValueEnum, PointerValue},
     AddressSpace,
 };
+use itertools::Itertools;
 
-use crate::utils::Mutable;
+use crate::{ast::Class, symboltable::SymbolTable, utils::Mutable};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(test, derive(serde::Deserialize))]
@@ -19,15 +20,18 @@ pub enum Type {
     Void,
     Pointer(Box<Type>),
     Array(Box<Type>, u32),
+    Class(String),
 }
 
 impl Type {
     pub fn function<'a>(
         &self,
         context: &'a Context,
+        symbol_table: &SymbolTable,
         param_types: &[BasicMetadataTypeEnum<'a>],
         is_var_args: bool,
     ) -> Option<FunctionType<'a>> {
+        // FIXME: Functions can be a ptr type, which itself is a basic type!
         Some(match self {
             Type::Int => context.i32_type().fn_type(param_types, is_var_args),
             Type::Short => context.i16_type().fn_type(param_types, is_var_args),
@@ -37,17 +41,31 @@ impl Type {
             Type::Double => context.f64_type().fn_type(param_types, is_var_args),
             Type::Void => context.void_type().fn_type(param_types, is_var_args),
             Type::Pointer(t) => t
-                .basic_type_enum(context)?
+                .basic_type_enum(context, symbol_table)?
                 .ptr_type(AddressSpace::default())
                 .fn_type(param_types, is_var_args),
             Type::Array(t, s) => t
-                .basic_type_enum(context)?
+                .basic_type_enum(context, symbol_table)?
                 .array_type(*s)
+                .fn_type(param_types, is_var_args),
+            Type::Class(class) => context
+                .struct_type(
+                    &[
+                        context.i32_type().as_basic_type_enum(),
+                        context.i32_type().as_basic_type_enum(),
+                    ],
+                    false,
+                )
                 .fn_type(param_types, is_var_args),
         })
     }
 
-    pub fn basic_type_enum<'a>(&self, context: &'a Context) -> Option<BasicTypeEnum<'a>> {
+    // FIXME: need to rewrite as a Result, as Void should never be a basic type enum...
+    pub fn basic_type_enum<'a>(
+        &self,
+        context: &'a Context,
+        symbol_table: &SymbolTable,
+    ) -> Option<BasicTypeEnum<'a>> {
         match self {
             Type::Int => Some(context.i32_type().as_basic_type_enum()),
             Type::Short => Some(context.i16_type().as_basic_type_enum()),
@@ -57,37 +75,27 @@ impl Type {
             Type::Double => Some(context.f64_type().as_basic_type_enum()),
             Type::Void => None,
             Type::Pointer(t) => Some(
-                t.basic_type_enum(context)?
+                t.basic_type_enum(context, symbol_table)?
                     .ptr_type(AddressSpace::default())
                     .as_basic_type_enum(),
             ),
             Type::Array(t, s) => Some(
-                t.basic_type_enum(context)?
+                t.basic_type_enum(context, symbol_table)?
                     .array_type(*s)
                     .ptr_type(AddressSpace::default())
                     .as_basic_type_enum(),
             ),
+            Type::Class(class) => symbol_table
+                .class_table
+                .get(class)
+                .and_then(|f| {
+                    f.fields
+                        .iter()
+                        .map(|f| f.field_type.basic_type_enum(context, symbol_table))
+                        .collect::<Option<Vec<BasicTypeEnum>>>()
+                })
+                .map(|f| context.struct_type(&f, false).as_basic_type_enum()),
         }
-    }
-
-    pub fn basic_metadata_enum<'a>(
-        &self,
-        context: &'a Context,
-    ) -> Option<BasicMetadataTypeEnum<'a>> {
-        Some(match &self {
-            Type::Int => context.i32_type().into(),
-            Type::Short => context.i16_type().into(),
-            Type::Long => context.i64_type().into(),
-            Type::Byte => context.i8_type().into(),
-            Type::Float => context.f32_type().into(),
-            Type::Double => context.f64_type().into(),
-            Type::Pointer(t) => t
-                .basic_type_enum(context)?
-                .ptr_type(AddressSpace::default())
-                .into(),
-            Type::Array(t, s) => t.basic_type_enum(context)?.array_type(*s).into(),
-            Type::Void => return None,
-        })
     }
 }
 

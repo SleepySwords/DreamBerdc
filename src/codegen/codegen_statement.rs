@@ -17,7 +17,7 @@ impl<'ctx> CodeGen<'ctx> {
                 } else {
                     rhs_exp.value_type
                 };
-                let basic_type_enum = if let Some(t) = var_type.basic_type_enum(self.context) {
+                let basic_type_enum = if let Some(t) = var_type.basic_type_enum(self.context, &self.symbol_table) {
                     t
                 } else {
                     return Err(CompilerError::code_gen_error(

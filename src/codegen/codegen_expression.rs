@@ -78,10 +78,13 @@ impl<'ctx> CodeGen<'ctx> {
 
                 let mut rhs_value = rhs_expression.value;
 
-                if let Some(rhs_basic_type) =
-                    rhs_expression.value_type.basic_type_enum(self.context)
+                if let Some(rhs_basic_type) = rhs_expression
+                    .value_type
+                    .basic_type_enum(self.context, &self.symbol_table)
                 {
-                    if let Some(lhs_basic_type) = lhs_type.basic_type_enum(self.context) {
+                    if let Some(lhs_basic_type) =
+                        lhs_type.basic_type_enum(self.context, &self.symbol_table)
+                    {
                         if rhs_basic_type.is_int_type()
                             && lhs_basic_type.is_int_type()
                             && rhs_basic_type.into_int_type().get_bit_width()
@@ -154,11 +157,12 @@ impl<'ctx> CodeGen<'ctx> {
                 Ok(Value {
                     value_type: *t.clone(),
                     value: (self.builder.build_load(
-                        t.basic_type_enum(self.context)
-                            .ok_or(CompilerError::code_gen_error(
+                        t.basic_type_enum(self.context, &self.symbol_table).ok_or(
+                            CompilerError::code_gen_error(
                                 expression_pos,
                                 "This value is not a valid type",
-                            ))?,
+                            ),
+                        )?,
                         exp.value.into_pointer_value(),
                         "dereference",
                     )?),
@@ -166,11 +170,17 @@ impl<'ctx> CodeGen<'ctx> {
             }
             ExpressionKind::Identifier(id) => {
                 if let Some(ptr) = self.symbol_table.fetch_variable(&id) {
-                    let basic_type = ptr.value_type.basic_type_enum(self.context).ok_or(
-                        CompilerError::code_gen_error(expression_pos, "Invalid type"),
-                    )?;
+                    let basic_type = ptr
+                        .value_type
+                        .basic_type_enum(self.context, &self.symbol_table)
+                        .ok_or(CompilerError::code_gen_error(
+                            expression_pos,
+                            "Invalid type",
+                        ))?;
                     let t = ptr.value_type.clone();
-                    let value = self.builder.build_load(basic_type, ptr.pointer(), &id);
+                    let value = self
+                        .builder
+                        .build_load(basic_type, ptr.pointer(), &(id + "_load"));
                     Ok(Value {
                         value: (value.unwrap()),
                         value_type: t,
@@ -209,7 +219,9 @@ impl<'ctx> CodeGen<'ctx> {
                 let (ptr, element_t) = self.get_array_ptr(value, index, expression_pos)?;
                 Ok(Value {
                     value: (self.builder.build_load(
-                        element_t.basic_type_enum(self.context).unwrap(),
+                        element_t
+                            .basic_type_enum(self.context, &self.symbol_table)
+                            .unwrap(),
                         ptr,
                         "load_value",
                     )?),
@@ -254,7 +266,9 @@ impl<'ctx> CodeGen<'ctx> {
                     // Might consider using reference counting or garabge
                     // collection like go
                     let ptr = self.builder.build_array_malloc(
-                        arr_type.basic_type_enum(self.context).unwrap(),
+                        arr_type
+                            .basic_type_enum(self.context, &self.symbol_table)
+                            .unwrap(),
                         self.context.i32_type().const_int(size as u64, false),
                         "array_init",
                     )?;
@@ -266,6 +280,7 @@ impl<'ctx> CodeGen<'ctx> {
                     todo!("Currently not supporting instantiation of other types.")
                 }
             }
+            ExpressionKind::Member(exp, identifier) => self.build_member(*exp, identifier),
             _ => todo!(),
         }
     }
@@ -285,7 +300,7 @@ impl<'ctx> CodeGen<'ctx> {
         if value.value.is_pointer_value() {
             if let Type::Array(element_t, size) = &value.value_type {
                 let t: BasicTypeEnum = element_t
-                    .basic_type_enum(self.context)
+                    .basic_type_enum(self.context, &self.symbol_table)
                     .unwrap()
                     .array_type(*size)
                     .into();
@@ -294,18 +309,20 @@ impl<'ctx> CodeGen<'ctx> {
                         t,
                         value.value.into_pointer_value(),
                         &[self.context.i64_type().const_zero(), updated_index],
-                        "build store",
+                        "index_array_value",
                     )?;
                     Ok((array_ptr, (**element_t).clone()))
                 }
             } else if let Type::Pointer(element_t) = &value.value_type {
-                let t: BasicTypeEnum = element_t.basic_type_enum(self.context).unwrap();
+                let t: BasicTypeEnum = element_t
+                    .basic_type_enum(self.context, &self.symbol_table)
+                    .unwrap();
                 unsafe {
                     let reference = self.builder.build_in_bounds_gep(
                         t,
                         value.value.into_pointer_value(),
                         &[updated_index],
-                        "build store",
+                        "index_ptr_value",
                     )?;
                     return Ok((reference, (**element_t).clone()));
                 }

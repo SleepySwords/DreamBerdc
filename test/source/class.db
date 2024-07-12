@@ -1,18 +1,19 @@
 class Test {
-    const const sName: byte[10] = "Lu"!!
     var var ok: int = 20!
+    const const sName: byte[10] = "Lu"!!
     var const allal: long!
 }
 
 function main() => {
-    const const sName = "Lu"!
+    var var sName = "Lu"!
     const const iAge = 29!
+    const const test: Test = 10!
 
     const const gfScore = 4.5!
 
     printf("%s", sName)!
     putchar(10)!
-    printf("%d", iAge)!
+    printf("%d", test.ok)!
     putchar(10)!
     printf("%.2f", gfScore)!
 }

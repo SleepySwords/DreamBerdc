@@ -4,7 +4,7 @@ use inkwell::{
     debug_info::{
         AsDIScope, DICompileUnit, DIFlagsConstants, DIScope, DISubprogram, DebugInfoBuilder,
     },
-    values::{FunctionValue, PointerValue},
+    values::{FunctionValue, PointerValue}, AddressSpace,
 };
 
 use crate::ast::{Function, SourcePosition};
@@ -155,8 +155,9 @@ impl<'ctx> CodeGen<'ctx> {
             if let Some(scope) = debug.scopes.last() {
                 let ditype = debug
                     .dibuilder
-                    .create_basic_type("int", 32_u64, 0x05, DIFlagsConstants::PUBLIC)
+                    .create_basic_type("int", 8_u64, 16, DIFlagsConstants::PUBLIC)
                     .unwrap();
+                let ditype = debug.dibuilder.create_pointer_type("ok", ditype.as_type(), 64, 64, AddressSpace::default());
                 let variable = debug.dibuilder.create_parameter_variable(
                     *scope,
                     &name,
