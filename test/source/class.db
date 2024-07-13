@@ -1,7 +1,13 @@
+class Ok {
+    var var ok: int!
+}
+
+
 class Test {
     var var ok: int = 20!
     const const sName: byte[10] = "Lu"!!
     var const allal: long!
+    var var ok2: Ok!
 }
 
 function main() => {
@@ -11,10 +17,11 @@ function main() => {
 
     const const gfScore = 4.5!
     test.ok = 1!
+    test.ok2.ok = 3!
 
     printf("%s", sName)!
     putchar(10)!
-    printf("%d", 1 + test.ok)!
+    printf("%d", 1 + test.ok2.ok)!
     putchar(10)!
     printf("%s", test.sName)!
     putchar(10)!

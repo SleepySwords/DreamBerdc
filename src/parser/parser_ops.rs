@@ -166,18 +166,22 @@ impl Parser {
         let pos = self.current_pos();
         let mut expr = self.parse_dereference()?;
 
-        if self.check(TokenKind::OpenSqB) {
-            self.expect(TokenKind::OpenSqB)?;
-            let index = self.parse_expression()?;
-            self.expect(TokenKind::CloseSqB)?;
-            expr = Expression::from_pos(
-            ExpressionKind::IndexOperator {
-                expression: Box::new(expr),
-                index: Box::new(index),
-            },
-            pos);
+        while let Some(TokenKind::OpenSqB | TokenKind::Dot) = self.peek() {
+            if self.check(TokenKind::OpenSqB) {
+                self.expect(TokenKind::OpenSqB)?;
+                let index = self.parse_expression()?;
+                self.expect(TokenKind::CloseSqB)?;
+                expr = Expression::from_pos(
+                    ExpressionKind::IndexOperator {
+                        expression: Box::new(expr),
+                        index: Box::new(index),
+                    },
+                    pos);
+            } else {
+                expr = self.parse_member(expr)?;
+            }
         }
-        let expr = self.parse_member(expr)?;
+
         Ok(expr)
     }
 
