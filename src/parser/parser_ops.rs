@@ -133,21 +133,52 @@ impl Parser {
         ))
     }
 
+    pub fn parse_member(&mut self, expression: Expression) -> Result<Expression, CompilerError> {
+        let current_pos = self.current_pos();
+        if self.check(TokenKind::Dot) {
+            self.expect(TokenKind::Dot)?;
+            if let Some(TokenKind::Symbol(sym)) = self.next() {
+                return Ok(Expression::from_pos(
+                    ExpressionKind::Member(Box::new(expression), sym),
+                    current_pos,
+                ));
+            } else {
+                return Err(CompilerError::syntax_error(current_pos, "Expected member"));
+            }
+        }
+        Ok(expression)
+    }
+
+    pub fn parse_dereference(&mut self) -> Result<Expression, CompilerError> {
+        let current_pos = self.current_pos();
+        let expression = self.parse_value()?;
+        if self.check(TokenKind::Star) {
+            self.expect(TokenKind::Star)?;
+            return Ok(Expression::from_pos(
+                ExpressionKind::Dereference(Box::new(expression)),
+                current_pos,
+            ));
+        }
+        Ok(expression)
+    }
+
     pub fn parse_operators(&mut self) -> Result<Expression, CompilerError> {
         let pos = self.current_pos();
-        let expr = self.parse_value()?;
+        let mut expr = self.parse_dereference()?;
 
-        parse_or!(self, TokenKind::OpenSqB, return Ok(expr));
-
-        let index = self.parse_expression()?;
-        self.expect(TokenKind::CloseSqB)?;
-        Ok(Expression::from_pos(
+        if self.check(TokenKind::OpenSqB) {
+            self.expect(TokenKind::OpenSqB)?;
+            let index = self.parse_expression()?;
+            self.expect(TokenKind::CloseSqB)?;
+            expr = Expression::from_pos(
             ExpressionKind::IndexOperator {
                 expression: Box::new(expr),
                 index: Box::new(index),
             },
-            pos,
-        ))
+            pos);
+        }
+        let expr = self.parse_member(expr)?;
+        Ok(expr)
     }
 
     pub fn parse_value(&mut self) -> Result<Expression, CompilerError> {

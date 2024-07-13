@@ -7,13 +7,16 @@ class Test {
 function main() => {
     var var sName = "Lu"!
     const const iAge = 29!
-    const const test: Test = 10!
+    var var test: Test = 10!
 
     const const gfScore = 4.5!
+    test.ok = 1!
 
     printf("%s", sName)!
     putchar(10)!
-    printf("%d", test.ok)!
+    printf("%d", 1 + test.ok)!
+    putchar(10)!
+    printf("%s", test.sName)!
     putchar(10)!
     printf("%.2f", gfScore)!
 }

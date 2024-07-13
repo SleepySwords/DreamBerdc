@@ -57,6 +57,12 @@ impl<'ctx> CodeGen<'ctx> {
                                                          // ops, assignments, functions calls). So 
                                                          // we are able to fetch ptrs to values to
                                                          // use it.
+                                                         // Todo
+                                                         // - Create a build_lvalue function that
+                                                         // does all the building
+                                                         // - Create a build_rvalue function that
+                                                         // handles loading of lvalues in addition
+                                                         // to literals, binary ops, etc..
                     expression.value.into_struct_value(),
                     pos.try_into().unwrap(),
                     "extract",

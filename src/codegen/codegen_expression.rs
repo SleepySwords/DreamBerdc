@@ -41,32 +41,7 @@ impl<'ctx> CodeGen<'ctx> {
                 // NOTE: it's debatable whether we throw the l-value error in
                 // code generation or in parsing. We might also want to use a
                 // different operation for assigning struct values (eg: set)
-                let (lhs_ptr, lhs_type) = if let ExpressionKind::Identifier(lhs_id) = &lhs.kind {
-                    let Some(var) = self.symbol_table.fetch_variable(lhs_id) else {
-                        return Err(CompilerError::code_gen_error(
-                            expression_pos,
-                            format!("Unknown varaible: {}", lhs_id),
-                        ));
-                    };
-                    let t = var.value_type.clone();
-                    if !var.mutability.contains(Mutable::Reassignable) {
-                        return Err(CompilerError::code_gen_error(
-                            expression_pos,
-                            "Cannot reassign a constant variable",
-                        ));
-                    }
-                    (var.pointer(), t)
-                } else if let ExpressionKind::IndexOperator { expression, index } = lhs.kind {
-                    let index = self.build_expression(*index)?;
-                    let value = self.build_expression(*expression)?;
-
-                    self.get_array_ptr(value, index, expression_pos)?
-                } else {
-                    return Err(CompilerError::code_gen_error(
-                        expression_pos,
-                        format!("Expected an l-value, found {:?}.", lhs),
-                    ));
-                };
+                let (lhs_ptr, lhs_type) = self.get_ptr(*lhs)?;
 
                 // FIXME: The way type conversion was implemented here is
                 // heavily reliant on llvm, ideally implementation details are
@@ -283,6 +258,72 @@ impl<'ctx> CodeGen<'ctx> {
             ExpressionKind::Member(exp, identifier) => self.build_member(*exp, identifier),
             _ => todo!(),
         }
+    }
+
+    pub fn get_ptr(
+        &mut self,
+        expression: Expression,
+    ) -> Result<(PointerValue<'ctx>, Type), CompilerError> {
+        let expression_pos = expression.pos();
+        let (lhs_ptr, lhs_type) = if let ExpressionKind::Identifier(lhs_id) = &expression.kind {
+            let Some(var) = self.symbol_table.fetch_variable(lhs_id) else {
+                return Err(CompilerError::code_gen_error(
+                    expression_pos,
+                    format!("Unknown varaible: {}", lhs_id),
+                ));
+            };
+            let t = var.value_type.clone();
+            if !var.mutability.contains(Mutable::Reassignable) {
+                return Err(CompilerError::code_gen_error(
+                    expression_pos,
+                    "Cannot reassign a constant variable",
+                ));
+            }
+            (var.pointer(), t)
+        } else if let ExpressionKind::IndexOperator { expression, index } = expression.kind {
+            let index = self.build_expression(*index)?;
+            let value = self.build_expression(*expression)?;
+
+            self.get_array_ptr(value, index, expression_pos)?
+        } else if let ExpressionKind::Member(expression, index) = expression.kind {
+            let (ptr, ptr_type) = self.get_ptr(*expression)?;
+            if let Type::Class(c) = &ptr_type {
+                let field_declaration = self
+                    .symbol_table
+                    .class_table
+                    .get(c)
+                    .unwrap()
+                    .fields
+                    .iter()
+                    .position(|f| f.name == index)
+                    .unwrap();
+                let field_type = self.symbol_table.class_table.get(c).unwrap().fields
+                    [field_declaration]
+                    .field_type
+                    .clone();
+
+                let field_ptr = self.builder.build_struct_gep(
+                    ptr_type
+                        .basic_type_enum(&self.context, &self.symbol_table)
+                        .unwrap(),
+                    ptr,
+                    field_declaration as u32,
+                    "index",
+                )?;
+                (field_ptr, field_type)
+            } else {
+                return Err((CompilerError::code_gen_error(
+                    expression_pos,
+                    "Cannot use fields on a primative",
+                )));
+            }
+        } else {
+            return Err(CompilerError::code_gen_error(
+                expression_pos,
+                format!("Expected an l-value, found {:?}.", expression_pos),
+            ));
+        };
+        Ok((lhs_ptr, lhs_type))
     }
 
     pub fn get_array_ptr(
