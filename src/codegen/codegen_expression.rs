@@ -297,19 +297,17 @@ impl<'ctx> CodeGen<'ctx> {
                 self.get_array_ptr(value, index, expression_pos)?
             }
             ExpressionKind::Dereference(reference) => {
-                let (ptr, ptr_type) = self.get_ptr(*reference)?;
-                let ptr_ref = self.builder.build_load(
-                    ptr_type.basic_type_enum(self.context, &self.symbol_table).unwrap(),
-                    ptr,
-                    "pointer_load",
-                )?;
+                let Value {
+                    value: ptr,
+                    value_type: ptr_type,
+                } = self.build_expression(*reference)?;
                 let Type::Pointer(value_type) = ptr_type else {
                     return Err(CompilerError::code_gen_error(
                         expression_pos,
-                        "Cannot use dereference on a non pointer type.",
+                        "Cannot dereference on a non-pointer type.",
                     ));
                 };
-                (ptr_ref.into_pointer_value(), *value_type)
+                (ptr.into_pointer_value(), *value_type)
             }
             ExpressionKind::Member(expression, index) => {
                 let (ptr, ptr_type) = self.get_ptr(*expression)?;
@@ -323,11 +321,21 @@ impl<'ctx> CodeGen<'ctx> {
                     .symbol_table
                     .class_table
                     .get(c)
-                    .unwrap() // FIXME: proper error handling rather than using unwraps
+                    .ok_or_else(|| {
+                        CompilerError::code_gen_error(
+                            expression_pos,
+                            format!("Cannot find the class {}", c),
+                        )
+                    })?
                     .fields
                     .iter()
                     .position(|f| f.name == index)
-                    .unwrap();
+                    .ok_or_else(|| {
+                        CompilerError::code_gen_error(
+                            expression_pos,
+                            format!("The field {} does not exist in the class {}", index, c),
+                        )
+                    })?;
                 let field_type = self.symbol_table.class_table.get(c).unwrap().fields
                     [field_declaration]
                     .field_type
