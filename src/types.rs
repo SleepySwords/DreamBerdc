@@ -4,9 +4,8 @@ use inkwell::{
     values::{BasicValueEnum, PointerValue},
     AddressSpace,
 };
-use itertools::Itertools;
 
-use crate::{ast::Class, symboltable::SymbolTable, utils::Mutable};
+use crate::{symboltable::SymbolTable, utils::Mutable};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(test, derive(serde::Deserialize))]
@@ -48,15 +47,16 @@ impl Type {
                 .basic_type_enum(context, symbol_table)?
                 .array_type(*s)
                 .fn_type(param_types, is_var_args),
-            Type::Class(class) => context
-                .struct_type(
-                    &[
-                        context.i32_type().as_basic_type_enum(),
-                        context.i32_type().as_basic_type_enum(),
-                    ],
-                    false,
-                )
-                .fn_type(param_types, is_var_args),
+            Type::Class(class) => symbol_table
+                .class_table
+                .get(class)
+                .and_then(|f| {
+                    f.fields
+                        .iter()
+                        .map(|f| f.field_type.basic_type_enum(context, symbol_table))
+                        .collect::<Option<Vec<BasicTypeEnum>>>()
+                })
+                .map(|f| context.struct_type(&f, false).as_basic_type_enum().fn_type(param_types, is_var_args))?,
         })
     }
 

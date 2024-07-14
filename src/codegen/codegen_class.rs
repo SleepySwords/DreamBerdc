@@ -1,7 +1,7 @@
 use itertools::Itertools;
 
 use crate::{
-    ast::{Class, Expression, ExpressionKind},
+    ast::{Class, Expression},
     compile_error::CompilerError,
     types::{Type, Value},
 };

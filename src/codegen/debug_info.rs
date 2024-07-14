@@ -2,12 +2,16 @@ use std::path::Path;
 
 use inkwell::{
     debug_info::{
-        AsDIScope, DICompileUnit, DIFlagsConstants, DIScope, DISubprogram, DebugInfoBuilder,
+        AsDIScope, DICompileUnit, DIFlagsConstants, DIScope, DISubprogram, DIType, DebugInfoBuilder,
     },
-    values::{FunctionValue, PointerValue}, AddressSpace,
+    values::{FunctionValue, PointerValue},
+    AddressSpace,
 };
 
-use crate::ast::{Function, SourcePosition};
+use crate::{
+    ast::{Function, SourcePosition},
+    types::Type,
+};
 
 use super::CodeGen;
 
@@ -148,25 +152,22 @@ impl<'ctx> CodeGen<'ctx> {
     pub fn create_debug_variable(
         &mut self,
         value: PointerValue<'ctx>,
+        value_type: &Type,
         name: String,
         (col, lnum): SourcePosition,
     ) -> Option<()> {
         if let Some(debug) = &mut self.debug_info {
             if let Some(scope) = debug.scopes.last() {
-                let ditype = debug
-                    .dibuilder
-                    .create_basic_type("int", 8_u64, 16, DIFlagsConstants::PUBLIC)
-                    .unwrap();
-                let ditype = debug.dibuilder.create_pointer_type("ok", ditype.as_type(), 64, 64, AddressSpace::default());
-                let variable = debug.dibuilder.create_parameter_variable(
+                let variable = debug.dibuilder.create_auto_variable(
                     *scope,
                     &name,
-                    debug.arg_no,
+                    // debug.arg_no,
                     debug.compile_unit.get_file(),
                     lnum as u32,
-                    ditype.as_type(),
-                    true,
+                    value_type.debug_type(&debug.dibuilder),
+                    false,
                     DIFlagsConstants::ZERO,
+                    0_u32
                 );
                 let loc = debug.dibuilder.create_debug_location(
                     self.context,
@@ -191,6 +192,59 @@ impl<'ctx> CodeGen<'ctx> {
     pub fn finalise(&self) {
         if let Some(DebugInfo { dibuilder, .. }) = &self.debug_info {
             dibuilder.finalize();
+        }
+    }
+}
+
+impl Type {
+    fn debug_type<'ctx>(&self, dibuilder: &DebugInfoBuilder<'ctx>) -> DIType<'ctx> {
+        match self {
+            Type::Int => dibuilder
+                .create_basic_type("int", 32_u64, 0x5, DIFlagsConstants::PUBLIC)
+                .unwrap()
+                .as_type(),
+            Type::Short => dibuilder
+                .create_basic_type("int", 16_u64, 0x5, DIFlagsConstants::PUBLIC)
+                .unwrap()
+                .as_type(),
+            Type::Long => dibuilder
+                .create_basic_type("int", 64_u64, 0x5, DIFlagsConstants::PUBLIC)
+                .unwrap()
+                .as_type(),
+            Type::Byte => dibuilder
+                .create_basic_type("int", 8_u64, 0x5, DIFlagsConstants::PUBLIC)
+                .unwrap()
+                .as_type(),
+            Type::Float => dibuilder
+                .create_basic_type("int", 32_u64, 0x5, DIFlagsConstants::PUBLIC)
+                .unwrap()
+                .as_type(),
+            Type::Double => dibuilder
+                .create_basic_type("int", 64_u64, 0x5, DIFlagsConstants::PUBLIC)
+                .unwrap()
+                .as_type(),
+            Type::Void => todo!(),
+            Type::Pointer(ptr) => dibuilder
+                .create_pointer_type(
+                    "ptr",
+                    ptr.debug_type(dibuilder),
+                    64_u64,
+                    0_u32,
+                    AddressSpace::default(),
+                )
+                .as_type(),
+            Type::Array(array_type, size) => dibuilder
+                .create_array_type(
+                    array_type.debug_type(dibuilder),
+                    64_u64,
+                    0_u32,
+                    &[0..(*size as i64)],
+                )
+                .as_type(),
+            Type::Class(class) => dibuilder
+                .create_basic_type("int", 64_u64, 0x5, DIFlagsConstants::PUBLIC)
+                .unwrap()
+                .as_type(),
         }
     }
 }

@@ -123,7 +123,7 @@ impl Parser {
         let pos = self.current_pos();
         parse_or!(self, TokenKind::Dash, return self.parse_operators());
 
-        let expr = self.parse_operators()?;
+        let expr = self.parse_unary()?;
         Ok(Expression::from_pos(
             ExpressionKind::Unary {
                 expression: Box::new(expr),
@@ -149,22 +149,33 @@ impl Parser {
         Ok(expression)
     }
 
-    pub fn parse_dereference(&mut self) -> Result<Expression, CompilerError> {
+    pub fn parse_reference_operators(&mut self) -> Result<Expression, CompilerError> {
         let current_pos = self.current_pos();
-        let expression = self.parse_value()?;
-        if self.check(TokenKind::Star) {
-            self.expect(TokenKind::Star)?;
-            return Ok(Expression::from_pos(
-                ExpressionKind::Dereference(Box::new(expression)),
-                current_pos,
-            ));
-        }
+        let expression = match self.peek() {
+            Some(TokenKind::Star) => {
+                self.expect(TokenKind::Star)?;
+                let expression = self.parse_reference_operators()?;
+                Expression::from_pos(
+                    ExpressionKind::Dereference(Box::new(expression)),
+                    current_pos,
+                )
+            }
+            Some(TokenKind::Ampersand) => {
+                self.expect(TokenKind::Ampersand)?;
+                let expression = self.parse_reference_operators()?;
+                Expression::from_pos(
+                    ExpressionKind::Reference(Box::new(expression)),
+                    current_pos,
+                )
+            }
+            _ => self.parse_value()?,
+        };
         Ok(expression)
     }
 
     pub fn parse_operators(&mut self) -> Result<Expression, CompilerError> {
         let pos = self.current_pos();
-        let mut expr = self.parse_dereference()?;
+        let mut expr = self.parse_reference_operators()?;
 
         while let Some(TokenKind::OpenSqB | TokenKind::Dot) = self.peek() {
             if self.check(TokenKind::OpenSqB) {
@@ -176,7 +187,8 @@ impl Parser {
                         expression: Box::new(expr),
                         index: Box::new(index),
                     },
-                    pos);
+                    pos,
+                );
             } else {
                 expr = self.parse_member(expr)?;
             }

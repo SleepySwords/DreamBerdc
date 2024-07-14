@@ -84,6 +84,7 @@ pub enum TokenKind {
     Free,
 
     Extern,
+    Ampersand,
     //     Unkown,
 }
 
@@ -158,6 +159,7 @@ impl Lexer {
                 ']' => TokenKind::CloseSqB,
                 '{' => TokenKind::OpenCurB,
                 '}' => TokenKind::CloseCurB,
+                '&' => TokenKind::Ampersand,
                 '.' => TokenKind::Dot,
                 '+' => {
                     if self.peek() == Some(&'=') {

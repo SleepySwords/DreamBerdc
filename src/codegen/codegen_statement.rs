@@ -29,7 +29,7 @@ impl<'ctx> CodeGen<'ctx> {
                     .builder
                     .build_alloca(basic_type_enum, &(declaration.lhs.clone() + "_var"))?;
 
-                self.create_debug_variable(variable, declaration.lhs.clone(), statement_pos);
+                self.create_debug_variable(variable, &&var_type, declaration.lhs.clone(), statement_pos);
 
                 self.builder.build_store(variable, rhs_exp.value)?;
                 self.symbol_table.store_variable_ptr(

@@ -2,7 +2,7 @@ use std::cmp::Ordering;
 
 use inkwell::{
     types::{BasicType, BasicTypeEnum},
-    values::{ArrayValue, BasicMetadataValueEnum, PointerValue},
+    values::{ArrayValue, BasicMetadataValueEnum, BasicValue, PointerValue},
     FloatPredicate, IntPredicate,
 };
 use itertools::Itertools;
@@ -143,6 +143,13 @@ impl<'ctx> CodeGen<'ctx> {
                     )?),
                 })
             }
+            ExpressionKind::Reference(exp) => {
+                let (ptr, ptr_type) = self.get_ptr(*exp)?;
+                Ok(Value {
+                    value: ptr.as_basic_value_enum(),
+                    value_type: Type::Pointer(Box::new(ptr_type)),
+                })
+            }
             ExpressionKind::Identifier(id) => {
                 if let Some(ptr) = self.symbol_table.fetch_variable(&id) {
                     let basic_type = ptr
@@ -260,39 +267,63 @@ impl<'ctx> CodeGen<'ctx> {
         }
     }
 
+    // TODO: integrate this when parsing values (ie: when fetching values load this.)
     pub fn get_ptr(
         &mut self,
         expression: Expression,
     ) -> Result<(PointerValue<'ctx>, Type), CompilerError> {
         let expression_pos = expression.pos();
-        let (lhs_ptr, lhs_type) = if let ExpressionKind::Identifier(lhs_id) = &expression.kind {
-            let Some(var) = self.symbol_table.fetch_variable(lhs_id) else {
-                return Err(CompilerError::code_gen_error(
-                    expression_pos,
-                    format!("Unknown varaible: {}", lhs_id),
-                ));
-            };
-            let t = var.value_type.clone();
-            if !var.mutability.contains(Mutable::Reassignable) {
-                return Err(CompilerError::code_gen_error(
-                    expression_pos,
-                    "Cannot reassign a constant variable",
-                ));
+        let (lhs_ptr, lhs_type) = match expression.kind {
+            ExpressionKind::Identifier(lhs_id) => {
+                let Some(var) = self.symbol_table.fetch_variable(&lhs_id) else {
+                    return Err(CompilerError::code_gen_error(
+                        expression_pos,
+                        format!("Unknown varaible: {}", lhs_id),
+                    ));
+                };
+                let t = var.value_type.clone();
+                if !var.mutability.contains(Mutable::Reassignable) {
+                    return Err(CompilerError::code_gen_error(
+                        expression_pos,
+                        "Cannot reassign a constant variable",
+                    ));
+                }
+                (var.pointer(), t)
             }
-            (var.pointer(), t)
-        } else if let ExpressionKind::IndexOperator { expression, index } = expression.kind {
-            let index = self.build_expression(*index)?;
-            let value = self.build_expression(*expression)?;
+            ExpressionKind::IndexOperator { expression, index } => {
+                let index = self.build_expression(*index)?;
+                let value = self.build_expression(*expression)?;
 
-            self.get_array_ptr(value, index, expression_pos)?
-        } else if let ExpressionKind::Member(expression, index) = expression.kind {
-            let (ptr, ptr_type) = self.get_ptr(*expression)?;
-            if let Type::Class(c) = &ptr_type {
+                self.get_array_ptr(value, index, expression_pos)?
+            }
+            ExpressionKind::Dereference(reference) => {
+                let (ptr, ptr_type) = self.get_ptr(*reference)?;
+                let ptr_ref = self.builder.build_load(
+                    ptr_type.basic_type_enum(self.context, &self.symbol_table).unwrap(),
+                    ptr,
+                    "pointer_load",
+                )?;
+                let Type::Pointer(value_type) = ptr_type else {
+                    return Err(CompilerError::code_gen_error(
+                        expression_pos,
+                        "Cannot use dereference on a non pointer type.",
+                    ));
+                };
+                (ptr_ref.into_pointer_value(), *value_type)
+            }
+            ExpressionKind::Member(expression, index) => {
+                let (ptr, ptr_type) = self.get_ptr(*expression)?;
+                let Type::Class(c) = &ptr_type else {
+                    return Err(CompilerError::code_gen_error(
+                        expression_pos,
+                        "Cannot use fields on a primative",
+                    ));
+                };
                 let field_declaration = self
                     .symbol_table
                     .class_table
                     .get(c)
-                    .unwrap()
+                    .unwrap() // FIXME: proper error handling rather than using unwraps
                     .fields
                     .iter()
                     .position(|f| f.name == index)
@@ -311,17 +342,13 @@ impl<'ctx> CodeGen<'ctx> {
                     "index",
                 )?;
                 (field_ptr, field_type)
-            } else {
-                return Err((CompilerError::code_gen_error(
-                    expression_pos,
-                    "Cannot use fields on a primative",
-                )));
             }
-        } else {
-            return Err(CompilerError::code_gen_error(
-                expression_pos,
-                format!("Expected an l-value, found {:?}.", expression_pos),
-            ));
+            _ => {
+                return Err(CompilerError::code_gen_error(
+                    expression_pos,
+                    format!("Expected an l-value, found {:?}.", expression_pos),
+                ));
+            }
         };
         Ok((lhs_ptr, lhs_type))
     }

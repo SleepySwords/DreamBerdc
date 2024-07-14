@@ -43,6 +43,7 @@ pub enum ExpressionKind {
         rhs: Box<Expression>,
     },
     Dereference(Box<Expression>),
+    Reference(Box<Expression>),
     IndexOperator {
         expression: Box<Expression>,
         index: Box<Expression>,
