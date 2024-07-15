@@ -56,7 +56,12 @@ impl Type {
                         .map(|f| f.field_type.basic_type_enum(context, symbol_table))
                         .collect::<Option<Vec<BasicTypeEnum>>>()
                 })
-                .map(|f| context.struct_type(&f, false).as_basic_type_enum().fn_type(param_types, is_var_args))?,
+                .map(|f| {
+                    context
+                        .struct_type(&f, false)
+                        .as_basic_type_enum()
+                        .fn_type(param_types, is_var_args)
+                })?,
         })
     }
 

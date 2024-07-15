@@ -163,10 +163,7 @@ impl Parser {
             Some(TokenKind::Ampersand) => {
                 self.expect(TokenKind::Ampersand)?;
                 let expression = self.parse_reference_operators()?;
-                Expression::from_pos(
-                    ExpressionKind::Reference(Box::new(expression)),
-                    current_pos,
-                )
+                Expression::from_pos(ExpressionKind::Reference(Box::new(expression)), current_pos)
             }
             _ => self.parse_value()?,
         };

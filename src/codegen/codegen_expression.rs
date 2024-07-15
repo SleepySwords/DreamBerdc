@@ -306,7 +306,7 @@ impl<'ctx> CodeGen<'ctx> {
 
                 let field_ptr = self.builder.build_struct_gep(
                     ptr_type
-                        .basic_type_enum(&self.context, &self.symbol_table)
+                        .basic_type_enum(self.context, &self.symbol_table)
                         .unwrap(),
                     ptr,
                     field_declaration as u32,

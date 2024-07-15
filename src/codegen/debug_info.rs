@@ -166,7 +166,7 @@ impl<'ctx> CodeGen<'ctx> {
                     value_type.debug_type(&debug.dibuilder),
                     false,
                     DIFlagsConstants::ZERO,
-                    0_u32
+                    0_u32,
                 );
                 let loc = debug.dibuilder.create_debug_location(
                     self.context,

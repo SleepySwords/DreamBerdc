@@ -231,7 +231,9 @@ impl Lexer {
                     word.push(token);
                     let is_number = token.is_numeric();
                     while let Some(token) = self.peek() {
-                        if (!token.is_alphanumeric() && *token != '_' && (!is_number || *token != '.'))
+                        if (!token.is_alphanumeric()
+                            && *token != '_'
+                            && (!is_number || *token != '.'))
                             || token.is_whitespace()
                         {
                             break;

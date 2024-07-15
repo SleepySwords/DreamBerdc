@@ -1,10 +1,6 @@
 use itertools::Itertools;
 
-use crate::{
-    ast::{Class, Expression},
-    compile_error::CompilerError,
-    types::{Type, Value},
-};
+use crate::ast::Class;
 
 use super::CodeGen;
 
@@ -15,7 +11,11 @@ impl<'ctx> CodeGen<'ctx> {
             &class
                 .fields
                 .iter()
-                .map(|f| f.field_type.basic_type_enum(self.context, &self.symbol_table).unwrap())
+                .map(|f| {
+                    f.field_type
+                        .basic_type_enum(self.context, &self.symbol_table)
+                        .unwrap()
+                })
                 .collect_vec(),
             false,
         );

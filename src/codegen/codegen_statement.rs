@@ -17,19 +17,25 @@ impl<'ctx> CodeGen<'ctx> {
                 } else {
                     rhs_exp.value_type
                 };
-                let basic_type_enum = if let Some(t) = var_type.basic_type_enum(self.context, &self.symbol_table) {
-                    t
-                } else {
-                    return Err(CompilerError::code_gen_error(
-                        statement_pos,
-                        "Cannot use the void type as a variable.",
-                    ));
-                };
+                let basic_type_enum =
+                    if let Some(t) = var_type.basic_type_enum(self.context, &self.symbol_table) {
+                        t
+                    } else {
+                        return Err(CompilerError::code_gen_error(
+                            statement_pos,
+                            "Cannot use the void type as a variable.",
+                        ));
+                    };
                 let variable = self
                     .builder
                     .build_alloca(basic_type_enum, &(declaration.lhs.clone() + "_var"))?;
 
-                self.create_debug_variable(variable, &&var_type, declaration.lhs.clone(), statement_pos);
+                self.create_debug_variable(
+                    variable,
+                    &var_type,
+                    declaration.lhs.clone(),
+                    statement_pos,
+                );
 
                 self.builder.build_store(variable, rhs_exp.value)?;
                 self.symbol_table.store_variable_ptr(

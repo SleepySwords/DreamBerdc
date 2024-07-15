@@ -383,10 +383,10 @@ impl Parser {
             identifier => {
                 Type::Class(identifier.to_string()) // FIXME: Debatable whether we error here or in
                                                     // codegen.
-                // return Err(CompilerError::syntax_error(
-                //     self.previous_pos(),
-                //     format!("Type not found: {}", t),
-                // ))
+                                                    // return Err(CompilerError::syntax_error(
+                                                    //     self.previous_pos(),
+                                                    //     format!("Type not found: {}", t),
+                                                    // ))
             }
         };
         match self.peek() {
