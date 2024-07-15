@@ -22,7 +22,6 @@ pub struct DebugInfo<'ctx> {
     arg_no: u32,
 }
 
-// Should be in a dedicated struct...
 impl<'ctx> CodeGen<'ctx> {
     pub fn emit_function_debug_info(
         &mut self,

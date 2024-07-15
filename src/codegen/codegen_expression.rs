@@ -33,15 +33,10 @@ impl<'ctx> CodeGen<'ctx> {
                 self.build_call(callee, arguments, expression_pos)
             }
             ExpressionKind::Assignment { lhs, rhs } => {
-                // FIXME: LHS assignments could also be arrays, or pointers
-                // (that are dereferenced) must implement the concept of l-values
-                // This also included actually storing the value
-                // rather than loading the ptr
-                //
                 // NOTE: it's debatable whether we throw the l-value error in
                 // code generation or in parsing. We might also want to use a
                 // different operation for assigning struct values (eg: set)
-                let (lhs_ptr, lhs_type) = self.get_ptr(*lhs)?;
+                let (lhs_ptr, lhs_type) = self.get_ptr_to_expression(*lhs)?;
 
                 // FIXME: The way type conversion was implemented here is
                 // heavily reliant on llvm, ideally implementation details are
@@ -114,37 +109,8 @@ impl<'ctx> CodeGen<'ctx> {
                     value: ptr.into(),
                 })
             }
-            ExpressionKind::Dereference(exp) => {
-                let exp = self.build_expression(*exp)?;
-                if !exp.value.is_pointer_value() {
-                    return Err(CompilerError::code_gen_error(
-                        expression_pos,
-                        "The value attempted to dereference is not an pointer.",
-                    ));
-                }
-                let Type::Pointer(t) = exp.value_type else {
-                    return Err(CompilerError::code_gen_error(
-                        expression_pos,
-                        "This is not a pointer type",
-                    ));
-                };
-
-                Ok(Value {
-                    value_type: *t.clone(),
-                    value: (self.builder.build_load(
-                        t.basic_type_enum(self.context, &self.symbol_table).ok_or(
-                            CompilerError::code_gen_error(
-                                expression_pos,
-                                "This value is not a valid type",
-                            ),
-                        )?,
-                        exp.value.into_pointer_value(),
-                        "dereference",
-                    )?),
-                })
-            }
             ExpressionKind::Reference(exp) => {
-                let (ptr, ptr_type) = self.get_ptr(*exp)?;
+                let (ptr, ptr_type) = self.get_ptr_to_expression(*exp)?;
                 Ok(Value {
                     value: ptr.as_basic_value_enum(),
                     value_type: Type::Pointer(Box::new(ptr_type)),
@@ -169,46 +135,24 @@ impl<'ctx> CodeGen<'ctx> {
                     })
                 } else if let Some(value) = self.symbol_table.fetch_argument(&id) {
                     Ok(value)
+                } else if let Ok(var) = id.parse::<i32>() {
+                    let i32_type = self.context.i32_type();
+                    Ok(Value {
+                        value_type: Type::Int,
+                        value: i32_type.const_int(var as u64, false).into(),
+                    })
+                } else if let Ok(var) = id.parse::<f32>() {
+                    let f32_type = self.context.f32_type();
+                    Ok(Value {
+                        value_type: Type::Float,
+                        value: f32_type.const_float(var as f64).into(),
+                    })
                 } else {
-                    let var_i32 = id.parse::<i32>();
-                    if let Ok(var) = var_i32 {
-                        let i32_type = self.context.i32_type();
-                        Ok(Value {
-                            value_type: Type::Int,
-                            value: i32_type.const_int(var as u64, false).into(),
-                        })
-                    } else {
-                        let var_f32 = id.parse::<f32>();
-                        if let Ok(var) = var_f32 {
-                            let f32_type = self.context.f32_type();
-                            Ok(Value {
-                                value_type: Type::Float,
-                                value: f32_type.const_float(var as f64).into(),
-                            })
-                        } else {
-                            Err(CompilerError::CodeGenError(
-                                expression_pos,
-                                format!("Could not recognise the symbol: {}", id),
-                            ))
-                        }
-                    }
+                    Err(CompilerError::CodeGenError(
+                        expression_pos,
+                        format!("Could not recognise the symbol: {}", id),
+                    ))
                 }
-            }
-            ExpressionKind::IndexOperator { expression, index } => {
-                let index = self.build_expression(*index)?;
-                let value = self.build_expression(*expression)?;
-
-                let (ptr, element_t) = self.get_array_ptr(value, index, expression_pos)?;
-                Ok(Value {
-                    value: (self.builder.build_load(
-                        element_t
-                            .basic_type_enum(self.context, &self.symbol_table)
-                            .unwrap(),
-                        ptr,
-                        "load_value",
-                    )?),
-                    value_type: element_t,
-                })
             }
             ExpressionKind::Unary {
                 operation,
@@ -262,18 +206,37 @@ impl<'ctx> CodeGen<'ctx> {
                     todo!("Currently not supporting instantiation of other types.")
                 }
             }
-            ExpressionKind::Member(exp, identifier) => self.build_member(*exp, identifier),
-            _ => todo!(),
+            expr => {
+                let Ok((ptr, ptr_type)) =
+                    self.get_ptr_to_expression(Expression::from_pos(expr, expression_pos))
+                else {
+                    return Err(CompilerError::code_gen_error(
+                        expression_pos,
+                        format!("Unexpected exprssion, found {:?}.", expression_pos),
+                    ));
+                };
+
+                Ok(Value {
+                    value: self.builder.build_load(
+                        ptr_type
+                            .basic_type_enum(self.context, &self.symbol_table)
+                            .unwrap(),
+                        ptr,
+                        "build_load",
+                    )?,
+                    value_type: ptr_type,
+                })
+            }
         }
     }
 
     // TODO: integrate this when parsing values (ie: when fetching values load this.)
-    pub fn get_ptr(
+    pub fn get_ptr_to_expression(
         &mut self,
         expression: Expression,
     ) -> Result<(PointerValue<'ctx>, Type), CompilerError> {
         let expression_pos = expression.pos();
-        let (lhs_ptr, lhs_type) = match expression.kind {
+        let (ptr, ptr_type) = match expression.kind {
             ExpressionKind::Identifier(lhs_id) => {
                 let Some(var) = self.symbol_table.fetch_variable(&lhs_id) else {
                     return Err(CompilerError::code_gen_error(
@@ -310,7 +273,7 @@ impl<'ctx> CodeGen<'ctx> {
                 (ptr.into_pointer_value(), *value_type)
             }
             ExpressionKind::Member(expression, index) => {
-                let (ptr, ptr_type) = self.get_ptr(*expression)?;
+                let (ptr, ptr_type) = self.get_ptr_to_expression(*expression)?;
                 let Type::Class(c) = &ptr_type else {
                     return Err(CompilerError::code_gen_error(
                         expression_pos,
@@ -358,7 +321,7 @@ impl<'ctx> CodeGen<'ctx> {
                 ));
             }
         };
-        Ok((lhs_ptr, lhs_type))
+        Ok((ptr, ptr_type))
     }
 
     pub fn get_array_ptr(

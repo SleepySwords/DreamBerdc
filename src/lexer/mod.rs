@@ -224,7 +224,7 @@ impl Lexer {
                 }
                 '"' => self.string(),
                 _ => {
-                    if !token.is_alphanumeric() || token.is_whitespace() {
+                    if (!token.is_alphanumeric() && token != '_') || token.is_whitespace() {
                         continue;
                     }
                     let mut word = String::new();
