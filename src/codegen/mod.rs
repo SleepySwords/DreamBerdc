@@ -8,7 +8,7 @@ mod debug_info;
 use std::{path::Path};
 
 use inkwell::{
-    basic_block::BasicBlock, builder::Builder, context::Context, execution_engine::JitFunction, module::Module, targets::{InitializationConfig, Target, TargetMachine}, OptimizationLevel
+    builder::Builder, context::Context, execution_engine::JitFunction, module::Module, targets::{InitializationConfig, Target, TargetMachine}, OptimizationLevel
 };
 
 use crate::symboltable::SymbolTable;

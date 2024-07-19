@@ -76,9 +76,9 @@ impl Parser {
     pub fn consume(&mut self, token: TokenKind) -> Result< bool, CompilerError > {
         if self.check(token.clone()) {
             self.expect(token)?;
-            return Ok(true);
+            Ok(true)
         } else {
-            return Ok(false);
+            Ok(false)
         }
     }
 
@@ -264,15 +264,15 @@ impl Parser {
             statements.push(self.parse_statement()?);
         }
         self.expect(TokenKind::CloseCurB)?;
-        return Ok(statements);
+        Ok(statements)
     }
 
     pub fn parse_body(&mut self) -> Result<Vec<Statement>, CompilerError> {
-        return Ok(if self.check(TokenKind::OpenCurB) {
+        Ok(if self.check(TokenKind::OpenCurB) {
             self.parse_block()?
         } else {
             vec![self.parse_statement()?]
-        });
+        })
     }
 
     pub fn parse_mutable(&mut self) -> Result<Mutable, CompilerError> {
