@@ -13,18 +13,7 @@ impl Parser {
         let function_pos = self.current_pos();
         let prototype = self.parse_prototype()?;
         self.expect(TokenKind::Arrow)?;
-        let body = if let Some(TokenKind::OpenCurB) = self.peek() {
-            self.parse_body()?
-        } else {
-            // TODO: Should this be a parse_statement?
-            // Is `function main() => function hi() => {}`
-            // valid?
-            let expression_pos = self.current_pos();
-            vec![Statement::from_pos(
-                StatementKind::Expression(self.parse_expression()?),
-                expression_pos,
-            )]
-        };
+        let body = self.parse_body()?;
         Ok(Statement::from_pos(
             StatementKind::Function(Function { prototype, body }),
             function_pos,

@@ -73,6 +73,15 @@ impl Parser {
         false
     }
 
+    pub fn consume(&mut self, token: TokenKind) -> Result< bool, CompilerError > {
+        if self.check(token.clone()) {
+            self.expect(token)?;
+            return Ok(true);
+        } else {
+            return Ok(false);
+        }
+    }
+
     #[allow(dead_code)]
     pub fn check_forward(&self, token: TokenKind, index: usize) -> bool {
         if let Some(t) = self.peek_forward(index) {
@@ -142,7 +151,7 @@ impl Parser {
         self.expect(TokenKind::OpenPar)?;
         let bool_exp = self.parse_expression();
         self.expect(TokenKind::ClosePar)?;
-        let (body, else_body) = if let Some(TokenKind::OpenCurB) = self.peek() {
+        let (body, else_body) = {
             let body = self.parse_body()?;
             let else_body = if self.check(TokenKind::Else) {
                 self.expect(TokenKind::Else)?;
@@ -152,20 +161,11 @@ impl Parser {
             };
 
             (body, else_body)
-        } else {
-            let expression_pos = self.current_pos();
-            (
-                vec![Statement::from_pos(
-                    StatementKind::Expression(self.parse_expression()?),
-                    expression_pos,
-                )],
-                None,
-            )
         };
 
         Ok(Statement::from_pos(
             StatementKind::If(IfStatement {
-                boolean_op: bool_exp?,
+                condition: bool_exp?,
                 then_statements: body,
                 else_statements: else_body,
             }),
@@ -257,14 +257,22 @@ impl Parser {
         })
     }
 
-    pub fn parse_body(&mut self) -> Result<Vec<Statement>, CompilerError> {
+    pub fn parse_block(&mut self) -> Result<Vec<Statement>, CompilerError> {
         let mut statements = Vec::new();
         self.expect(TokenKind::OpenCurB)?;
         while !self.check(TokenKind::CloseCurB) {
             statements.push(self.parse_statement()?);
         }
         self.expect(TokenKind::CloseCurB)?;
-        Ok(statements)
+        return Ok(statements);
+    }
+
+    pub fn parse_body(&mut self) -> Result<Vec<Statement>, CompilerError> {
+        return Ok(if self.check(TokenKind::OpenCurB) {
+            self.parse_block()?
+        } else {
+            vec![self.parse_statement()?]
+        });
     }
 
     pub fn parse_mutable(&mut self) -> Result<Mutable, CompilerError> {

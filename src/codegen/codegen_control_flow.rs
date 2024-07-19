@@ -35,7 +35,7 @@ impl<'ctx> CodeGen<'ctx> {
         self.symbol_table.push_scope();
 
         let value = self
-            .build_expression(if_statement.boolean_op)?
+            .build_expression(if_statement.condition)?
             .value
             .into_int_value();
 
@@ -58,14 +58,21 @@ impl<'ctx> CodeGen<'ctx> {
 
         let then_bb = self.context.append_basic_block(current_function, "then");
         let else_bb = self.context.append_basic_block(current_function, "else");
+        let merge_bb = self.context.append_basic_block(current_function, "ifcont");
 
         self.builder
             .build_conditional_branch(condition, then_bb, else_bb)?;
 
+        // NOTE: we cannot use the position of `then_bb` and
+        // `else_bb` to build the merge branch as further blocks can be
+        // built from them.
         self.builder.position_at_end(then_bb);
         let then_terminated = self
             .build_block(if_statement.then_statements)?
             .terminator_instruction;
+        if !then_terminated {
+            self.builder.build_unconditional_branch(merge_bb)?;
+        }
 
         self.builder.position_at_end(else_bb);
         let else_terminated = if let Some(else_st) = if_statement.else_statements {
@@ -73,17 +80,11 @@ impl<'ctx> CodeGen<'ctx> {
         } else {
             false
         };
+        if !else_terminated {
+            self.builder.build_unconditional_branch(merge_bb)?;
+        }
 
         if !then_terminated || !else_terminated {
-            let merge_bb = self.context.append_basic_block(current_function, "ifcont");
-            if !then_terminated {
-                self.builder.position_at_end(then_bb);
-                self.builder.build_unconditional_branch(merge_bb)?;
-            }
-            if !else_terminated {
-                self.builder.position_at_end(else_bb);
-                self.builder.build_unconditional_branch(merge_bb)?;
-            }
             self.builder.position_at_end(merge_bb);
         }
 
@@ -93,6 +94,7 @@ impl<'ctx> CodeGen<'ctx> {
         })
     }
 
+    // FIXME: This acts as a do while...
     pub fn build_for(&mut self, for_statement: ForStatement) -> Result<(), CompilerError> {
         let current_function = self
             .builder
