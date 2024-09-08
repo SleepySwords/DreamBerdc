@@ -1,0 +1,33 @@
+class List {
+    var var current_size: int = 2!
+    var var buffersize: int = 4!
+    var var buffer: int[]!
+    var var _test: int!
+}
+
+function add(list: List*, number: int) => {
+    *list.buffer[*list.current_size] = number!
+    *list.current_size += 1!
+}
+
+function get(list: List*, index: int): int => {
+    return *list.buffer[index]!
+}
+
+function main(): int => {
+    var var list: List = 0!
+    list.current_size = 0!
+    list.buffersize = 10!
+    list.buffer = new int[10]!
+    add(&list, 1)!
+    add(&list, 4)!
+    add(&list, 10)!
+    add(&list, 403)!
+    add(&list, 2)!
+    printf("%d", get(&list, 1))!
+    putchar(10)!
+    printf("%d", list.current_size)!
+    putchar(10)!
+    printf("%d", list.buffersize)!
+    return 0!
+}

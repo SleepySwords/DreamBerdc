@@ -87,7 +87,7 @@ impl Type {
             Type::Array(t, s) => Some(
                 t.basic_type_enum(context, symbol_table)?
                     .array_type(*s)
-                    .ptr_type(AddressSpace::default())
+                    .ptr_type(AddressSpace::default()) // FIXME: THIS SHOULD NOT BE A POINTER!!!
                     .as_basic_type_enum(),
             ),
             Type::Class(class) => symbol_table

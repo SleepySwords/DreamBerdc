@@ -94,7 +94,8 @@ impl<'ctx> CodeGen<'ctx> {
         })
     }
 
-    // FIXME: This acts as a do while...
+    // FIXME: Cleanup a couple of lines of duplicate code
+    // Also always assumes it's an integer for some reason?
     pub fn build_for(&mut self, for_statement: ForStatement) -> Result<(), CompilerError> {
         let current_function = self
             .builder
@@ -126,8 +127,27 @@ impl<'ctx> CodeGen<'ctx> {
         self.builder
             .build_store(variable, initial_expression.value)?;
 
+        let value = self
+            .build_expression(for_statement.condition.clone())?
+            .value
+            .into_int_value();
+
+        // FIXME: need to not rely on int stuff
+        let end_cond = self.builder.build_int_compare(
+            IntPredicate::NE,
+            value.get_type().const_zero(),
+            value,
+            "loopcond",
+        )?;
+
+        let after_bb = self
+            .context
+            .append_basic_block(current_function, "afterloop");
+
         let loop_bb = self.context.append_basic_block(current_function, "loop");
-        self.builder.build_unconditional_branch(loop_bb)?;
+
+        self.builder
+            .build_conditional_branch(end_cond, loop_bb, after_bb)?;
         self.builder.position_at_end(loop_bb);
 
         // May shadow, but too lazy
@@ -148,10 +168,6 @@ impl<'ctx> CodeGen<'ctx> {
             value,
             "loopcond",
         )?;
-
-        let after_bb = self
-            .context
-            .append_basic_block(current_function, "afterloop");
 
         self.builder
             .build_conditional_branch(end_cond, loop_bb, after_bb)?;

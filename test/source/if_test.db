@@ -1,12 +1,16 @@
 function test(a: int, b: int) => {
     if (a > b) {
         putchar(65)!
-    } else {
+    } else if (a < b) {
         putchar(66)!
+    } else {
+        putchar(67)!
     }
 }
 
 function main(): int => {
     test(100, 200)!
+    test(400, 200)!
+    test(200, 200)!
     return 0!
 }

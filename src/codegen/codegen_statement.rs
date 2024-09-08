@@ -30,6 +30,8 @@ impl<'ctx> CodeGen<'ctx> {
                     .builder
                     .build_alloca(basic_type_enum, &(declaration.lhs.clone() + "_var"))?;
 
+                println!("Variable {} has type: {:?}", declaration.lhs, basic_type_enum);
+
                 self.create_debug_variable(
                     variable,
                     &var_type,

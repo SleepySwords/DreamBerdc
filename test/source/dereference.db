@@ -1,11 +1,17 @@
 function main(): int => {
-	var var hi: short* = "Hello thereeoijfaoje!"!
+	var var hi: byte* = "Hello thereeoijfaoje!"!
+    var var ok: int = 10!
+    var var wow: int* = &ok!
+    *wow = 0!
+    printf("Test: %d", ok)!
 	puts("")!
+    *hi = 101!
 	printf("Test: %d", *hi)!
 	putchar(10)!
 	printf("Test: %d", hi[-1])!
 	putchar(10)!
 	printf("Test: %d", hi[0])!
 	putchar(10)!
+	printf("Test: %s", hi)!
 	return 0!
 }

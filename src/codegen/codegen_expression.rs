@@ -199,7 +199,9 @@ impl<'ctx> CodeGen<'ctx> {
                         "array_init",
                     )?;
                     Ok(Value {
-                        value_type: Type::Array(arr_type, size),
+                        value_type: Type::Array(arr_type, size), // FIXME: Incorrect type, this
+                                                                 // should either be a pointer to an
+                                                                 // array. or just a raw pointer.
                         value: ptr.into(),
                     })
                 } else {
@@ -212,7 +214,7 @@ impl<'ctx> CodeGen<'ctx> {
                 else {
                     return Err(CompilerError::code_gen_error(
                         expression_pos,
-                        format!("Unexpected exprssion, found {:?}.", expression_pos),
+                        format!("Unexpected expression, found {:?}.", expression_pos),
                     ));
                 };
 
@@ -324,6 +326,8 @@ impl<'ctx> CodeGen<'ctx> {
         Ok((ptr, ptr_type))
     }
 
+    // FIXME: Proper arrays are broken
+    // They aren't stored as pointer values.
     pub fn get_array_ptr(
         &mut self,
         value: Value<'ctx>,
