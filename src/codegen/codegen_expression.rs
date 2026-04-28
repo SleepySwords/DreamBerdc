@@ -420,7 +420,8 @@ impl<'ctx> CodeGen<'ctx> {
             .builder
             .build_call(function, args.as_slice(), "calltmp")?
             .try_as_basic_value()
-            .left_or(self.context.i32_type().const_int(0, false).into());
+            .basic()
+            .unwrap_or(self.context.i32_type().const_int(0, false).into());
 
         Ok(Value {
             value,

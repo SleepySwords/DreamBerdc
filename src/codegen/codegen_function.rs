@@ -47,7 +47,9 @@ impl<'ctx> CodeGen<'ctx> {
     ) -> Result<(), CompilerError> {
         let fn_val = if let Some(fn_val) = self.module.get_function(&function.prototype.name) {
             fn_val
-        } else if let Some(fun) = self.build_function_declaration(&function.prototype) {
+        } else if let Some(fun) =
+            self.build_function_declaration(&function.prototype)
+        {
             fun
         } else {
             return Err(CompilerError::code_gen_error(

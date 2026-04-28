@@ -1,0 +1,9 @@
+function add(a: float, b: float): float => {
+    return a + b!
+}
+
+function main(): int => {
+    1 == 2!
+    printf("%f", add(1.2, -5.1))!
+    return 0
+}
